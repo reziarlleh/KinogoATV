@@ -1,0 +1,1425 @@
+package com.kinogo.atv
+
+import android.app.Activity
+import android.content.Context
+import android.util.Log
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.datastore.preferences.preferencesDataStore
+import com.kinogo.atv.data.catalog.CatalogChallengeException
+import com.kinogo.atv.data.catalog.CatalogException
+import com.kinogo.atv.data.catalog.CatalogFingerprintException
+import com.kinogo.atv.data.catalog.CatalogHttpStatusException
+import com.kinogo.atv.data.catalog.CatalogNetworkException
+import com.kinogo.atv.data.catalog.CatalogRedirectException
+import com.kinogo.atv.data.catalog.CatalogRepository
+import com.kinogo.atv.data.catalog.HtmlCatalogRepository
+import com.kinogo.atv.data.catalog.KinogoHtmlParser
+import com.kinogo.atv.data.catalog.KinogoSessionHttpClient
+import com.kinogo.atv.data.catalog.ParsedContentPage
+import com.kinogo.atv.data.catalog.PlayerEmbedCandidate
+import com.kinogo.atv.data.favorites.FavoriteStore
+import com.kinogo.atv.data.auth.KinogoAuthApi
+import com.kinogo.atv.data.auth.KinogoSessionManager
+import com.kinogo.atv.data.auth.createCredentialStore
+import com.kinogo.atv.data.history.PlaybackProgressStore
+import com.kinogo.atv.data.history.LegacyHistoryDetailsResolver
+import com.kinogo.atv.data.library.KinogoLibraryApi
+import com.kinogo.atv.data.library.KinogoLibraryRepository
+import com.kinogo.atv.data.library.LibraryStateStore
+import com.kinogo.atv.data.mirror.MirrorEntry
+import com.kinogo.atv.data.mirror.MirrorHealthChecker
+import com.kinogo.atv.data.mirror.MirrorHealthStatus
+import com.kinogo.atv.data.mirror.MirrorPreferencesStore
+import com.kinogo.atv.data.mirror.MirrorRefreshCoordinator
+import com.kinogo.atv.data.mirror.MirrorRefreshResult
+import com.kinogo.atv.data.mirror.MirrorRegistry
+import com.kinogo.atv.data.mirror.MirrorSource
+import com.kinogo.atv.data.mirror.MirrorTrustState
+import com.kinogo.atv.data.playback.DirectMediaResolver
+import com.kinogo.atv.data.playback.KinogoPlaybackPreparationService
+import com.kinogo.atv.data.playback.NativePlaybackPlanMapper
+import com.kinogo.atv.data.playback.PlaybackPreparationRequest
+import com.kinogo.atv.data.playback.PlaybackPreparationResult
+import com.kinogo.atv.data.playback.PlaybackSourceRequest
+import com.kinogo.atv.data.playback.PlaybackSourceResolution
+import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
+import com.kinogo.atv.data.settings.TvPreferencesStore
+import com.kinogo.atv.domain.PlaybackSelection
+import com.kinogo.atv.domain.CatalogItem
+import com.kinogo.atv.domain.CatalogQuery
+import com.kinogo.atv.domain.CatalogSection
+import com.kinogo.atv.domain.ContentDetails
+import com.kinogo.atv.domain.PlaybackMediaPlan
+import com.kinogo.atv.domain.PlaybackMediaVariant
+import com.kinogo.atv.domain.WatchProgress
+import com.kinogo.atv.domain.LibraryRecord
+import com.kinogo.atv.domain.StoredCredentials
+import com.kinogo.atv.domain.WatchStatus
+import com.kinogo.atv.domain.TvPreferences
+import com.kinogo.atv.player.ui.TvPlayerScreen
+import com.kinogo.atv.player.web.ProviderEmbedPlayerScreen
+import com.kinogo.atv.ui.KinogoTvApp
+import com.kinogo.atv.ui.model.HistoryUiModel
+import com.kinogo.atv.ui.model.HomeSectionUiModel
+import com.kinogo.atv.ui.model.KinogoFixtures
+import com.kinogo.atv.ui.model.MirrorStatusUi
+import com.kinogo.atv.ui.model.MirrorUiModel
+import com.kinogo.atv.ui.model.MirrorUiState
+import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
+import com.kinogo.atv.ui.model.PosterUiModel
+import com.kinogo.atv.ui.model.BookmarkUiModel
+import com.kinogo.atv.ui.mapper.toDetailsUiModel
+import com.kinogo.atv.ui.mapper.toPosterUiModel
+import com.kinogo.atv.ui.model.withPreferences
+import com.kinogo.atv.ui.screens.PlaybackPreparationScreen
+import com.kinogo.atv.ui.screens.PlaybackSourceSelectionModel
+import com.kinogo.atv.ui.screens.PlaybackSourceSelectionScreen
+import com.kinogo.atv.ui.screens.PlaybackWebFallbackUiModel
+import java.text.DateFormat
+import java.util.Date
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+private val Context.kinogoDataStore by preferencesDataStore(name = "kinogo_tv_state")
+
+private const val DEVELOPMENT_FIXTURE_VIDEO_URL =
+    "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
+private const val DEVELOPMENT_FIXTURE_VOICE = "Демонстрационная дорожка"
+private const val DEVELOPMENT_FIXTURE_QUALITY = "320p"
+private const val APP_ROOT_LOG_TAG = "KinogoAppRoot"
+private const val PLAYBACK_DETAIL_RETRY_DELAY_MS = 350L
+
+private data class ActivePlaybackSession(
+    val selection: PlaybackSelectionUiModel,
+    val mediaPlan: PlaybackMediaPlan,
+    val webFallbacks: List<ResolvedPlaybackEmbed> = emptyList(),
+)
+
+private data class ActiveEmbeddedPlaybackSession(
+    val selection: PlaybackSelectionUiModel,
+    val source: ResolvedPlaybackEmbed,
+)
+
+private data class PlaybackLaunchUiState(
+    val request: PlaybackSelectionUiModel,
+    val title: String,
+    val errorMessage: String? = null,
+)
+
+/** Short-lived prepared sources. This state is memory-only and all nested URLs redact themselves. */
+private data class PendingPlaybackSelectionSession(
+    val title: String,
+    val selection: PlaybackSelectionUiModel,
+    val mediaPlan: PlaybackMediaPlan?,
+    val webFallbacks: List<ResolvedPlaybackEmbed>,
+    val initialPositionMs: Long,
+) {
+    init {
+        require(mediaPlan != null || webFallbacks.isNotEmpty())
+        require(initialPositionMs >= 0L)
+    }
+
+    override fun toString(): String =
+        "PendingPlaybackSelectionSession(" +
+            "title=$title, selection=$selection, mediaPlan=$mediaPlan, " +
+            "webFallbacks=<redacted>, initialPositionMs=$initialPositionMs)"
+}
+
+@Composable
+fun KinogoAppRoot() {
+    val localContext = LocalContext.current
+    val activity = localContext as? Activity
+    val context = localContext.applicationContext
+    val scope = rememberCoroutineScope()
+    val progressStore = remember(context) { PlaybackProgressStore(context.kinogoDataStore) }
+    val favoriteStore = remember(context) { FavoriteStore(context.kinogoDataStore) }
+    val libraryStore = remember(context) { LibraryStateStore(context.kinogoDataStore) }
+    val mirrorPreferences = remember(context) { MirrorPreferencesStore(context.kinogoDataStore) }
+    val tvPreferencesStore = remember(context) { TvPreferencesStore(context.kinogoDataStore) }
+    val tvPreferences by tvPreferencesStore.preferences.collectAsState(initial = TvPreferences())
+    val mirrorRegistry = remember { MirrorRegistry() }
+    val mirrorCoordinator = remember(mirrorRegistry) {
+        MirrorRefreshCoordinator(mirrorRegistry, MirrorHealthChecker())
+    }
+    val sessionHttpClient = remember { KinogoSessionHttpClient() }
+    val htmlParser = remember { KinogoHtmlParser() }
+    val credentialStore = remember(context) { context.createCredentialStore() }
+    val sessionManager = remember(credentialStore, sessionHttpClient) {
+        KinogoSessionManager(
+            credentialStore = credentialStore,
+            authApi = KinogoAuthApi(sessionHttpClient),
+            client = sessionHttpClient,
+        )
+    }
+    val libraryRepository = remember(libraryStore, sessionManager, sessionHttpClient, htmlParser) {
+        KinogoLibraryRepository(
+            store = libraryStore,
+            sessionManager = sessionManager,
+            remote = KinogoLibraryApi(sessionHttpClient, htmlParser),
+        )
+    }
+    val catalogRepository = remember(sessionHttpClient, htmlParser) {
+        HtmlCatalogRepository(sessionHttpClient, htmlParser)
+    }
+    val legacyHistoryDetailsResolver = remember(sessionHttpClient, catalogRepository) {
+        LegacyHistoryDetailsResolver(sessionHttpClient, catalogRepository)
+    }
+    val directMediaResolver = remember { DirectMediaResolver() }
+    val playbackPreparationService = remember { KinogoPlaybackPreparationService() }
+
+    var history by remember { mutableStateOf(emptyList<WatchProgress>()) }
+    var libraryRecords by remember { mutableStateOf(emptyList<LibraryRecord>()) }
+    var librarySyncMessage by remember { mutableStateOf<String?>(null) }
+    var librarySyncPendingCount by remember { mutableIntStateOf(0) }
+    var librarySyncInProgress by remember { mutableStateOf(false) }
+    var librarySyncQueued by remember { mutableStateOf(false) }
+    val accountState by sessionManager.state.collectAsState()
+    var mirrorEntries by remember { mutableStateOf(mirrorRegistry.all()) }
+    var activeMirrorOrigin by remember { mutableStateOf<String?>(null) }
+    var mirrorCheckInProgress by remember { mutableStateOf(false) }
+    var lastMirrorCheckLabel by remember { mutableStateOf<String?>(null) }
+    var activePlayback by remember { mutableStateOf<ActivePlaybackSession?>(null) }
+    var activeEmbeddedPlayback by remember {
+        mutableStateOf<ActiveEmbeddedPlaybackSession?>(null)
+    }
+    var playbackInitialPositionMs by remember { mutableLongStateOf(0L) }
+    var playbackLaunchGeneration by remember { mutableLongStateOf(0L) }
+    var playbackLaunchUi by remember { mutableStateOf<PlaybackLaunchUiState?>(null) }
+    var playbackLaunchJob by remember { mutableStateOf<Job?>(null) }
+    var pendingPlaybackSelection by remember {
+        mutableStateOf<PendingPlaybackSelectionSession?>(null)
+    }
+    var playbackReturnDetailsId by remember { mutableStateOf<String?>(null) }
+    var catalogItems by remember { mutableStateOf(emptyList<CatalogItem>()) }
+    var catalogNextPage by remember { mutableStateOf<Int?>(null) }
+    var catalogLoading by remember { mutableStateOf(false) }
+    var catalogError by remember { mutableStateOf<String?>(null) }
+    var startupError by remember { mutableStateOf<String?>(null) }
+    var catalogOrigin by remember { mutableStateOf<String?>(null) }
+    var catalogGeneration by remember { mutableLongStateOf(0L) }
+    var catalogSection by remember { mutableStateOf(CatalogSection.ROOT) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchItems by remember { mutableStateOf(emptyList<CatalogItem>()) }
+    var searchLoading by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
+    var searchGeneration by remember { mutableLongStateOf(0L) }
+    var liveDetailsById by remember {
+        mutableStateOf(emptyMap<String, com.kinogo.atv.ui.model.DetailsUiModel>())
+    }
+    var loadingDetailIds by remember { mutableStateOf(emptySet<String>()) }
+    var enrichingHistoryIds by remember { mutableStateOf(emptySet<String>()) }
+
+    fun knownCatalogItems(): List<CatalogItem> =
+        (
+            catalogItems +
+                searchItems +
+                libraryRecords.map { it.item } +
+                history.mapNotNull(WatchProgress::historyCatalogItem)
+            ).distinctBy(CatalogItem::id)
+
+    suspend fun persistHistorySnapshot(item: CatalogItem) {
+        progressStore.attachContentSnapshot(item)
+        history = progressStore.list()
+    }
+
+    suspend fun loadCatalogDetails(origin: String, item: CatalogItem) =
+        loadCatalogDetailsWithLegacyFallback(
+            origin = origin,
+            item = item,
+            repository = catalogRepository,
+            legacyResolver = legacyHistoryDetailsResolver,
+        )
+
+    fun requestLibrarySync(origin: String, login: String) {
+        if (librarySyncInProgress) {
+            librarySyncQueued = true
+            return
+        }
+        librarySyncInProgress = true
+        scope.launch {
+            try {
+                val result = libraryRepository.sync(origin, login)
+                if (activeMirrorOrigin == origin) {
+                    libraryRecords = result.records
+                    librarySyncPendingCount = result.pendingCount
+                    librarySyncMessage = result.message
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e(APP_ROOT_LOG_TAG, "Library synchronization failed", error)
+                if (activeMirrorOrigin == origin) {
+                    librarySyncMessage =
+                        "Не удалось синхронизировать закладки. Локальные данные сохранены."
+                }
+            } finally {
+                librarySyncInProgress = false
+                val runAgain = librarySyncQueued
+                librarySyncQueued = false
+                if (runAgain) {
+                    val currentOrigin = activeMirrorOrigin
+                    val currentLogin = sessionManager.state.value.login
+                    if (currentOrigin != null && currentLogin != null) {
+                        requestLibrarySync(currentOrigin, currentLogin)
+                    }
+                }
+            }
+        }
+    }
+
+    fun requestCatalogPage(origin: String, page: Int, reset: Boolean) {
+        if (!reset && catalogLoading) return
+        val generation = if (reset) catalogGeneration + 1L else catalogGeneration
+        if (reset) {
+            catalogGeneration = generation
+            catalogOrigin = origin
+            catalogItems = emptyList()
+            catalogNextPage = null
+            catalogError = null
+            liveDetailsById = emptyMap()
+            loadingDetailIds = emptySet()
+            searchGeneration++
+            searchQuery = ""
+            searchItems = emptyList()
+            searchLoading = false
+            searchError = null
+        }
+        catalogLoading = true
+        scope.launch {
+            try {
+                val result = catalogRepository.loadPage(
+                    origin = origin,
+                    query = CatalogQuery(section = catalogSection, page = page),
+                )
+                if (generation != catalogGeneration || activeMirrorOrigin != origin) return@launch
+                catalogItems = if (reset) {
+                    result.items
+                } else {
+                    (catalogItems + result.items).distinctBy { it.id }
+                }
+                catalogNextPage = result.nextPage
+                catalogError = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (generation == catalogGeneration && activeMirrorOrigin == origin) {
+                    catalogError = catalogErrorLabel(error)
+                }
+            } finally {
+                if (generation == catalogGeneration && catalogOrigin == origin) {
+                    catalogLoading = false
+                }
+            }
+        }
+    }
+
+    fun requestSearch(rawQuery: String) {
+        val query = rawQuery.trim()
+        if (query == searchQuery && (query.isEmpty() || searchItems.isNotEmpty())) return
+        searchQuery = query
+        searchGeneration++
+        val generation = searchGeneration
+        searchError = null
+        if (query.isEmpty()) {
+            searchItems = emptyList()
+            searchLoading = false
+            return
+        }
+        val origin = activeMirrorOrigin
+        if (origin == null) {
+            searchItems = emptyList()
+            searchLoading = false
+            searchError = "Нет доступного зеркала для поиска"
+            return
+        }
+        searchLoading = true
+        scope.launch {
+            try {
+                val result = catalogRepository.loadPage(
+                    origin = origin,
+                    query = CatalogQuery.search(query),
+                )
+                if (generation != searchGeneration || activeMirrorOrigin != origin) return@launch
+                searchItems = result.items
+                searchError = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (generation == searchGeneration && activeMirrorOrigin == origin) {
+                    searchItems = emptyList()
+                    searchError = catalogErrorLabel(error)
+                }
+            } finally {
+                if (generation == searchGeneration) searchLoading = false
+            }
+        }
+    }
+
+    fun requestDetails(contentId: String) {
+        val item = knownCatalogItems().firstOrNull { it.id == contentId } ?: return
+        val origin = activeMirrorOrigin ?: return
+        if (contentId in liveDetailsById || contentId in loadingDetailIds) return
+        val generation = catalogGeneration
+        loadingDetailIds = loadingDetailIds + contentId
+        scope.launch {
+            try {
+                val parsed = loadCatalogDetails(origin, item)
+                if (generation != catalogGeneration || activeMirrorOrigin != origin) return@launch
+                persistHistorySnapshot(parsed.catalogItem)
+                val details = ContentDetails(
+                    catalogItem = parsed.catalogItem,
+                    description = parsed.description,
+                    countries = parsed.countries,
+                    genres = parsed.genres,
+                    directors = parsed.directors,
+                    cast = parsed.cast,
+                    durationMinutes = parsed.durationMinutes,
+                )
+                val voiceovers = parsed.metadata.findValue("Перевод")
+                    ?.split(',')
+                    ?.map(String::trim)
+                    ?.filter(String::isNotEmpty)
+                    .orEmpty()
+                val qualities = listOfNotNull(parsed.metadata.findValue("Качество"))
+                val canDiscoverAtLaunch =
+                    parsed.playerEmbeds.isNotEmpty() ||
+                        (
+                            parsed.catalogItem.serverPostId != null &&
+                                parsed.catalogItem.year != null
+                            )
+                val sourceStatus = when {
+                    parsed.playerEmbeds.isNotEmpty() ->
+                        "Нативные источники, переводы и серии будут обновлены перед запуском"
+                    canDiscoverAtLaunch ->
+                        "Источник будет найден и проверен непосредственно перед запуском"
+                    else ->
+                        parsed.playerNotice ?: "На странице не найден источник воспроизведения"
+                }
+                liveDetailsById = liveDetailsById + (
+                    contentId to details.toDetailsUiModel(
+                        playbackAvailable = canDiscoverAtLaunch,
+                        statusMessage = sourceStatus,
+                    ).copy(
+                        voiceovers = voiceovers,
+                        qualities = qualities,
+                        providerPlayback = false,
+                    )
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (generation == catalogGeneration && activeMirrorOrigin == origin) {
+                    val unavailable = ContentDetails(
+                        catalogItem = item,
+                        description = "Не удалось загрузить подробную карточку.",
+                    ).toDetailsUiModel(
+                        playbackAvailable = false,
+                        statusMessage = catalogErrorLabel(error),
+                    )
+                    liveDetailsById = liveDetailsById + (contentId to unavailable)
+                }
+            } finally {
+                if (generation == catalogGeneration) {
+                    loadingDetailIds = loadingDetailIds - contentId
+                }
+            }
+        }
+    }
+
+    fun applyMirrorRefresh(result: MirrorRefreshResult, preferredOrigin: String?) {
+        mirrorEntries = result.entries
+        val preferred = result.entries.firstOrNull { entry ->
+            entry.origin == preferredOrigin && mirrorRegistry.isEligible(entry.origin)
+        }
+        val selectedOrigin = (preferred ?: result.active)?.origin
+        activeMirrorOrigin = selectedOrigin
+        if (selectedOrigin == null) {
+            catalogGeneration++
+            catalogOrigin = null
+            catalogItems = emptyList()
+            catalogNextPage = null
+            catalogLoading = false
+            catalogError = "Нет доступного проверенного зеркала"
+            liveDetailsById = emptyMap()
+            searchGeneration++
+            searchItems = emptyList()
+            searchLoading = false
+            searchError = null
+        } else if (catalogOrigin != selectedOrigin || catalogItems.isEmpty()) {
+            requestCatalogPage(origin = selectedOrigin, page = 1, reset = true)
+        }
+        if (selectedOrigin != null) {
+            scope.launch {
+                try {
+                    sessionManager.restore(selectedOrigin)?.let { session ->
+                        requestLibrarySync(selectedOrigin, session.login)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.e(APP_ROOT_LOG_TAG, "Saved account restore failed", error)
+                    librarySyncMessage =
+                        "Не удалось восстановить сессию. Войдите повторно в настройках."
+                }
+            }
+        }
+    }
+
+    fun requestMirrorRefresh(preferredOrigin: String? = activeMirrorOrigin) {
+        if (mirrorCheckInProgress) return
+        mirrorCheckInProgress = true
+        startupError = null
+        if (activeMirrorOrigin == null && catalogItems.isEmpty()) catalogError = null
+        mirrorEntries = mirrorRegistry.all()
+        scope.launch {
+            try {
+                val persistedPreference = preferredOrigin ?: try {
+                    mirrorPreferences.selectedOrigin()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    Log.e(APP_ROOT_LOG_TAG, "Selected mirror preference read failed", error)
+                    null
+                }
+                val result = mirrorCoordinator.refresh()
+                startupError = null
+                applyMirrorRefresh(result, persistedPreference)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.e(APP_ROOT_LOG_TAG, "Mirror refresh failed", error)
+                mirrorEntries = mirrorRegistry.all()
+                val message = mirrorRefreshErrorLabel(error)
+                startupError = message
+                if (activeMirrorOrigin == null && catalogItems.isEmpty()) {
+                    catalogLoading = false
+                    catalogError = message
+                }
+            } finally {
+                mirrorCheckInProgress = false
+                lastMirrorCheckLabel =
+                    DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())
+            }
+        }
+    }
+
+    fun startPlayback(requested: PlaybackSelectionUiModel) {
+        playbackReturnDetailsId = requested.contentId
+        playbackLaunchJob?.cancel()
+        playbackLaunchJob = null
+        val allItems = knownCatalogItems()
+        val item = allItems.firstOrNull { it.id == requested.contentId }
+        if (item == null) {
+            val fixturePlan = fixturePlaybackPlan(requested) ?: return
+            pendingPlaybackSelection = PendingPlaybackSelectionSession(
+                title = KinogoFixtures.catalog
+                    .firstOrNull { it.id == requested.contentId }
+                    ?.title
+                    ?: requested.contentId,
+                selection = requested.normalizedFor(fixturePlan),
+                mediaPlan = fixturePlan,
+                webFallbacks = emptyList(),
+                initialPositionMs = 0L,
+            )
+            activePlayback = null
+            activeEmbeddedPlayback = null
+            return
+        }
+        val origin = activeMirrorOrigin ?: return
+        pendingPlaybackSelection = null
+        playbackLaunchGeneration++
+        val launchGeneration = playbackLaunchGeneration
+        playbackLaunchUi = PlaybackLaunchUiState(
+            request = requested,
+            title = item.title,
+        )
+        playbackLaunchJob = scope.launch {
+            try {
+                val fresh = try {
+                    loadCatalogDetails(origin, item)
+                } catch (firstError: CatalogNetworkException) {
+                    Log.w(
+                        APP_ROOT_LOG_TAG,
+                        "Playback detail refresh failed; retrying once",
+                        firstError,
+                    )
+                    delay(PLAYBACK_DETAIL_RETRY_DELAY_MS)
+                    if (
+                        launchGeneration != playbackLaunchGeneration ||
+                        activeMirrorOrigin != origin
+                    ) {
+                        return@launch
+                    }
+                    loadCatalogDetails(origin, item)
+                }
+                if (
+                    launchGeneration != playbackLaunchGeneration ||
+                    activeMirrorOrigin != origin
+                ) {
+                    return@launch
+                }
+                persistHistorySnapshot(fresh.catalogItem)
+                val documentUrl = resolvedPlaybackDocumentUrl(origin, fresh)
+                val directPlan = resolveFreshDirectPlan(
+                    resolver = directMediaResolver,
+                    contentId = item.id,
+                    documentOrigin = origin,
+                    documentUrl = documentUrl,
+                    candidates = fresh.playerEmbeds,
+                    voiceover = fresh.metadata.findValue("Перевод") ?: "По умолчанию",
+                    quality = fresh.metadata.findValue("Качество") ?: "Авто",
+                )
+                val preparationRequest = PlaybackPreparationRequest(
+                    contentId = item.id,
+                    title = fresh.catalogItem.title,
+                    year = fresh.catalogItem.year ?: item.year,
+                    originalTitle = fresh.catalogItem.originalTitle ?: item.originalTitle,
+                    documentOrigin = origin,
+                    documentUrl = documentUrl,
+                    freshPageCandidates = fresh.playerEmbeds,
+                    useOfficialDiscoveryFallback = directPlan == null,
+                )
+                val prepared = withContext(Dispatchers.Default) {
+                    playbackPreparationService.prepare(preparationRequest)
+                }
+                if (
+                    launchGeneration != playbackLaunchGeneration ||
+                    activeMirrorOrigin != origin
+                ) {
+                    return@launch
+                }
+                val preparedSession =
+                    (prepared as? PlaybackPreparationResult.Ready)?.session
+                val nativePlans = listOfNotNull(
+                    preparedSession?.nativePlan,
+                    directPlan,
+                )
+                val plan = nativePlans
+                    .takeIf(List<PlaybackMediaPlan>::isNotEmpty)
+                    ?.let(NativePlaybackPlanMapper::merge)
+                val webFallbacks = preparedSession?.webFallbacks.orEmpty()
+
+                if (plan == null && webFallbacks.isEmpty()) {
+                    val message = fresh.playerNotice
+                        ?.takeIf(String::isNotBlank)
+                        ?: (prepared as? PlaybackPreparationResult.Unavailable)
+                        ?.userMessage
+                        ?: preparedSession?.notices?.firstOrNull()
+                        ?: "Не найден совместимый источник воспроизведения"
+                    playbackLaunchUi = PlaybackLaunchUiState(
+                        request = requested,
+                        title = item.title,
+                        errorMessage = message,
+                    )
+                    return@launch
+                }
+
+                var effectiveSelection = requested
+                var initialPosition = 0L
+                if (requested.resume) {
+                    try {
+                        val allProgress = progressStore.list()
+                        val requestedDomain = requested.toDomainSelection()
+                        val exact = progressStore.get(
+                            contentId = requestedDomain.contentId,
+                            seasonId = requestedDomain.seasonId,
+                            episodeId = requestedDomain.episodeId,
+                        )
+                        val saved = exact ?: allProgress.firstOrNull {
+                            it.selection.contentId == requested.contentId && !it.isCompleted()
+                        }
+                        if (saved != null) {
+                            effectiveSelection = saved.selection.toUiSelection(resume = true)
+                            initialPosition = saved.resumePositionMs() ?: 0L
+                        }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        // Damaged/stale local history must not make an otherwise playable title fail.
+                        Log.w(APP_ROOT_LOG_TAG, "Playback resume state could not be restored", error)
+                    }
+                }
+                val normalizedSelection = if (plan != null) {
+                    effectiveSelection.normalizedFor(plan)
+                } else {
+                    effectiveSelection
+                }
+                pendingPlaybackSelection = PendingPlaybackSelectionSession(
+                    title = fresh.catalogItem.title,
+                    selection = normalizedSelection,
+                    mediaPlan = plan,
+                    webFallbacks = webFallbacks,
+                    initialPositionMs = initialPosition,
+                )
+                activePlayback = null
+                activeEmbeddedPlayback = null
+                playbackLaunchUi = null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (launchGeneration == playbackLaunchGeneration) {
+                    Log.e(APP_ROOT_LOG_TAG, "Playback preparation failed", error)
+                    playbackLaunchUi = PlaybackLaunchUiState(
+                        request = requested,
+                        title = item.title,
+                        errorMessage = playbackPreparationErrorLabel(error),
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleFavorite(contentId: String) {
+        val item = knownCatalogItems().firstOrNull { it.id == contentId } ?: return
+        scope.launch {
+            val enabled = libraryRecords.firstOrNull { it.item.id == contentId }?.favorite != true
+            libraryRecords = libraryRepository.setFavorite(item, enabled)
+            librarySyncPendingCount = libraryStore.pending().size
+            val origin = activeMirrorOrigin
+            val login = accountState.login
+            if (origin != null && login != null) requestLibrarySync(origin, login)
+        }
+    }
+
+    fun changeWatchStatus(contentId: String, status: WatchStatus?) {
+        val item = knownCatalogItems().firstOrNull { it.id == contentId } ?: return
+        scope.launch {
+            libraryRecords = libraryRepository.setStatus(item, status)
+            librarySyncPendingCount = libraryStore.pending().size
+            val origin = activeMirrorOrigin
+            val login = accountState.login
+            if (origin != null && login != null) requestLibrarySync(origin, login)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            mirrorPreferences.manualOrigins().forEach(mirrorRegistry::addManual)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(APP_ROOT_LOG_TAG, "Manual mirror preferences read failed", error)
+        }
+        mirrorEntries = mirrorRegistry.all()
+        try {
+            history = progressStore.list()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(APP_ROOT_LOG_TAG, "Playback history read failed", error)
+        }
+        try {
+            libraryRecords = libraryStore.importLegacyFavorites(favoriteStore.list())
+            favoriteStore.clear()
+            librarySyncPendingCount = libraryStore.pending().size
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(APP_ROOT_LOG_TAG, "Local library migration failed", error)
+        }
+        val preferredOrigin = try {
+            mirrorPreferences.selectedOrigin()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(APP_ROOT_LOG_TAG, "Selected mirror preference read failed at startup", error)
+            null
+        }
+        requestMirrorRefresh(preferredOrigin)
+    }
+
+    val legacyHistoryIds = remember(history) {
+        history
+            .filter { it.contentSnapshot == null }
+            .map { it.selection.contentId }
+            .distinct()
+    }
+    LaunchedEffect(activeMirrorOrigin, legacyHistoryIds) {
+        val origin = activeMirrorOrigin ?: return@LaunchedEffect
+        legacyHistoryIds
+            .filterNot(enrichingHistoryIds::contains)
+            .forEach { contentId ->
+            val candidate = legacyHistoryLookupItem(contentId) ?: return@forEach
+            enrichingHistoryIds = enrichingHistoryIds + contentId
+            try {
+                val parsed = loadCatalogDetails(origin, candidate)
+                if (activeMirrorOrigin == origin) persistHistorySnapshot(parsed.catalogItem)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(
+                    APP_ROOT_LOG_TAG,
+                    "Legacy history card $contentId could not be enriched",
+                    error,
+                )
+            } finally {
+                enrichingHistoryIds = enrichingHistoryIds - contentId
+            }
+        }
+    }
+
+    val historyCatalogItems = remember(catalogItems, searchItems, libraryRecords, history) {
+        (
+            catalogItems +
+                searchItems +
+                libraryRecords.map { it.item } +
+                history.mapNotNull(WatchProgress::historyCatalogItem)
+            )
+            .distinctBy(CatalogItem::id)
+            .associateBy(CatalogItem::id)
+    }
+    val historyUi = remember(history, historyCatalogItems) {
+        history
+            .distinctBy { it.selection.contentId }
+            .map { progress ->
+                toHistoryUiModel(progress, historyCatalogItems[progress.selection.contentId])
+            }
+    }
+    val favoriteIds = remember(libraryRecords) {
+        libraryRecords.filter(LibraryRecord::favorite).mapTo(linkedSetOf()) { it.item.id }
+    }
+    val catalogPosters = remember(catalogItems, favoriteIds) {
+        catalogItems.map { item ->
+            item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
+        }
+    }
+    val searchPosters = remember(searchQuery, searchItems, catalogPosters, favoriteIds) {
+        if (searchQuery.isBlank()) {
+            catalogPosters.take(10)
+        } else {
+            searchItems.map { item ->
+                item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
+            }
+        }
+    }
+    val favoritePosters = remember(libraryRecords) {
+        libraryRecords.filter(LibraryRecord::favorite).map {
+            it.item.toPosterUiModel().copy(isFavorite = true)
+        }
+    }
+    val bookmarkUi = remember(libraryRecords) {
+        libraryRecords.map { record ->
+            BookmarkUiModel(
+                poster = record.item.toPosterUiModel().copy(isFavorite = record.favorite),
+                watchStatus = record.status,
+                favorite = record.favorite,
+            )
+        }
+    }
+    val homeSections = remember(historyUi, catalogPosters) {
+        val continueItems = historyUi
+            .filter { it.progress < 0.9f }
+            .map { it.poster }
+        buildList {
+            if (continueItems.isNotEmpty()) add(
+                HomeSectionUiModel(
+                    id = "continue-persisted",
+                    title = "Продолжить просмотр",
+                    items = continueItems,
+                ),
+            )
+            if (catalogPosters.isNotEmpty()) add(
+                HomeSectionUiModel(
+                    id = "live-new",
+                    title = "Новинки",
+                    items = catalogPosters.take(12),
+                ),
+            )
+            val series = catalogPosters.filter { "Сериал" in it.subtitle }.take(12)
+            if (series.isNotEmpty()) add(
+                HomeSectionUiModel(
+                    id = "live-series",
+                    title = "Сериалы",
+                    items = series,
+                ),
+            )
+        }
+    }
+    val featuredDetails = catalogItems.firstOrNull()?.let { item ->
+        liveDetailsById[item.id] ?: ContentDetails(
+            catalogItem = item,
+            description = "Перейдите к материалу, чтобы загрузить описание с активного зеркала.",
+        ).toDetailsUiModel(
+            playbackAvailable = false,
+            statusMessage = "Живой каталог: ${activeMirrorOrigin.orEmpty()}",
+        )
+    }
+    val mirrorUiState = MirrorUiState(
+        mirrors = mirrorEntries.map { it.toUiModel(activeMirrorOrigin) },
+        isChecking = mirrorCheckInProgress,
+        lastCheckedLabel = lastMirrorCheckLabel,
+    )
+
+    val launchUi = playbackLaunchUi
+    val selectorSession = pendingPlaybackSelection
+    val embeddedPlaybackSession = activeEmbeddedPlayback
+    val playbackSession = activePlayback
+    if (launchUi != null) {
+        PlaybackPreparationScreen(
+            title = launchUi.title,
+            errorMessage = launchUi.errorMessage,
+            onRetry = { startPlayback(launchUi.request) },
+            onBack = {
+                playbackLaunchJob?.cancel()
+                playbackLaunchJob = null
+                playbackLaunchGeneration++
+                playbackLaunchUi = null
+            },
+        )
+    } else if (selectorSession != null) {
+        PlaybackSourceSelectionScreen(
+            title = selectorSession.title,
+            requestedSelection = selectorSession.selection,
+            mediaPlan = selectorSession.mediaPlan,
+            webFallbacks = selectorSession.webFallbacks.map { fallback ->
+                PlaybackWebFallbackUiModel(
+                    id = fallback.id,
+                    label = fallback.label,
+                    providerLabel = fallback.providerId,
+                )
+            },
+            resumePositionMs = selectorSession.initialPositionMs,
+            onNativeSelected = nativeSelected@{ sourceId, selected ->
+                val plan = selectorSession.mediaPlan ?: return@nativeSelected
+                playbackInitialPositionMs = if (selected.resume) {
+                    selectorSession.initialPositionMs
+                } else {
+                    0L
+                }
+                activePlayback = ActivePlaybackSession(
+                    selection = selected,
+                    mediaPlan = PlaybackSourceSelectionModel.preferSource(plan, sourceId),
+                    webFallbacks = selectorSession.webFallbacks,
+                )
+                activeEmbeddedPlayback = null
+                pendingPlaybackSelection = null
+            },
+            onWebSelected = webSelected@{ fallbackId, selected ->
+                val fallback = selectorSession.webFallbacks
+                    .firstOrNull { it.id == fallbackId }
+                    ?: return@webSelected
+                activeEmbeddedPlayback = ActiveEmbeddedPlaybackSession(
+                    selection = selected,
+                    source = fallback,
+                )
+                activePlayback = null
+                pendingPlaybackSelection = null
+            },
+            onBack = {
+                pendingPlaybackSelection = null
+                activePlayback = null
+                activeEmbeddedPlayback = null
+            },
+        )
+    } else if (embeddedPlaybackSession != null) {
+        val contentId = embeddedPlaybackSession.selection.contentId
+        val title = knownCatalogItems()
+            .firstOrNull { it.id == contentId }
+            ?.title
+            ?: contentId
+        ProviderEmbedPlayerScreen(
+            source = embeddedPlaybackSession.source,
+            title = title,
+            seekStepSeconds = tvPreferences.seekStepSeconds,
+            onRefreshSourceRequested = {
+                startPlayback(embeddedPlaybackSession.selection.copy(resume = true))
+            },
+            onExit = { activeEmbeddedPlayback = null },
+        )
+    } else if (playbackSession != null) {
+        val playback = playbackSession.selection
+        val title = knownCatalogItems()
+            .firstOrNull { it.id == playback.contentId }
+            ?.title
+            ?: KinogoFixtures.catalog.firstOrNull { it.id == playback.contentId }?.title
+            ?: playback.contentId
+        TvPlayerScreen(
+            selection = playback,
+            mediaPlan = playbackSession.mediaPlan,
+            title = title,
+            initialPositionMs = playbackInitialPositionMs,
+            preferences = tvPreferences,
+            onCheckpoint = { currentSelection, positionMs, durationMs ->
+                if (positionMs > 0L) {
+                    scope.launch {
+                        progressStore.upsert(
+                            WatchProgress(
+                                selection = currentSelection.toDomainSelection(),
+                                positionMs = positionMs,
+                                durationMs = durationMs.takeIf { it > 0L },
+                                updatedAtEpochMs = System.currentTimeMillis(),
+                                contentSnapshot = knownCatalogItems()
+                                    .firstOrNull { it.id == currentSelection.contentId },
+                            ),
+                        )
+                        history = progressStore.list()
+                    }
+                }
+            },
+            onRefreshSourceRequested = { currentSelection ->
+                startPlayback(currentSelection.copy(resume = true))
+            },
+            onWebFallbackRequested = playbackSession.webFallbacks
+                .takeIf(List<ResolvedPlaybackEmbed>::isNotEmpty)
+                ?.let { availableFallbacks ->
+                    { currentSelection ->
+                        val handoffSelection = currentSelection.copy(resume = true)
+                        if (availableFallbacks.size == 1) {
+                            activeEmbeddedPlayback = ActiveEmbeddedPlaybackSession(
+                                selection = handoffSelection,
+                                source = availableFallbacks.single(),
+                            )
+                            activePlayback = null
+                            pendingPlaybackSelection = null
+                        } else {
+                            pendingPlaybackSelection = PendingPlaybackSelectionSession(
+                                title = title,
+                                selection = handoffSelection,
+                                mediaPlan = null,
+                                webFallbacks = availableFallbacks,
+                                initialPositionMs = 0L,
+                            )
+                            activePlayback = null
+                            activeEmbeddedPlayback = null
+                        }
+                    }
+                },
+            onExit = { activePlayback = null },
+        )
+    } else {
+        KinogoTvApp(
+            initialDetailsId = playbackReturnDetailsId,
+            homeSections = homeSections,
+            featured = featuredDetails,
+            history = historyUi,
+            mirrorState = mirrorUiState,
+            catalog = catalogPosters,
+            favorites = favoritePosters,
+            bookmarks = bookmarkUi,
+            favoriteIds = favoriteIds,
+            watchStatusById = libraryRecords.mapNotNull { record ->
+                record.status?.let { record.item.id to it }
+            }.toMap(),
+            detailsById = liveDetailsById,
+            catalogHasMore = catalogNextPage != null,
+            catalogLoading = catalogLoading ||
+                (activeMirrorOrigin == null && mirrorCheckInProgress),
+            catalogError = catalogError,
+            homeError = if (mirrorCheckInProgress || catalogLoading) {
+                null
+            } else {
+                startupError ?: catalogError
+            },
+            catalogStatusLabel = activeMirrorOrigin?.let { "Источник: $it" },
+            catalogSection = catalogSection,
+            searchResults = searchPosters,
+            searchLoading = searchLoading,
+            searchError = searchError,
+            useRemoteCatalog = true,
+            onPlayRequested = ::startPlayback,
+            onCatalogLoadMore = {
+                val origin = activeMirrorOrigin
+                val page = catalogNextPage
+                if (origin != null && page != null) {
+                    requestCatalogPage(origin = origin, page = page, reset = false)
+                }
+            },
+            onCatalogRetry = {
+                activeMirrorOrigin?.let { origin ->
+                    val reset = catalogItems.isEmpty()
+                    requestCatalogPage(
+                        origin = origin,
+                        page = if (reset) 1 else catalogNextPage ?: 1,
+                        reset = reset,
+                    )
+                }
+            },
+            onHomeRetry = {
+                val origin = activeMirrorOrigin
+                if (origin == null) {
+                    requestMirrorRefresh()
+                } else {
+                    requestCatalogPage(origin = origin, page = 1, reset = true)
+                }
+            },
+            onDetailsRequested = ::requestDetails,
+            onCatalogSectionSelected = { section ->
+                if (section != catalogSection) {
+                    catalogSection = section
+                    activeMirrorOrigin?.let { origin ->
+                        requestCatalogPage(origin = origin, page = 1, reset = true)
+                    }
+                }
+            },
+            onSearchQueryChanged = ::requestSearch,
+            onFavoriteToggle = ::toggleFavorite,
+            onWatchStatusChange = ::changeWatchStatus,
+            onCheckMirrors = { requestMirrorRefresh() },
+            onManualMirrorSubmitted = { rawOrigin ->
+                scope.launch {
+                    val origin = mirrorPreferences.addManual(rawOrigin)
+                    mirrorRegistry.addManual(origin)
+                    mirrorEntries = mirrorRegistry.all()
+                    requestMirrorRefresh(origin)
+                }
+            },
+            onMirrorSelected = { origin ->
+                val entry = mirrorRegistry.get(origin)
+                if (entry != null && mirrorRegistry.isEligible(entry.origin)) {
+                    activeMirrorOrigin = entry.origin
+                    if (catalogOrigin != entry.origin) {
+                        requestCatalogPage(origin = entry.origin, page = 1, reset = true)
+                    }
+                    scope.launch {
+                        mirrorPreferences.setSelectedOrigin(entry.origin)
+                        sessionManager.restore(entry.origin)?.let { session ->
+                            requestLibrarySync(entry.origin, session.login)
+                        }
+                    }
+                }
+            },
+            onMirrorRetry = { origin -> requestMirrorRefresh(origin) },
+            onHistoryResume = { contentId ->
+                val saved = history.firstOrNull { it.selection.contentId == contentId }
+                saved?.let { startPlayback(it.selection.toUiSelection(resume = true)) }
+            },
+            accountState = accountState,
+            pendingSyncCount = librarySyncPendingCount,
+            syncMessage = librarySyncMessage
+                ?: "Позиция и выбранная серия пока сохраняются локально на этом ТВ",
+            onAccountLogin = { rawLogin, password ->
+                val origin = activeMirrorOrigin
+                val login = rawLogin.trim()
+                if (login.isNotEmpty() && password.isNotEmpty()) {
+                    scope.launch {
+                        if (accountState.login != null && accountState.login != login) {
+                            libraryStore.clearAccountData()
+                            libraryRecords = emptyList()
+                            librarySyncPendingCount = 0
+                        }
+                        val credentials = StoredCredentials(login, password)
+                        if (origin == null) {
+                            sessionManager.saveForLater(credentials)
+                            librarySyncMessage =
+                                "Данные входа сохранены; ожидаем проверенное зеркало"
+                        } else {
+                            val session = sessionManager.saveAndLogin(origin, credentials)
+                            if (session != null) requestLibrarySync(origin, session.login)
+                        }
+                    }
+                }
+            },
+            onAccountReconnect = {
+                val origin = activeMirrorOrigin
+                if (origin != null) {
+                    scope.launch {
+                        sessionManager.reauthenticate(origin)?.let { session ->
+                            requestLibrarySync(origin, session.login)
+                        }
+                    }
+                }
+            },
+            onAccountRemove = {
+                scope.launch {
+                    sessionManager.removeSavedAccount()
+                    libraryStore.clearAccountData()
+                    libraryRecords = emptyList()
+                    librarySyncPendingCount = 0
+                    librarySyncMessage = "Данные аккаунта удалены с устройства"
+                }
+            },
+            onSyncNow = {
+                val origin = activeMirrorOrigin
+                val login = accountState.login
+                if (origin != null && login != null) requestLibrarySync(origin, login)
+            },
+            settingsSections = KinogoFixtures.settings.withPreferences(tvPreferences),
+            highContrast = tvPreferences.highContrast,
+            reduceMotion = tvPreferences.reduceMotion,
+            defaultQuality = tvPreferences.defaultQuality,
+            onSettingChanged = { settingId, direction ->
+                scope.launch { tvPreferencesStore.cycle(settingId, direction) }
+            },
+            onExitConfirmed = { activity?.finish() },
+        )
+    }
+}
+
+private fun fixturePlaybackPlan(selection: PlaybackSelectionUiModel): PlaybackMediaPlan? {
+    if (KinogoFixtures.catalog.none { it.id == selection.contentId }) return null
+    val isEpisodic = selection.season != null && selection.episode != null
+    val variants = if (isEpisodic) {
+        (1..maxOf(12, requireNotNull(selection.episode))).map { episode ->
+            PlaybackMediaVariant(
+                id = "fixture:${selection.contentId}:e$episode",
+                episodeNumber = episode,
+                voiceover = DEVELOPMENT_FIXTURE_VOICE,
+                quality = DEVELOPMENT_FIXTURE_QUALITY,
+                mediaUrl = DEVELOPMENT_FIXTURE_VIDEO_URL,
+                mimeType = "video/mp4",
+            )
+        }
+    } else {
+        listOf(
+            PlaybackMediaVariant(
+                id = "fixture:${selection.contentId}:film",
+                episodeNumber = null,
+                voiceover = DEVELOPMENT_FIXTURE_VOICE,
+                quality = DEVELOPMENT_FIXTURE_QUALITY,
+                mediaUrl = DEVELOPMENT_FIXTURE_VIDEO_URL,
+                mimeType = "video/mp4",
+            ),
+        )
+    }
+    return PlaybackMediaPlan(variants)
+}
+
+private suspend fun resolveFreshDirectPlan(
+    resolver: DirectMediaResolver,
+    contentId: String,
+    documentOrigin: String,
+    documentUrl: String,
+    candidates: List<PlayerEmbedCandidate>,
+    voiceover: String,
+    quality: String,
+): PlaybackMediaPlan? {
+    candidates.forEach { candidate ->
+        if (!resolver.supports(candidate)) return@forEach
+        when (
+            val result = resolver.resolve(
+                PlaybackSourceRequest(
+                    contentId = contentId,
+                    documentOrigin = documentOrigin,
+                    documentUrl = documentUrl,
+                    candidate = candidate,
+                ),
+            )
+        ) {
+            is PlaybackSourceResolution.Resolved -> {
+                val source = result.source
+                return PlaybackMediaPlan(
+                    listOf(
+                        PlaybackMediaVariant(
+                            id = source.id,
+                            sourceId = "direct:${source.providerId}",
+                            sourceLabel = source.label,
+                            episodeNumber = null,
+                            voiceover = voiceover,
+                            quality = quality,
+                            mediaUrl = source.mediaUrl,
+                            mimeType = source.mimeType,
+                        ),
+                    ),
+                )
+            }
+            is PlaybackSourceResolution.Embedded,
+            is PlaybackSourceResolution.Rejected,
+            is PlaybackSourceResolution.Unsupported,
+            -> Unit
+        }
+    }
+    return null
+}
+
+private fun PlaybackSelectionUiModel.normalizedFor(
+    plan: PlaybackMediaPlan,
+): PlaybackSelectionUiModel =
+    PlaybackSourceSelectionModel
+        .initial(
+            plan = plan,
+            requested = this,
+        )
+        .toPlaybackSelection(this)
+
+private fun PlaybackSelectionUiModel.toDomainSelection(): PlaybackSelection {
+    val hasEpisode = season != null && episode != null
+    return PlaybackSelection(
+        contentId = contentId,
+        seasonId = if (hasEpisode) "season-$season" else null,
+        episodeId = if (hasEpisode) "episode-$episode" else null,
+        voiceId = voiceover,
+        qualityId = quality,
+    )
+}
+
+private fun PlaybackSelection.toUiSelection(resume: Boolean): PlaybackSelectionUiModel =
+    PlaybackSelectionUiModel(
+        contentId = contentId,
+        season = seasonId?.trailingNumber(),
+        episode = episodeId?.trailingNumber(),
+        voiceover = voiceId,
+        quality = qualityId,
+        resume = resume,
+    )
+
+internal fun WatchProgress.historyCatalogItem(): CatalogItem? =
+    contentSnapshot ?: legacyHistoryLookupItem(selection.contentId)
+
+/**
+ * A constrained probe lets the legacy resolver recover a canonical card path after the old search
+ * result has disappeared. Only a positive numeric id is accepted, so persisted text can never
+ * become an arbitrary request path.
+ */
+internal fun legacyHistoryLookupItem(contentId: String): CatalogItem? =
+    LegacyHistoryDetailsResolver.probeItem(contentId)
+
+/**
+ * A persisted history snapshot may contain a formerly canonical slug that no longer exists on the
+ * active mirror. Only a 404/410 for a strict numeric post id may fall back to the constrained
+ * legacy resolver; unrelated HTTP failures and non-history-style ids keep their original error.
+ */
+internal suspend fun loadCatalogDetailsWithLegacyFallback(
+    origin: String,
+    item: CatalogItem,
+    repository: CatalogRepository,
+    legacyResolver: LegacyHistoryDetailsResolver,
+): ParsedContentPage {
+    if (LegacyHistoryDetailsResolver.isProbeItem(item)) {
+        return legacyResolver.resolve(origin, item.id)
+    }
+    return try {
+        repository.loadDetails(origin, item)
+    } catch (error: CatalogHttpStatusException) {
+        val canRecover =
+            error.statusCode in LEGACY_HISTORY_RECOVERABLE_HTTP_STATUSES &&
+                LegacyHistoryDetailsResolver.probeItem(item.id) != null
+        if (!canRecover) throw error
+        legacyResolver.resolve(origin, item.id)
+    }
+}
+
+/**
+ * Playback must use the canonical path returned by the freshly parsed details page. A legacy
+ * history probe can resolve through a 404/410 suggestion, so its requested placeholder path is
+ * not necessarily a valid document URL or Referer for source discovery.
+ */
+internal fun resolvedPlaybackDocumentUrl(
+    origin: String,
+    freshDetails: ParsedContentPage,
+): String = "$origin${freshDetails.catalogItem.relativePath}"
+
+private val LEGACY_HISTORY_RECOVERABLE_HTTP_STATUSES = setOf(404, 410)
+
+private fun String.trailingNumber(): Int? =
+    takeLastWhile(Char::isDigit).toIntOrNull()
+
+private fun toHistoryUiModel(
+    progress: WatchProgress,
+    catalogItem: CatalogItem?,
+): HistoryUiModel {
+    val fixturePoster = KinogoFixtures.catalog.firstOrNull { it.id == progress.selection.contentId }
+    val fraction = (progress.progressFraction ?: 0.0).toFloat().coerceIn(0f, 1f)
+    val poster = (catalogItem?.toPosterUiModel() ?: fixturePoster ?: PosterUiModel(
+        id = progress.selection.contentId,
+        title = progress.selection.contentId,
+        subtitle = "История просмотра",
+    )).copy(progress = fraction)
+    val season = progress.selection.seasonId?.trailingNumber()
+    val episode = progress.selection.episodeId?.trailingNumber()
+    val episodeLabel = if (season != null && episode != null) {
+        "Сезон $season, серия $episode"
+    } else {
+        "Фильм"
+    }
+
+    return HistoryUiModel(
+        id = "history-${progress.selection.contentId}-${progress.selection.playbackUnitId}",
+        poster = poster,
+        episodeLabel = episodeLabel,
+        positionLabel = "${formatMinutes(progress.boundedPositionMs)} из " +
+            formatMinutes(progress.durationMs ?: 0L),
+        lastWatchedLabel = relativeDateLabel(progress.updatedAtEpochMs),
+        progress = fraction,
+    )
+}
+
+private fun MirrorEntry.toUiModel(activeOrigin: String?): MirrorUiModel {
+    val health = lastHealth
+    val status = when {
+        origin == activeOrigin -> MirrorStatusUi.Active
+        isTrusted && health?.isUsable == true -> MirrorStatusUi.Available
+        trustState == MirrorTrustState.QUARANTINED || health == null -> MirrorStatusUi.Quarantined
+        else -> MirrorStatusUi.Error
+    }
+    val detail = when (health?.status) {
+        MirrorHealthStatus.HEALTHY -> "Отпечаток сервиса подтверждён"
+        MirrorHealthStatus.DEGRADED -> "Доступно, но отвечает медленно"
+        MirrorHealthStatus.REDIRECTED -> health.redirectOrigin
+            ?.let { "Перенаправляет на $it" }
+            ?: "Обнаружен другой конечный адрес"
+        MirrorHealthStatus.CHALLENGE_REQUIRED -> "Требуется проверка в браузере"
+        MirrorHealthStatus.UNREACHABLE -> health.diagnostic
+            ?: "Нет ответа или адрес не прошёл безопасную проверку"
+        MirrorHealthStatus.INVALID_CONTENT -> "Отпечаток сервиса не совпал"
+        null -> "Ожидает безопасной проверки"
+    }
+    return MirrorUiModel(
+        id = origin,
+        url = origin,
+        status = status,
+        statusDetail = detail,
+        latencyMs = health?.latencyMs?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt(),
+        isManual = source == MirrorSource.MANUAL,
+        httpStatusCode = health?.httpStatusCode,
+        checkedAtEpochMs = health?.checkedAtEpochMs,
+        redirectOrigin = health?.redirectOrigin,
+        diagnostic = health?.diagnostic,
+    )
+}
+
+private fun formatMinutes(milliseconds: Long): String {
+    val minutes = (milliseconds.coerceAtLeast(0L) / 60_000L)
+    return "$minutes мин"
+}
+
+private fun relativeDateLabel(timestampMs: Long): String {
+    val ageMs = (System.currentTimeMillis() - timestampMs).coerceAtLeast(0L)
+    val days = ageMs / (24L * 60L * 60L * 1_000L)
+    return when (days) {
+        0L -> "Сегодня"
+        1L -> "Вчера"
+        else -> "$days дн. назад"
+    }
+}
+
+private fun Map<String, String>.findValue(label: String): String? =
+    entries.firstOrNull { (key, _) ->
+        key.trim().trimEnd(':').equals(label, ignoreCase = true)
+    }?.value?.takeIf(String::isNotBlank)
+
+private fun catalogErrorLabel(error: Throwable): String = when (error) {
+    is CatalogChallengeException -> "Зеркало требует проверку в браузере"
+    is CatalogRedirectException -> "Зеркало перенаправляет на непроверенный адрес"
+    is CatalogFingerprintException -> "Структура страницы не прошла проверку"
+    is CatalogException -> error.message ?: "Ошибка загрузки каталога"
+    else -> "Не удалось загрузить каталог"
+}
+
+private fun mirrorRefreshErrorLabel(error: Throwable): String = when (error) {
+    is CatalogChallengeException -> "Зеркало требует проверку в браузере"
+    is CatalogRedirectException -> "Зеркало перенаправляет на непроверенный адрес"
+    is CatalogFingerprintException -> "Структура зеркала не прошла проверку"
+    else -> "Не удалось проверить зеркала. Проверьте сеть и повторите попытку."
+}
+
+private fun playbackPreparationErrorLabel(error: Throwable): String = when (error) {
+    is CatalogChallengeException -> "Зеркало требует проверку в браузере"
+    is CatalogRedirectException -> "Зеркало сменило адрес во время подготовки плеера"
+    is CatalogFingerprintException -> "Страница фильма не прошла проверку"
+    is CatalogException -> error.message ?: "Не удалось обновить страницу фильма"
+    else -> "Не удалось получить источники просмотра. Повторите попытку."
+}

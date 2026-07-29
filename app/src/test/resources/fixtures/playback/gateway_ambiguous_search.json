@@ -1,0 +1,23 @@
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 126815,
+      "title": "Ночной бизнес",
+      "xfields": {
+        "orig-title": "The Get Out",
+        "year-teg-xfsearch": "2026",
+        "kinopoisk_id": "7104892"
+      }
+    },
+    {
+      "id": 226815,
+      "title": "  НОЧНОЙ\u00a0БИЗНЕС  ",
+      "xfields": {
+        "orig-title": "Different Original",
+        "year-teg-xfsearch": 2026,
+        "kinopoisk_id": "9999999"
+      }
+    }
+  ]
+}

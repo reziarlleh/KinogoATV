@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "data": {
+    "post_id": 126815,
+    "has_player": true,
+    "tabs": [
+      {
+        "id": 0,
+        "title": "Смотреть онлайн",
+        "balancer": "Cinemar",
+        "iframe_url": "https://cinemar.example/embed/night?fresh=fixture",
+        "is_serial": false
+      },
+      {
+        "id": 1,
+        "title": "Дубликат",
+        "balancer": "cinemar",
+        "iframe_url": "https://cinemar.example/embed/night?fresh=fixture",
+        "is_serial": false
+      },
+      {
+        "id": 2,
+        "title": "Плеер 1",
+        "balancer": "collaps",
+        "iframe_url": "https://collaps.example/embed/movie/91392",
+        "is_serial": false
+      },
+      {
+        "id": 3,
+        "title": "Плеер 2",
+        "balancer": "alloha",
+        "iframe_url": "https://alloha.example/embed/ignored",
+        "is_serial": false
+      }
+    ],
+    "mirrors": [
+      {
+        "provider": 0,
+        "iframe_url": "https://cinemar.example/embed/mirror-must-be-ignored"
+      }
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<body>
+<div id="player"></div>
+<script>
+    function makePlayer(opts) { window.testOptions = opts; }
+    makePlayer({
+        blocked: false,
+        title: "Тестовый фильм",
+        id: 42,
+        source: {
+            dash: "https://media.example.invalid/video/master.mpd?session=redacted",
+            hls: "https://media.example.invalid/video/master.m3u8?session=redacted",
+            file: {
+                720: "https://media.example.invalid/video/720.mp4?session=redacted",
+                "1080": "https://media.example.invalid/video/1080.mp4?session=redacted"
+            },
+            audio: {
+                names: ["Оригинал", "Дубляж"],
+                order: [1, 0]
+            },
+            cc: [
+                {
+                    url: "https://subs.example.invalid/video/ru.vtt?session=redacted",
+                    name: "Русские"
+                }
+            ]
+        },
+        sections: [],
+        p2p: {
+            ratio: Date.now() / 1000,
+            tracker: function () {
+                var match = /\/video\/(\d{2,4})\/master\.m3u8/.exec("test");
+                return `wss://tracker.example.invalid/${match ? match[1] : "none"}`;
+            }
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<body>
+<script>
+    makePlayer({
+        blocked: false,
+        title: 'Тестовый сериал',
+        id: 77,
+        playlist: {
+            id: 'series-77',
+            seasons: [
+                {
+                    season: 1,
+                    blocked: false,
+                    episodes: [
+                        {
+                            episode: '1',
+                            id: 's1e1',
+                            title: 'Первая серия',
+                            source: {
+                                hls: 'https://cdn-one.example.invalid/s1/e1/master.m3u8?token=redacted',
+                                audio: {
+                                    names: ['Дубляж', 'Original'],
+                                    order: [0, 1]
+                                },
+                                cc: [
+                                    {
+                                        name: 'Русские',
+                                        url: 'https://subs.example.invalid/s1/e1/ru.vtt?token=redacted'
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            episode: '2',
+                            id: 's1e2',
+                            title: 'Вторая серия',
+                            source: {
+                                file: {
+                                    480: 'https://cdn-two.example.invalid/s1/e2/480.mp4?token=redacted',
+                                    720: 'https://cdn-two.example.invalid/s1/e2/720.mp4?token=redacted'
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    season: 2,
+                    blocked: true,
+                    episodes: [
+                        {
+                            episode: '1',
+                            id: 's2e1',
+                            title: 'Недоступная серия',
+                            blocked: false
+                        }
+                    ]
+                }
+            ],
+            current: {
+                season: 1,
+                episode: '2'
+            },
+            autoPlay: true
+        },
+        qualityByWidth: {"1280": 720}
+    });
+</script>
+</body>
+</html>

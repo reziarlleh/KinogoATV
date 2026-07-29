@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1280, initial-scale=1">
+  <title>Kinogo TV — technical preview</title>
+  <style>
+    :root {
+      --bg: #080c13;
+      --bg-top: #0e1521;
+      --surface: #151d2a;
+      --surface-2: #222d40;
+      --surface-focus: #263247;
+      --outline: #3a465a;
+      --primary: #f4c542;
+      --text: #f5f7fa;
+      --muted: #9eabc0;
+      --muted-2: #c0cad9;
+      --green: #4ade80;
+      --cyan: #67e8f9;
+      --amber: #fbbf24;
+      --red: #ff7a7a;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 1280px; height: 720px; margin: 0; overflow: hidden; }
+    body {
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(900px 520px at 72% -10%, rgba(50, 72, 108, .24), transparent 65%),
+        linear-gradient(180deg, var(--bg-top), var(--bg) 54%, #05080d);
+      font-size: 14px;
+      letter-spacing: .05px;
+    }
+
+    .app { position: relative; width: 1280px; height: 720px; overflow: hidden; }
+    .content { position: absolute; left: 140px; right: 48px; top: 24px; bottom: 24px; overflow: hidden; }
+    .preview-tag {
+      position: absolute; right: 14px; top: 10px; z-index: 30;
+      color: rgba(255,255,255,.42); font-size: 9px; font-weight: 800; letter-spacing: 1.6px;
+    }
+
+    .rail {
+      position: absolute; z-index: 20; left: 48px; top: 24px; bottom: 24px; width: 72px;
+      border: 1px solid #2b3547; border-radius: 20px; padding: 12px 10px;
+      background: rgba(13, 19, 31, .96); box-shadow: 0 16px 35px rgba(0,0,0,.32);
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .rail.expanded { width: 224px; box-shadow: 18px 16px 45px rgba(0,0,0,.55); }
+    .brand, .nav-item, .rail-status { display: flex; align-items: center; }
+    .brand { height: 50px; gap: 12px; }
+    .brand-mark {
+      flex: 0 0 48px; height: 48px; border-radius: 14px; background: var(--primary);
+      color: #10131a; display: grid; place-items: center; font-size: 23px; font-weight: 900;
+    }
+    .brand-copy { min-width: 130px; }
+    .brand-title { font-size: 17px; font-weight: 800; }
+    .brand-subtitle { margin-top: 2px; color: #8f9db2; font-size: 11px; }
+    .rail-spacer { height: 8px; }
+    .nav-item {
+      height: 48px; border-radius: 11px; padding: 0 13px; gap: 14px; color: white;
+      border: 1px solid transparent;
+    }
+    .nav-item.selected { background: #303b4f; border-color: rgba(244,197,66,.65); }
+    .nav-item.focused { background: var(--primary); color: #10131a; border: 3px solid white; }
+    .nav-icon { flex: 0 0 24px; text-align: center; font-size: 20px; line-height: 1; font-weight: 800; }
+    .nav-label { min-width: 130px; font-size: 15px; font-weight: 700; }
+    .rail-bottom { flex: 1; }
+    .rail-status { height: 38px; padding: 0 15px; gap: 13px; white-space: nowrap; }
+    .status-dot { width: 9px; height: 9px; border-radius: 99px; background: var(--green); box-shadow: 0 0 12px rgba(74,222,128,.5); }
+    .status-copy { color: #aab5c6; font-size: 11px; }
+    .rail:not(.expanded) .brand-copy,
+    .rail:not(.expanded) .nav-label,
+    .rail:not(.expanded) .status-copy { display: none; }
+
+    .section-title-row { display: flex; align-items: baseline; gap: 14px; }
+    .section-title { margin: 0; font-size: 23px; line-height: 1.1; font-weight: 850; }
+    .section-trailing { color: #8f9db2; font-size: 12px; }
+    .subline { margin-top: 5px; color: #8f9db2; font-size: 12px; }
+
+    .hero {
+      height: 236px; border-radius: 18px; overflow: hidden; position: relative;
+      background:
+        linear-gradient(90deg, rgba(11,16,26,.96) 0%, rgba(11,16,26,.68) 58%, transparent 100%),
+        radial-gradient(420px 260px at 82% 45%, rgba(130,77,94,.86), transparent 68%),
+        linear-gradient(100deg, #111827, #6b3e45 56%, #111827);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .hero::after {
+      content: "K"; position: absolute; right: 82px; top: 17px; color: rgba(255,255,255,.08);
+      font-size: 182px; font-weight: 900; line-height: 1;
+    }
+    .hero-copy { position: absolute; left: 30px; top: 28px; width: 650px; }
+    .eyebrow { color: var(--primary); font-size: 12px; font-weight: 900; letter-spacing: .8px; }
+    .hero h1 { margin: 8px 0 5px; font-size: 36px; line-height: 1.08; font-weight: 900; }
+    .meta { color: #d5dce8; font-weight: 650; }
+    .summary { margin: 9px 0 13px; max-width: 620px; color: #b6c1d2; line-height: 1.38; font-size: 13px; }
+
+    .button-row { display: flex; align-items: center; gap: 10px; }
+    .btn {
+      height: 38px; padding: 0 16px; border-radius: 10px; border: 1px solid #38445a;
+      background: #222d40; color: white; display: inline-flex; align-items: center; gap: 9px;
+      font-size: 13px; font-weight: 800; white-space: nowrap;
+    }
+    .btn.primary { background: rgba(244,197,66,.86); border-color: var(--primary); color: #10131a; }
+    .btn.focused { background: var(--primary); border: 3px solid white; color: #10131a; box-shadow: 0 8px 25px rgba(244,197,66,.18); }
+    .btn.disabled { color: #667185; background: #171d27; border-color: #272f3d; }
+
+    .home-sections { margin-top: 20px; }
+    .poster-row { display: flex; gap: 14px; margin-top: 11px; padding: 3px 5px 8px; }
+    .poster-card {
+      position: relative; width: 132px; flex: 0 0 132px; background: #151c29; border: 1px solid #2a3446;
+      border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.18);
+    }
+    .poster-card.wide { width: 184px; flex-basis: 184px; }
+    .poster-card.focused { border: 3px solid var(--primary); transform: scale(1.035); background: #263247; box-shadow: 0 12px 28px rgba(0,0,0,.5); z-index: 2; }
+    .poster-art {
+      position: relative; height: 174px; display: grid; place-items: center;
+      background: linear-gradient(180deg, var(--accent, #3b526e), #0d1420);
+    }
+    .wide .poster-art { height: 190px; }
+    .initial { color: rgba(255,255,255,.16); font-size: 64px; font-weight: 900; }
+    .badge {
+      position: absolute; right: 7px; top: 7px; padding: 3px 6px; background: rgba(0,0,0,.72);
+      border-radius: 5px; font-size: 9px; font-weight: 800;
+    }
+    .heart { position: absolute; left: 8px; top: 7px; color: var(--primary); font-size: 14px; text-shadow: 0 2px 4px black; }
+    .progress { position: absolute; left: 8px; right: 8px; bottom: 7px; height: 5px; border-radius: 99px; background: #202a3b; overflow: hidden; }
+    .progress > i { display: block; width: var(--p, 45%); height: 100%; background: var(--primary); border-radius: inherit; }
+    .poster-copy { padding: 8px 9px 9px; }
+    .poster-title { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .poster-meta { margin-top: 2px; color: #b5c0d3; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .catalog-header { display: flex; align-items: flex-start; gap: 14px; }
+    .catalog-heading { flex: 1; }
+    .chips { display: flex; gap: 9px; margin: 12px 3px 10px; }
+    .chip { padding: 8px 14px; border-radius: 99px; background: #1a2230; border: 1px solid #344055; font-size: 12px; font-weight: 700; }
+    .chip.selected { background: #37445a; border-color: rgba(244,197,66,.68); color: var(--primary); }
+    .poster-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px 14px; padding: 4px 5px; }
+    .poster-grid .poster-card { width: 100%; }
+    .poster-grid .poster-art { height: 194px; }
+
+    .details-hero {
+      height: 322px; border-radius: 18px; position: relative; overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(10,15,24,.97) 0%, rgba(10,15,24,.75) 64%, transparent 100%),
+        radial-gradient(460px 290px at 84% 45%, rgba(57,95,108,.93), transparent 70%),
+        linear-gradient(95deg, #0b101a, #315b6d, #111827);
+    }
+    .details-hero::after { content: "С"; position: absolute; right: 74px; top: 32px; font-size: 190px; font-weight: 900; color: rgba(255,255,255,.07); }
+    .details-copy { position: absolute; left: 26px; top: 21px; width: 760px; }
+    .back { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: #222d40; border: 1px solid #38445a; border-radius: 9px; font-weight: 750; font-size: 12px; }
+    .details-copy h1 { margin: 13px 0 3px; font-size: 35px; line-height: 1.05; }
+    .original { color: #9eabc0; font-size: 13px; }
+    .ratings { margin-top: 10px; color: var(--primary); font-weight: 800; }
+    .ratings span { margin-left: 14px; color: #d4dce9; font-weight: 600; }
+    .details-summary { margin: 10px 0 7px; color: #c0cad9; max-width: 720px; line-height: 1.38; font-size: 13px; }
+    .source-warning { color: #ffd18a; font-size: 12px; margin-bottom: 11px; }
+    .option-area { margin-top: 20px; }
+    .option-label { margin-top: 16px; color: #d7dfec; font-size: 14px; font-weight: 800; }
+
+    .history-list { margin-top: 13px; display: flex; flex-direction: column; gap: 12px; }
+    .history-row {
+      height: 126px; display: flex; align-items: center; gap: 16px; padding: 10px;
+      border-radius: 14px; background: #151d2a; border: 1px solid #303b4e;
+    }
+    .history-row.focused { background: #273247; border: 3px solid var(--primary); box-shadow: 0 12px 25px rgba(0,0,0,.4); }
+    .history-art { width: 68px; height: 102px; border-radius: 8px; display: grid; place-items: center; background: linear-gradient(#4a4268,#0d1420); color: rgba(255,255,255,.2); font-size: 40px; font-weight: 900; }
+    .history-main { flex: 1; }
+    .history-title { font-size: 19px; font-weight: 800; }
+    .history-episode { margin-top: 6px; color: #d0d8e6; font-weight: 650; }
+    .history-progress { margin-top: 10px; width: 520px; height: 6px; border-radius: 99px; background: #202a3b; overflow: hidden; }
+    .history-progress i { display: block; height: 100%; width: var(--p); background: var(--primary); }
+    .history-position { margin-top: 6px; color: #96a4b8; font-size: 12px; }
+    .history-time { color: #8f9db2; font-size: 12px; margin-right: 10px; }
+
+    .settings-actions { margin: 10px 0 12px; display: flex; gap: 12px; align-items: center; }
+    .setting-heading { color: var(--primary); font-size: 15px; font-weight: 900; margin-top: 14px; }
+    .setting-help { color: #96a4b8; font-size: 12px; margin-top: 4px; }
+    .mirror-list { display: flex; flex-direction: column; gap: 8px; }
+    .mirror-row {
+      min-height: 66px; display: flex; align-items: center; gap: 14px; padding: 10px 16px;
+      border-radius: 12px; background: #151d2a; border: 1px solid rgba(103,232,249,.5);
+    }
+    .mirror-row.focused { background: #283449; border: 3px solid var(--primary); }
+    .mirror-bar { width: 9px; height: 34px; border-radius: 99px; background: var(--cyan); }
+    .mirror-bar.green { background: var(--green); }
+    .mirror-bar.amber { background: var(--amber); }
+    .mirror-main { flex: 1; }
+    .mirror-url { font-size: 15px; font-weight: 800; }
+    .mirror-detail { color: #96a4b8; font-size: 11px; margin-top: 3px; }
+    .latency { color: #9eabc0; font-size: 11px; }
+    .state-pill { border-radius: 99px; padding: 5px 10px; font-size: 11px; font-weight: 800; border: 1px solid currentColor; }
+    .state-pill.green { color: var(--green); background: rgba(74,222,128,.12); }
+    .state-pill.cyan { color: var(--cyan); background: rgba(103,232,249,.12); }
+    .state-pill.amber { color: var(--amber); background: rgba(251,191,36,.12); }
+    .row-action { color: #b4bfce; font-size: 12px; font-weight: 800; }
+    .settings-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .setting-card { display: flex; align-items: center; padding: 11px 15px; border: 1px solid #303b4e; border-radius: 12px; background: #151d2a; }
+    .setting-card > div:first-child { flex: 1; }
+    .setting-name { font-size: 14px; font-weight: 750; }
+    .setting-desc { color: #96a4b8; font-size: 10px; margin-top: 3px; }
+    .setting-value { color: #d5dce8; font-size: 13px; font-weight: 800; }
+
+    .player {
+      position: relative; width: 1280px; height: 720px; overflow: hidden; background:
+        linear-gradient(180deg, rgba(0,0,0,.56), transparent 36%, transparent 62%, rgba(0,0,0,.72)),
+        radial-gradient(650px 360px at 55% 38%, rgba(63,83,107,.9), transparent 70%),
+        linear-gradient(135deg, #07101c, #1c3449 45%, #071019);
+    }
+    .player::before {
+      content: ""; position: absolute; width: 520px; height: 300px; left: 310px; top: 180px;
+      border-radius: 50% 50% 44% 56%; transform: rotate(-12deg);
+      background: linear-gradient(145deg, rgba(152,181,205,.14), rgba(3,10,18,.2)); filter: blur(2px);
+    }
+    .player-top { position: absolute; left: 34px; top: 26px; right: 430px; }
+    .player-title { font-size: 24px; font-weight: 850; }
+    .player-meta { color: #c8d1df; font-size: 14px; margin-top: 7px; }
+    .player-bottom { position: absolute; left: 34px; right: 424px; bottom: 28px; }
+    .timeline { height: 6px; background: #4b5565; border-radius: 99px; overflow: hidden; }
+    .timeline i { display: block; width: 37%; height: 100%; background: var(--primary); }
+    .time-row { display: flex; justify-content: space-between; color: #c8d1df; font-size: 12px; margin-top: 7px; }
+    .controls { display: flex; gap: 9px; margin-top: 12px; }
+    .control { padding: 10px 13px; border-radius: 10px; background: rgba(32,40,56,.72); font-size: 12px; font-weight: 800; }
+    .control.focused { background: #f2f5fa; color: #101522; border: 2px solid white; padding: 8px 11px; }
+    .drawer { position: absolute; top: 0; bottom: 0; right: 0; width: 390px; background: rgba(10,15,24,.85); padding: 30px 24px; box-shadow: -20px 0 38px rgba(0,0,0,.38); }
+    .drawer h2 { margin: 0 0 20px; font-size: 25px; }
+    .drawer-option { padding: 13px 16px; border-radius: 11px; background: #17202e; margin-bottom: 9px; font-size: 15px; font-weight: 600; }
+    .drawer-option.selected { background: #31466e; font-weight: 800; }
+    .drawer-option.focused { background: #f2f5fa; color: #101522; border: 2px solid var(--primary); padding: 11px 14px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const nav = [
+      ["home", "⌂", "Главная"], ["catalog", "▦", "Каталог"], ["search", "⌕", "Поиск"],
+      ["favorites", "♥", "Избранное"], ["history", "↶", "История"], ["settings", "⚙", "Настройки"]
+    ];
+    const posters = [
+      ["Предел тишины", "2026 • Фильм", "4K", "#3b526e"],
+      ["Северный ветер", "2025 • Сериал", "1080p", "#6b3e45"],
+      ["Последний сигнал", "2026 • Фильм", "WEB-DL", "#355c4d"],
+      ["Город теней", "2024 • Сериал", "12 серия", "#4a4268"],
+      ["Другая орбита", "2026 • Фильм", "1080p", "#70513a"],
+      ["Письма из будущего", "2023 • Фильм", "HD", "#315b6d"],
+      ["Третий берег", "2025 • Сериал", "8 серия", "#5e3c68"],
+      ["Холодное солнце", "2022 • Фильм", "1080p", "#53613b"],
+      ["Линия горизонта", "2026 • Фильм", "4K", "#445d78"],
+      ["После рассвета", "2024 • Сериал", "16 серия", "#6e4850"]
+    ];
+
+    function rail(selected, expanded=false, focused=false) {
+      return `<aside class="rail ${expanded ? "expanded" : ""}">
+        <div class="brand"><div class="brand-mark">K</div><div class="brand-copy"><div class="brand-title">KinoGo TV</div><div class="brand-subtitle">Каталог и плеер</div></div></div>
+        <div class="rail-spacer"></div>
+        ${nav.map(([id, icon, title]) => `<div class="nav-item ${id===selected ? "selected" : ""} ${focused && id===selected ? "focused" : ""}"><div class="nav-icon">${icon}</div><div class="nav-label">${title}</div></div>`).join("")}
+        <div class="rail-bottom"></div><div class="rail-status"><i class="status-dot"></i><span class="status-copy">Источник доступен</span></div>
+      </aside>`;
+    }
+
+    function posterCard(item, opts={}) {
+      const [title, meta, badge, accent] = item;
+      return `<div class="poster-card ${opts.wide ? "wide" : ""} ${opts.focused ? "focused" : ""}">
+        <div class="poster-art" style="--accent:${accent}">
+          <span class="initial">${title.slice(0,1)}</span>${badge ? `<span class="badge">${badge}</span>` : ""}
+          ${opts.favorite ? `<span class="heart">♥</span>` : ""}
+          ${opts.progress ? `<span class="progress" style="--p:${opts.progress}"><i></i></span>` : ""}
+        </div><div class="poster-copy"><div class="poster-title">${title}</div><div class="poster-meta">${meta}</div></div>
+      </div>`;
+    }
+
+    function shell(selected, inner, expanded=false, focused=false) {
+      return `<div class="app"><span class="preview-tag">ТЕХНИЧЕСКИЙ ПРЕДПРОСМОТР · 1280×720</span>${rail(selected, expanded, focused)}<main class="content">${inner}</main></div>`;
+    }
+
+    function home() {
+      return shell("home", `<section class="hero"><div class="hero-copy"><div class="eyebrow">РЕКОМЕНДУЕМ</div><h1>Предел тишины</h1><div class="meta">2026 • Фильм • Драма, триллер</div><p class="summary">История о выборе, который меняет привычный мир героев. Карточка и описание загружены с активного проверенного зеркала.</p><div class="button-row"><span class="btn focused">›&nbsp;&nbsp;Перейти</span></div></div></section>
+        <section class="home-sections"><div class="section-title-row"><h2 class="section-title">Продолжить просмотр</h2><span class="section-trailing">Синхронизировано локально</span></div><div class="poster-row">
+          ${posterCard(posters[1], {focused:true, progress:"62%"})}${posterCard(posters[3], {progress:"28%"})}${posterCard(posters[6], {progress:"81%"})}${posterCard(posters[2], {progress:"14%"})}${posterCard(posters[7], {progress:"46%"})}${posterCard(posters[4])}
+        </div></section>`);
+    }
+
+    function catalog() {
+      return shell("catalog", `<div class="catalog-header"><div class="catalog-heading"><div class="section-title-row"><h1 class="section-title">Каталог</h1><span class="section-trailing">40+ материалов</span></div><div class="subline">Источник: https://kinogo.parts</div></div><span class="btn">Сортировка: новые</span><span class="btn">≡&nbsp;&nbsp;Следующий фильтр</span></div>
+        <div class="chips"><span class="chip selected">Все</span><span class="chip">Фильмы</span><span class="chip">Сериалы</span><span class="chip">Мультфильмы</span><span class="chip">Аниме</span></div>
+        <div class="poster-grid">${posters.map((p,i)=>posterCard(p,{focused:i===0,favorite:i===1||i===5})).join("")}</div>`);
+    }
+
+    function details() {
+      return shell("catalog", `<section class="details-hero"><div class="details-copy"><span class="back">‹&nbsp;&nbsp;Назад</span><h1>Северный ветер</h1><div class="original">Northern Wind / Original title</div><div class="ratings">КП 7.8&nbsp;&nbsp;&nbsp;IMDb 7.4 <span>2025 • Сериал • Драма, триллер</span></div><p class="details-summary">Герои возвращаются в северный город, где прошлое оказывается тесно связано с новой цепочкой событий. Данные карточки приходят из live-каталога.</p><div class="source-warning">Для этого типа встроенного плеера пока нет нативного адаптера</div><div class="button-row"><span class="btn disabled">▶&nbsp;&nbsp;Источник не готов</span><span class="btn disabled">↺&nbsp;&nbsp;С начала</span><span class="btn focused">♥&nbsp;&nbsp;В избранное</span></div></div></section>
+        <section class="option-area"><div class="section-title-row"><h2 class="section-title">Выбор просмотра</h2><span class="section-trailing">Можно изменить и в плеере</span></div><div class="option-label">Озвучка</div><div class="chips"><span class="chip selected">Дубляж</span><span class="chip">Профессиональная</span><span class="chip">Оригинал</span></div><div class="option-label">Качество</div><div class="chips"><span class="chip selected">Авто</span><span class="chip">1080p</span><span class="chip">720p</span></div></section>`);
+    }
+
+    function history() {
+      const row = (title, ep, pos, time, p, focused, letter, accent) => `<div class="history-row ${focused?"focused":""}"><div class="history-art" style="background:linear-gradient(${accent},#0d1420)">${letter}</div><div class="history-main"><div class="history-title">${title}</div><div class="history-episode">${ep}</div><div class="history-progress" style="--p:${p}"><i></i></div><div class="history-position">${pos}</div></div><div class="history-time">${time}</div><span class="btn ${focused?"primary":""}">▶&nbsp;&nbsp;Продолжить</span></div>`;
+      return shell("history", `<div class="section-title-row"><h1 class="section-title">История</h1><span class="section-trailing">4 записи</span></div><div class="subline">Позиция, сезон и серия сохраняются автоматически</div><div class="history-list">
+        ${row("Северный ветер","Сезон 2, серия 5","27 из 44 мин","Сегодня","62%",true,"С","#6b3e45")}
+        ${row("Город теней","Сезон 1, серия 8","13 из 48 мин","Вчера","28%",false,"Г","#4a4268")}
+        ${row("Последний сигнал","Фильм","18 из 126 мин","3 дн. назад","14%",false,"П","#355c4d")}
+        ${row("Третий берег","Сезон 1, серия 3","39 из 46 мин","6 дн. назад","81%",false,"Т","#5e3c68")}
+      </div>`);
+    }
+
+    function settings() {
+      const mirror = (url, detail, latency, state, color, focused=false) => `<div class="mirror-row ${focused?"focused":""}"><i class="mirror-bar ${color}"></i><div class="mirror-main"><div class="mirror-url">${url}</div><div class="mirror-detail">${detail}</div></div><span class="latency">${latency}</span><span class="state-pill ${color}">${state}</span><span class="row-action">${state==="Доступно"?"Выбрать":"Подробнее"} ›</span></div>`;
+      return shell("settings", `<div class="section-title-row"><h1 class="section-title">Настройки</h1><span class="section-trailing">TV-профиль</span></div><div class="setting-heading">Источник и зеркала</div><div class="setting-help">Новые адреса проходят проверку перед активацией</div><div class="settings-actions"><span class="btn primary">↻&nbsp;&nbsp;Проверить зеркала</span><span class="btn">+&nbsp;&nbsp;Добавить адрес</span><span class="section-trailing">Проверено: 12:42</span></div><div class="mirror-list">
+        ${mirror("https://kinogo.parts","Отпечаток сервиса подтверждён","148 мс","Активно","green",true)}
+        ${mirror("https://kinogo.online","Доступно, проверено напрямую","231 мс","Доступно","cyan")}
+        ${mirror("https://manual-mirror.tv","Ручной адрес ожидает безопасной проверки","—","Карантин","amber")}
+      </div><div class="setting-heading">Воспроизведение</div><div class="settings-mini"><div class="setting-card"><div><div class="setting-name">Качество по умолчанию</div><div class="setting-desc">Автовыбор по экрану и скорости сети</div></div><div class="setting-value">Авто&nbsp;&nbsp;›</div></div><div class="setting-card"><div><div class="setting-name">Следующая серия</div><div class="setting-desc">Запускать после короткого отсчёта</div></div><div class="setting-value">Вкл.&nbsp;&nbsp;›</div></div></div>`, true, false);
+    }
+
+    function player() {
+      return `<div class="player"><span class="preview-tag">ПЛЕЕР · ДЕМОНСТРАЦИОННЫЙ ИСТОЧНИК</span><div class="player-top"><div class="player-title">Северный ветер</div><div class="player-meta">Сезон 2 • Серия 5 • Дубляж • 1080p</div></div><div class="player-bottom"><div class="timeline"><i></i></div><div class="time-row"><span>17:42</span><span>47:18</span></div><div class="controls"><span class="control">Пред.</span><span class="control">−10</span><span class="control focused">Пауза</span><span class="control">+10</span><span class="control">След.</span><span class="control">Серии</span><span class="control">Озвучка</span><span class="control">Качество</span></div></div><aside class="drawer"><h2>Качество</h2><div class="drawer-option">Авто</div><div class="drawer-option selected focused">✓&nbsp;&nbsp;1080p</div><div class="drawer-option">720p</div><div class="drawer-option">480p</div><div class="drawer-option">Экономия трафика</div></aside></div>`;
+    }
+
+    const screens = { home, catalog, details, history, settings, player };
+    const name = new URLSearchParams(location.search).get("screen") || "home";
+    document.getElementById("root").innerHTML = (screens[name] || home)();
+  </script>
+</body>
+</html>
