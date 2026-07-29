@@ -4,33 +4,47 @@
 
 ## Краткий итог
 
-KinogoATV находится в рабочем состоянии для продолжительного пользовательского тестирования.
-После выпуска `0.3.3-dev` пользователь подтвердил, что обнаруженные ранее функциональные
-проблемы устранены. Ближайший этап — последовательная полировка интерфейса без регрессий
-каталога, авторизации, истории и воспроизведения.
+Версия `0.4.0-dev` собрана, установлена поверх пользовательской установки на KIVI 4K
+Android TV 14 и прошла автоматическую проверку и аппаратный UI/D-pad smoke. Данные
+приложения, история и сохранённая позиция просмотра не были очищены и сохранились после
+`adb install -r`.
 
-## Проверенная версия
+Большая переработка интерфейса завершена. Новый completion flow плеера имеет unit guards,
+однако переход через границу сезона и естественное окончание материала ещё не были
+полностью проиграны на реальном TV. Поэтому B-001 остаётся подтверждённой playback-точкой
+отката, а `0.4.0-dev` фиксируется как текущий validation candidate, не как новый полностью
+аппаратно подтверждённый baseline.
+
+## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
+| Candidate | **C-002 / 0.4.0-dev** |
+| Application source commit | `5a22f2a` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `9` |
-| Version name | `0.3.3-dev` |
+| Version code | `10` |
+| Version name | `0.4.0-dev` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | стабильный локальный ключ, APK Signature Scheme v2 |
+| Baseline tag | не создавался: полный player runtime pass ещё pending |
 
-Проверенный локальный APK: `dist/KinogoTV-0.3.3-dev.apk`. APK не коммитится в Git; в
+Проверенный локальный APK: `dist/KinogoTV-0.4.0-dev.apk`. APK не коммитится в Git; в
 `dist/SHA256SUMS.txt` хранится его контрольная сумма.
 
 SHA-256:
-`931253976140D5A76276AB4F30E7A709600CD61EABFE1FD8A36C29F38B454A77`.
+`188A2CF14226C1541B2E0D5822F9CD445E09EF1E2FCE1B41483C5CC2E093EFFE`.
+
+Certificate SHA-256:
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+
+Документальный commit после `5a22f2a` не меняет application source или APK.
 
 ## Known-good baseline и откат
 
-Текущий baseline: **B-001 / 0.3.3-dev**.
+Текущий полностью подтверждённый playback baseline: **B-001 / 0.3.3-dev**.
 
 - Runtime evidence: 28 июля 2026 года.
 - Source baseline tag: `baseline-0.3.3-dev`.
@@ -44,65 +58,78 @@ Rollback на APK допустим только поверх совместим�
 Android. Для отката source использовать tag/commit, пересобрать с тем же signing key и
 назначить новый увеличенный versionCode; обычный downgrade APK Android может запретить.
 
-История поломок и guards: [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
-
-Tag создаётся на первом документированном Git commit. По отношению к аппаратно проверенному
-APK application source не менялся; в tag дополнительно входят документация, repository
-hygiene и условная signing-конфигурация для clean clone.
+История поломок, candidate evidence и guards:
+[`REGRESSION_LOG.md`](REGRESSION_LOG.md).
 
 ## Состояние подсистем
 
 | Подсистема | Статус | Подтверждённое поведение |
 | --- | --- | --- |
-| Запуск | Работает | Нативный первый кадр, Compose bootstrap, отчёт раннего сбоя, холодный запуск |
-| Android TV launcher | Работает | LEANBACK launcher, приложение только для TV, собственные icon/banner |
-| Навигация | Работает | Постоянный левый rail, D-pad focus, подтверждение выхода |
-| Главная | Работает | Featured-карточка, продолжение просмотра и live-подборки |
-| Каталог | Работает | Live HTML-каталог, пять верхних разделов, клиентская сортировка, ранняя пагинация |
-| Поиск | Работает | Серверный текстовый поиск и системный voice search |
-| Карточка | Работает | Метаданные, рейтинги, полный текст описания и библиотечные действия |
+| Запуск | Работает | Нативный первый кадр, Compose bootstrap, отчёт раннего сбоя, cold launch |
+| Android TV launcher | Работает | LEANBACK launcher, фирменные TV banner и ATV icon |
+| Навигация | Работает | Постоянный компактный rail, D-pad focus, подтверждение выхода |
+| Главная | Работает | История одной строкой, новинки многострочной сеткой, hero отсутствует |
+| Каталог | Работает | Четыре раздела, шесть колонок, локальная сортировка, одиночные GET-фильтры, ранний preload |
+| Поиск | Работает | Debounce 750 ms, immediate submit, закрытие клавиатуры, voice action |
+| Карточка | Работает | Крупный постер, полный текст, основные/status/favorite actions |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
-| Зеркала | Работает | Built-in и ручные кандидаты, проверка fingerprint/redirect, TTL и выбор активного |
-| Аккаунт | Работает | HTML-login, сохранённые зашифрованные credentials, восстановление cookie-сессии |
+| Зеркала | Работает | Built-in и ручные кандидаты, fingerprint/redirect, TTL и активный origin |
+| Аккаунт | Работает | HTML-login, зашифрованные credentials, восстановление cookie-сессии |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | Работает | Snapshot карточки, сезон, серия, позиция, resume и восстановление legacy ID |
-| Подготовка источника | Работает | Fresh detail fetch, browser-visible provider config, bounded fallback discovery |
-| Нативный плеер | Работает | Media3, HLS/DASH/MP4, HUD, progress, selectors, episode row, D-pad/media keys |
+| История | Работает | Snapshot, постер, сезон, серия, позиция, resume и legacy ID recovery |
+| Выбор источника | Работает | Source/voice/season/episode/quality sparse-матрица видна до запуска |
+| Нативный плеер | Работает; новый end flow pending TV | Media3, HUD, selectors, D-pad/media keys; cross-season/completion покрыты unit tests |
 | Web fallback | Работает | Явный provider-only WebView с origin boundary, TV HUD и виртуальным курсором |
-| Настройки | Работает | Качество, auto-next, seek step, captions, contrast, reduce motion |
+| Настройки | Работает | Компактные строки; значение меняется по OK, Left/Right навигируют |
 
-## Последняя проверка
+## Последняя проверка C-002
 
-Проверка выполнена 28 июля 2026 года:
+Проверка выполнена 29 июля 2026 года для application source commit `5a22f2a`:
 
-- 60 test suites, **257 unit-тестов**, 0 failures, 0 errors, 0 skipped;
-- Android Lint: 0 errors, 6 warnings;
+- 67 test suites, **281 unit test**, 0 failures, 0 errors, 0 skipped;
+- Android Lint: 0 errors, 6 warnings и 2 hints;
 - `assembleDebug`: успешно;
 - ZIP alignment: успешно;
-- v2 signature: успешно;
-- холодный запуск на KIVI 4K Android TV с Android TV 14: успешно;
-- `MainActivity` осталась foreground/focused, crash buffer пуст;
-- live-каталог, реальные закладки и история отображались;
-- нативное воспроизведение реального контента и D-pad HUD проверены на устройстве;
-- при скрытом HUD `Left/Right` выполняли seek, после появления HUD timeline получал фокус;
-- пользовательские credentials, библиотека и исходный checkpoint сохранились после обновления.
+- v2 signature: успешно, certificate digest совпал;
+- metadata: `com.kinogo.atv`, version code 10, `0.4.0-dev`, minSdk 28, targetSdk 37,
+  LEANBACK launcher/banner присутствуют;
+- APK SHA-256:
+  `188A2CF14226C1541B2E0D5822F9CD445E09EF1E2FCE1B41483C5CC2E093EFFE`.
 
-Это baseline конкретного коммита/состояния. После следующих изменений evidence нужно
-получить заново, а не переносить формулировку автоматически.
+Аппаратный smoke на KIVI 4K Android TV 14:
 
-29 июля после изменения только документации/repository/signing configuration повторены
-257 unit-тестов, lint и `assembleDebug`; результат остался зелёным. Дополнительно подтверждено,
-что debug собирается без stable key, а release без него отклоняется. Runtime application
-source не изменялся, APK на TV повторно не устанавливался.
+- `adb install -r` завершён успешно; `firstInstallTime` остался
+  `2026-07-26 16:42:18`, версия стала code 10 / `0.4.0-dev`;
+- финальный cold launch: `Status: ok`, `LaunchState: COLD`, `TotalTime: 2487 ms`;
+- `MainActivity` осталась `topResumedActivity`; в post-launch log нет fatal exception или
+  ANR приложения;
+- сохранённая история показала реальный постер, название и checkpoint серии;
+- проверены steel/cyan shell, фиксированный rail, каталог, диалог фильтра, dropdown
+  сортировки, immediate search submit, Settings OK-only/Left-to-rail, Details и source
+  selection;
+- source selection на реальном сериале показал Cinemar, три озвучки, сезон и 12 серий; выбор
+  серии доступен до запуска;
+- после финальной установки воспроизведение намеренно не запускалось, чтобы не изменять
+  пользовательский checkpoint.
+
+Не переносить старое runtime evidence автоматически. Для C-002 ещё не проверены полным
+реальным сценарием:
+
+- Previous/Next и auto-next через границу сезона;
+- `PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM` при отключённом auto-next;
+- естественный финальный `STATE_ENDED` фильма/последней серии и возврат в details;
+- фактический buffering overlay и white timeline marker в соответствующих runtime-состояниях.
+
+Базовый старт, seek, HUD и реальное native playback были подтверждены пользователем и
+устройством на B-001, но это не является аппаратным доказательством нового completion flow.
 
 ## Текущие технические границы
 
-Эти сведения предназначены разработчикам и агентам:
-
 - Каталог зависит от server-rendered HTML DLE. Закрытый JSON-шлюз официального приложения
   используется только как необязательный playback-time recovery path.
-- Стабильные GET-маршруты сейчас покрывают верхние разделы и поиск. Полные серверные фильтры
-  по году/стране/жанру и серверная сортировка ещё не представлены в `CatalogQuery`.
+- Серверные фильтры представлены одиночными подтверждёнными GET-маршрутами новинок, года,
+  страны и allowlisted жанра. Комбинации фильтров и server-wide sorting не имитируются;
+  сортировка загруженных карточек локальна.
 - Нативные адаптеры разбирают browser-visible конфигурации Cinemar и Collaps. Неизвестный,
   DRM- или JavaScript-only источник нельзя маскировать под Media3.
 - Web fallback остаётся явным выбором пользователя; приложение не переключается в него
@@ -117,13 +144,13 @@ source не изменялся, APK на TV повторно не устанав
 
 ## Активный фокус
 
-Функциональная база заморожена как рабочая. Следующая серия задач — визуальная и
-эргономическая полировка интерфейса:
+Следующий шаг — продолжительное пользовательское тестирование `0.4.0-dev` и закрытие
+аппаратного player regression pass без изменения данных аккаунта:
 
-- единый размерный ритм, типографика и фокус-состояния;
-- выравнивание главной, каталога, поиска, закладок, истории и настроек;
-- уменьшение визуального шума без ухудшения D-pad-навигации;
-- уточнение плотности и компоновки player HUD;
-- аппаратная проверка каждого изменения на телевизоре.
+- проверить overscan, фокус и плотность на всех разделах;
+- проверить timeline marker и buffering state в реальном воспроизведении;
+- проверить ручной и автоматический переход через границу сезонов;
+- дождаться естественного окончания с включённым и выключенным auto-next;
+- после подтверждения назначить новый known-good baseline/tag.
 
 Подробная очередь — в [`ROADMAP.md`](ROADMAP.md).

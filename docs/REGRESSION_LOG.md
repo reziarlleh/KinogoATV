@@ -29,6 +29,27 @@
 отношению к аппаратно проверенному APK application source не менялся; commit дополнительно
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
+## Validation candidates
+
+### C-002 — 0.4.0-dev
+
+- Статус: automated + UI/D-pad hardware smoke passed; full player runtime pass pending
+- Application source commit: `5a22f2a`
+- APK: `dist/KinogoTV-0.4.0-dev.apk`
+- SHA-256:
+  `188A2CF14226C1541B2E0D5822F9CD445E09EF1E2FCE1B41483C5CC2E093EFFE`
+- Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Automated: 67 suites, 281 unit test, lint 0 errors, assembleDebug, alignment/signature
+- Hardware: KIVI 4K Android TV 14; `install -r`, cold launch, persisted history/checkpoint,
+  shell/catalog/search/settings/details/source-selection smoke
+- Pending: реальный cross-season Previous/Next/auto-next, natural Media3 end callbacks,
+  buffering overlay и timeline marker
+- Rollback point: B-001 / `baseline-0.3.3-dev`
+
+C-002 нельзя переименовывать в B-002 и помечать baseline-tag до закрытия pending playback
+сценариев. Документальный commit после `5a22f2a` application source не меняет.
+
 ## Инциденты
 
 ### R-001 — Нажатие плитки визуально ничего не делало
