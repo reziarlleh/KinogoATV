@@ -7,8 +7,9 @@
 1. Прочитать [`docs/README.md`](docs/README.md).
 2. Прочитать [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md) и
    [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-3. Для сетевой, авторизационной или playback-задачи открыть соответствующий документ из
-   индекса `docs/README.md`.
+3. Для интерфейсной, сетевой, авторизационной или playback-задачи открыть соответствующий
+   документ из индекса `docs/README.md`. Компоновка, цвета, TV-брендинг и D-pad-фокус
+   определены в [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md).
 4. Проверить `git status -sb` и не затрагивать посторонние пользовательские изменения.
 
 ## Обязательные инварианты
@@ -45,8 +46,8 @@
 - `docs/PROJECT_STATE.md` — если изменилось текущее состояние, версия или доказательства;
 - `README.md` — только если изменилась доступная пользователю функция или порядок использования;
 - `docs/ROADMAP.md` — если пункт реализован, отменён или переприоритизирован;
-- профильный документ (`ARCHITECTURE`, `SERVICE_INTEGRATION`, `PLAYBACK`, `SECURITY`,
-  `TESTING`, `RELEASE_PROCESS`, `DECISIONS`) — если изменился его контракт.
+- профильный документ (`ARCHITECTURE`, `UI_DESIGN`, `SERVICE_INTEGRATION`, `PLAYBACK`,
+  `SECURITY`, `TESTING`, `RELEASE_PROCESS`, `DECISIONS`) — если изменился его контракт.
 
 Не добавлять в пользовательский `README.md` планы, отвергнутые идеи и внутренние ограничения.
 Они хранятся в `docs/`.

@@ -62,6 +62,12 @@ data class PlaybackMediaSourceOption(
     val label: String,
 )
 
+/** One playable episode coordinate inside a source/translation-specific sparse matrix. */
+data class PlaybackEpisodeCoordinate(
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+)
+
 /**
  * One external text track attached to a [PlaybackMediaVariant].
  *
@@ -220,6 +226,44 @@ data class PlaybackMediaPlan(
         .sorted()
         .toList()
 
+    /**
+     * Previous playable episode for the selected source and translation.
+     *
+     * The flattened order is season then episode, so moving back from the first available episode
+     * of a season lands on the last available episode of the preceding compatible season.
+     */
+    fun previousEpisodeCoordinate(
+        sourceId: String,
+        seasonNumber: Int,
+        episodeNumber: Int,
+        voiceover: String,
+    ): PlaybackEpisodeCoordinate? = adjacentEpisodeCoordinate(
+        sourceId = sourceId,
+        seasonNumber = seasonNumber,
+        episodeNumber = episodeNumber,
+        voiceover = voiceover,
+        offset = -1,
+    )
+
+    /**
+     * Next playable episode for the selected source and translation.
+     *
+     * Missing seasons and episode numbers are skipped rather than synthesized. At a season
+     * boundary this returns the first episode that actually exists in the next compatible season.
+     */
+    fun nextEpisodeCoordinate(
+        sourceId: String,
+        seasonNumber: Int,
+        episodeNumber: Int,
+        voiceover: String,
+    ): PlaybackEpisodeCoordinate? = adjacentEpisodeCoordinate(
+        sourceId = sourceId,
+        seasonNumber = seasonNumber,
+        episodeNumber = episodeNumber,
+        voiceover = voiceover,
+        offset = 1,
+    )
+
     /** Legacy selector for the first source and its first season. */
     fun variantsForEpisode(episodeNumber: Int?): List<PlaybackMediaVariant> =
         variantsFor(
@@ -340,5 +384,39 @@ data class PlaybackMediaPlan(
             ?: episodeVariants.firstOrNull { it.voiceover == voiceover }
             ?: episodeVariants.firstOrNull { it.quality == quality }
             ?: episodeVariants.first()
+    }
+
+    private fun adjacentEpisodeCoordinate(
+        sourceId: String,
+        seasonNumber: Int,
+        episodeNumber: Int,
+        voiceover: String,
+        offset: Int,
+    ): PlaybackEpisodeCoordinate? {
+        if (!isEpisodic) return null
+        val coordinates = variants
+            .asSequence()
+            .filter {
+                it.sourceId == sourceId &&
+                    it.voiceover == voiceover
+            }
+            .mapNotNull { variant ->
+                val season = variant.effectiveSeasonNumber ?: return@mapNotNull null
+                val episode = variant.episodeNumber ?: return@mapNotNull null
+                PlaybackEpisodeCoordinate(season, episode)
+            }
+            .distinct()
+            .sortedWith(
+                compareBy(
+                    PlaybackEpisodeCoordinate::seasonNumber,
+                    PlaybackEpisodeCoordinate::episodeNumber,
+                ),
+            )
+            .toList()
+        val currentIndex = coordinates.indexOf(
+            PlaybackEpisodeCoordinate(seasonNumber, episodeNumber),
+        )
+        if (currentIndex < 0) return null
+        return coordinates.getOrNull(currentIndex + offset)
     }
 }

@@ -14,6 +14,8 @@
    какие ограничения ещё актуальны.
 2. [`ARCHITECTURE.md`](ARCHITECTURE.md) — слои, entry points, потоки данных и карта кода.
 3. Профильный документ задачи:
+   - компоновка, цвета, launcher assets и D-pad-навигация —
+     [`UI_DESIGN.md`](UI_DESIGN.md);
    - сеть, зеркала, каталог, авторизация и закладки —
      [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md);
    - извлечение источников и плеер — [`PLAYBACK.md`](PLAYBACK.md);
@@ -36,6 +38,7 @@
 | --- | --- | --- |
 | [`PROJECT_STATE.md`](PROJECT_STATE.md) | Текущий проверенный снимок проекта | При изменении версии, функций или validation evidence |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Слои, зависимости, entry points и data flow | При изменении границ модулей или потока данных |
+| [`UI_DESIGN.md`](UI_DESIGN.md) | Текущий визуальный контракт, launcher assets и D-pad-навигация | При изменении компоновки, цветов, фокуса или TV-брендинга |
 | [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md) | HTML-протокол, зеркала, аккаунт и закладки | При изменении сетевого контракта или парсеров |
 | [`PLAYBACK.md`](PLAYBACK.md) | Discovery, адаптеры, Media3, Web fallback и resume | При любом изменении воспроизведения |
 | [`SECURITY.md`](SECURITY.md) | Секреты, SSRF, WebView, signing и repository hygiene | При изменении trust boundary |
@@ -86,6 +89,8 @@ Git. В репозитории остаются только clean-room выво
 - пользовательская функция изменилась → `README.md`, `CHANGELOG.md`, `PROJECT_STATE.md`;
 - реализован пункт плана → `ROADMAP.md`, `CHANGELOG.md`, профильный документ;
 - изменились модели, зависимости или data flow → `ARCHITECTURE.md`, `DECISIONS.md`;
+- изменились компоновка, цвета, launcher assets или D-pad-фокус → `UI_DESIGN.md`,
+  `TESTING.md`, аппаратная проверка;
 - изменились HTML/JSON-парсеры, зеркала или синхронизация → `SERVICE_INTEGRATION.md`,
   `SECURITY.md`, контрактные fixtures/tests;
 - изменился плеер или управление пультом → `PLAYBACK.md`, `TESTING.md`, аппаратная проверка;

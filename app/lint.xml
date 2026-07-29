@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!--
+      Intentional Android launcher setup: API 28+ resolves the adaptive anydpi XML, while
+      TV launchers that still request a density bitmap receive the branded ATV legacy icon.
+    -->
+    <issue id="IconXmlAndPng">
+        <ignore regexp="ic_launcher" />
+    </issue>
+</lint>

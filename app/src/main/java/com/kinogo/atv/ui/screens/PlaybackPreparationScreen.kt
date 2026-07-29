@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kinogo.atv.ui.KinogoTvTheme
 import com.kinogo.atv.ui.components.TvActionButton
 
 @Composable
@@ -31,6 +32,7 @@ fun PlaybackPreparationScreen(
     onRetry: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    highContrast: Boolean = false,
 ) {
     BackHandler(onBack = onBack)
     val primaryFocus = remember(errorMessage) { FocusRequester() }
@@ -38,65 +40,67 @@ fun PlaybackPreparationScreen(
         if (errorMessage != null) runCatching { primaryFocus.requestFocus() }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF05080E))
-            .padding(48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
+    KinogoTvTheme(highContrast = highContrast) {
         Column(
-            modifier = Modifier
-                .width(620.dp)
-                .background(Color(0xE6152130))
-                .padding(horizontal = 38.dp, vertical = 34.dp),
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF17262E))
+                .padding(48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.Center,
         ) {
-            if (errorMessage == null) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                Text(
-                    text = "Подготавливаем просмотр",
-                    color = Color.White,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = title,
-                    color = Color(0xFFC5CFDD),
-                    fontSize = 17.sp,
-                )
-                Text(
-                    text = "Получаем свежие источники, переводы, серии и качество…",
-                    color = Color(0xFF93A3B7),
-                    fontSize = 14.sp,
-                )
-            } else {
-                Text(
-                    text = "Не удалось подготовить просмотр",
-                    color = Color.White,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = errorMessage,
-                    color = Color(0xFFFFD18A),
-                    fontSize = 16.sp,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TvActionButton(
-                        text = "Повторить",
-                        onClick = onRetry,
-                        modifier = Modifier.focusRequester(primaryFocus),
-                        primary = true,
-                        leadingMark = "↻",
+            Column(
+                modifier = Modifier
+                    .width(620.dp)
+                    .background(Color(0xE6213842))
+                    .padding(horizontal = 38.dp, vertical = 34.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                if (errorMessage == null) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        text = "Подготавливаем просмотр",
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold,
                     )
-                    TvActionButton(
-                        text = "Назад",
-                        onClick = onBack,
-                        leadingMark = "‹",
+                    Text(
+                        text = title,
+                        color = Color(0xFFC5D7DE),
+                        fontSize = 17.sp,
                     )
+                    Text(
+                        text = "Получаем свежие источники, переводы, серии и качество…",
+                        color = Color(0xFF9EB3BC),
+                        fontSize = 14.sp,
+                    )
+                } else {
+                    Text(
+                        text = "Не удалось подготовить просмотр",
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = errorMessage,
+                        color = Color(0xFFFFD18A),
+                        fontSize = 16.sp,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TvActionButton(
+                            text = "Повторить",
+                            onClick = onRetry,
+                            modifier = Modifier.focusRequester(primaryFocus),
+                            primary = true,
+                            leadingMark = "↻",
+                        )
+                        TvActionButton(
+                            text = "Назад",
+                            onClick = onBack,
+                            leadingMark = "‹",
+                        )
+                    }
                 }
             }
         }

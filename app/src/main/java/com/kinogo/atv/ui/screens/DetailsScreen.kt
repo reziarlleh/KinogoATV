@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.components.TvChoiceChip
+import com.kinogo.atv.ui.components.PosterArtwork
 import com.kinogo.atv.ui.model.DetailsUiModel
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 import com.kinogo.atv.domain.WatchStatus
@@ -108,8 +110,8 @@ fun DetailsScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(end = 18.dp, bottom = 38.dp),
-        verticalArrangement = Arrangement.spacedBy(22.dp),
+        contentPadding = PaddingValues(end = 10.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item(key = "details-hero-${details.id}") {
             DetailsHero(
@@ -141,31 +143,11 @@ fun DetailsScreen(
                 },
                 isFavorite = isFavorite,
                 onFavoriteToggle = onFavoriteToggle,
+                watchStatus = watchStatus,
+                onWatchStatusChange = onWatchStatusChange,
                 backFocus = backFocus,
                 playbackFocus = playbackFocus,
             )
-        }
-
-        item(key = "details-library-${details.id}") {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                item(key = "none") {
-                    TvChoiceChip(
-                        text = "Не смотрел",
-                        selected = watchStatus == null,
-                        onClick = { onWatchStatusChange(null) },
-                    )
-                }
-                items(items = WatchStatus.entries, key = WatchStatus::folder) { status ->
-                    TvChoiceChip(
-                        text = status.title,
-                        selected = watchStatus == status,
-                        onClick = { onWatchStatusChange(status) },
-                    )
-                }
-            }
         }
     }
 }
@@ -178,6 +160,8 @@ private fun DetailsHero(
     onRestart: () -> Unit,
     isFavorite: Boolean,
     onFavoriteToggle: () -> Unit,
+    watchStatus: WatchStatus?,
+    onWatchStatusChange: (WatchStatus?) -> Unit,
     backFocus: FocusRequester,
     playbackFocus: FocusRequester,
 ) {
@@ -185,11 +169,7 @@ private fun DetailsHero(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(
-                min = when {
-                    details.providerPlayback -> 380.dp
-                    details.statusMessage != null -> 370.dp
-                    else -> 340.dp
-                },
+                min = 390.dp,
             )
             .clip(RoundedCornerShape(18.dp))
             .background(
@@ -211,9 +191,9 @@ private fun DetailsHero(
         )
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.84f)
-                .padding(26.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             TvActionButton(
                 text = "Назад",
@@ -221,77 +201,130 @@ private fun DetailsHero(
                 modifier = Modifier.focusRequester(backFocus),
                 leadingMark = "‹",
             )
-            Text(
-                text = details.title,
-                color = Color.White,
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(text = details.originalTitle, color = Color(0xFF9EABC0), fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(
-                    text = details.rating,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                )
-                Text(text = details.metadata, color = Color(0xFFD4DCE9), fontSize = 14.sp)
-            }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                verticalAlignment = Alignment.Top,
             ) {
-                if (details.providerPlayback) {
-                    TvActionButton(
-                        text = "Смотреть",
-                        onClick = onResume,
-                        modifier = Modifier.focusRequester(playbackFocus),
-                        primary = true,
-                        leadingMark = "▶",
-                        enabled = details.playbackAvailable,
+                PosterArtwork(
+                    title = details.title,
+                    accentArgb = details.accentArgb,
+                    posterUrl = details.posterUrl,
+                    modifier = Modifier
+                        .width(205.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = details.title,
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
-                } else {
-                    TvActionButton(
-                        text = details.resumeLabel,
-                        onClick = onResume,
-                        modifier = Modifier.focusRequester(playbackFocus),
-                        primary = true,
-                        leadingMark = "▶",
-                        enabled = details.playbackAvailable,
-                    )
-                    TvActionButton(
-                        text = "С начала",
-                        onClick = onRestart,
-                        leadingMark = "↺",
-                        enabled = details.playbackAvailable,
+                    if (details.originalTitle.isNotBlank()) {
+                        Text(
+                            text = details.originalTitle,
+                            color = Color(0xFF9EABC0),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        if (details.rating.isNotBlank()) {
+                            Text(
+                                text = details.rating,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                            )
+                        }
+                        Text(
+                            text = details.metadata,
+                            color = Color(0xFFD4DCE9),
+                            fontSize = 14.sp,
+                        )
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (details.providerPlayback) {
+                            TvActionButton(
+                                text = "Смотреть",
+                                onClick = onResume,
+                                modifier = Modifier.focusRequester(playbackFocus),
+                                primary = true,
+                                leadingMark = "▶",
+                                enabled = details.playbackAvailable,
+                            )
+                        } else {
+                            TvActionButton(
+                                text = details.resumeLabel,
+                                onClick = onResume,
+                                modifier = Modifier.focusRequester(playbackFocus),
+                                primary = true,
+                                leadingMark = "▶",
+                                enabled = details.playbackAvailable,
+                            )
+                            TvActionButton(
+                                text = "С начала",
+                                onClick = onRestart,
+                                leadingMark = "↺",
+                                enabled = details.playbackAvailable,
+                            )
+                        }
+                        TvActionButton(
+                            text = if (isFavorite) "В избранном" else "В избранное",
+                            onClick = onFavoriteToggle,
+                            leadingMark = if (isFavorite) "✓" else "♥",
+                        )
+                    }
+                    LazyRow(
+                        contentPadding = PaddingValues(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        item(key = "none") {
+                            TvChoiceChip(
+                                text = "Не смотрел",
+                                selected = watchStatus == null,
+                                onClick = { onWatchStatusChange(null) },
+                            )
+                        }
+                        items(
+                            items = WatchStatus.entries,
+                            key = WatchStatus::folder,
+                        ) { status ->
+                            TvChoiceChip(
+                                text = status.title,
+                                selected = watchStatus == status,
+                                onClick = { onWatchStatusChange(status) },
+                            )
+                        }
+                    }
+                    details.statusMessage?.let { message ->
+                        Text(
+                            text = message,
+                            color = if (details.playbackAvailable) {
+                                Color(0xFFB8D8BA)
+                            } else {
+                                Color(0xFFFFD18A)
+                            },
+                            fontSize = 12.sp,
+                        )
+                    }
+                    Text(
+                        text = details.summary,
+                        color = Color(0xFFC0CAD9),
+                        fontSize = 13.sp,
                     )
                 }
-                TvActionButton(
-                    text = if (isFavorite) "В избранном" else "В избранное",
-                    onClick = onFavoriteToggle,
-                    leadingMark = if (isFavorite) "✓" else "♥",
-                )
             }
-            details.statusMessage?.let { message ->
-                Text(
-                    text = message,
-                    color = if (details.playbackAvailable) {
-                        Color(0xFFB8D8BA)
-                    } else {
-                        Color(0xFFFFD18A)
-                    },
-                    fontSize = 12.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                text = details.summary,
-                color = Color(0xFFC0CAD9),
-                fontSize = 13.sp,
-            )
         }
     }
 }

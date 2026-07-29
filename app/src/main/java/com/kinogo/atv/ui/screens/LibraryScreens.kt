@@ -15,32 +15,49 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import com.kinogo.atv.domain.LibraryFilter
 import com.kinogo.atv.ui.components.EmptyState
+import com.kinogo.atv.ui.components.MicrophoneMark
 import com.kinogo.atv.ui.components.PosterCard
-import com.kinogo.atv.ui.components.PosterGridMinimumWidth
-import com.kinogo.atv.ui.components.TvActionButton
+import com.kinogo.atv.ui.components.PosterGridColumnCount
 import com.kinogo.atv.ui.components.TvChoiceChip
+import com.kinogo.atv.ui.components.TvIconButton
 import com.kinogo.atv.ui.components.TvSectionTitle
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
-import com.kinogo.atv.domain.LibraryFilter
 import kotlinx.coroutines.delay
+
+internal const val SEARCH_DEBOUNCE_MILLIS = 750L
 
 @Composable
 fun SearchScreen(
@@ -53,7 +70,23 @@ fun SearchScreen(
     onQueryChanged: (String) -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
+    var submittedQuery by remember { mutableStateOf<String?>(null) }
     var voiceSearchError by remember { mutableStateOf(false) }
+    var focusResultsWhenReady by remember { mutableStateOf(false) }
+    val inputFocus = remember { FocusRequester() }
+    val firstResultFocus = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    fun submit(value: String) {
+        val normalized = value.trim()
+        submittedQuery = normalized
+        focusResultsWhenReady = true
+        keyboard?.hide()
+        focusManager.clearFocus(force = true)
+        if (useRemoteResults) onQueryChanged(normalized)
+    }
+
     val voiceSearchLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -61,41 +94,81 @@ fun SearchScreen(
             result.data
                 ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 ?.firstOrNull()
-                ?.let { query = it }
+                ?.let { spokenQuery ->
+                    query = spokenQuery
+                    submit(spokenQuery)
+                }
             voiceSearchError = false
         }
     }
-    LaunchedEffect(query, useRemoteResults) {
-        if (useRemoteResults) {
-            delay(350L)
-            onQueryChanged(query.trim())
+
+    LaunchedEffect(Unit) { inputFocus.requestFocus() }
+    LaunchedEffect(query, useRemoteResults, submittedQuery) {
+        val normalized = query.trim()
+        if (useRemoteResults && normalized != submittedQuery) {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            onQueryChanged(normalized)
         }
     }
     val results = if (useRemoteResults) {
         catalog
-    } else if (query.isBlank()) catalog.take(10) else {
+    } else if (query.isBlank()) {
+        catalog.take(12)
+    } else {
         catalog.filter { it.title.contains(query, ignoreCase = true) }
+    }
+    LaunchedEffect(results.firstOrNull()?.id, focusResultsWhenReady, isLoading) {
+        if (focusResultsWhenReady && !isLoading && results.isNotEmpty()) {
+            firstResultFocus.requestFocus()
+            focusResultsWhenReady = false
+        }
     }
 
     Column(
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        TvSectionTitle(text = "Поиск", trailing = "Голосом или с пульта")
+        TvSectionTitle(text = "Поиск", trailing = "Введите запрос или нажмите микрофон")
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedTextField(
                 value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.weight(1f),
+                onValueChange = {
+                    query = it
+                    submittedQuery = null
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(inputFocus)
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
+                            submit(query)
+                            true
+                        } else {
+                            false
+                        }
+                    },
                 label = { Text("Название фильма или сериала") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { submit(query) }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.White,
+                    unfocusedTextColor = Color.White,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = Color(0xFF6C8792),
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    unfocusedLabelColor = Color(0xFFD0DEE4),
+                    cursorColor = MaterialTheme.colorScheme.primary,
+                    focusedContainerColor = Color(0xFF29424D),
+                    unfocusedContainerColor = Color(0xFF29424D),
+                ),
             )
-            TvActionButton(
-                text = "Голосовой поиск",
+            TvIconButton(
+                contentDescription = "Голосовой поиск",
                 onClick = {
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(
@@ -110,14 +183,15 @@ fun SearchScreen(
                         voiceSearchError = true
                     }
                 },
-                leadingMark = "●",
-            )
+            ) { color ->
+                MicrophoneMark(color = color)
+            }
         }
         if (voiceSearchError) {
             Text(
                 text = "Голосовой ввод недоступен на этом устройстве",
-                color = Color(0xFFFFB4AB),
-                fontSize = 12.sp,
+                color = Color(0xFFFFD0CC),
+                fontSize = 11.sp,
             )
         }
         Text(
@@ -127,8 +201,8 @@ fun SearchScreen(
                 query.isBlank() -> "Новинки каталога"
                 else -> "Найдено: ${results.size}"
             },
-            color = if (errorMessage != null) Color(0xFFFFB4AB) else Color(0xFFC8D1DF),
-            fontSize = 15.sp,
+            color = if (errorMessage != null) Color(0xFFFFD0CC) else Color(0xFFE0EBEF),
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
         PosterGrid(
@@ -136,6 +210,7 @@ fun SearchScreen(
             onOpenDetails = onOpenDetails,
             emptyTitle = "Ничего не найдено",
             emptyDescription = "Попробуйте изменить запрос",
+            firstFocus = firstResultFocus,
         )
     }
 }
@@ -163,22 +238,30 @@ fun BookmarksScreen(
     val filtered = bookmarks.filter { bookmark ->
         when (selectedFilter) {
             LibraryFilter.ALL -> bookmark.favorite || bookmark.watchStatus != null
-            LibraryFilter.WATCHING -> bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.WATCHING
-            LibraryFilter.WATCHED -> bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.WATCHED
-            LibraryFilter.PLANNED -> bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.PLANNED
-            LibraryFilter.DROPPED -> bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.DROPPED
+            LibraryFilter.WATCHING ->
+                bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.WATCHING
+
+            LibraryFilter.WATCHED ->
+                bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.WATCHED
+
+            LibraryFilter.PLANNED ->
+                bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.PLANNED
+
+            LibraryFilter.DROPPED ->
+                bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.DROPPED
+
             LibraryFilter.FAVORITES -> bookmark.favorite
         }
     }.map { it.poster }
 
     Column(
         modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(13.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         TvSectionTitle(text = "Закладки", trailing = "${filtered.size} материалов")
         androidx.compose.foundation.lazy.LazyRow(
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             items(LibraryFilter.entries, key = LibraryFilter::name) { filter ->
                 TvChoiceChip(
@@ -198,11 +281,12 @@ fun BookmarksScreen(
 }
 
 @Composable
-private fun PosterGrid(
+internal fun PosterGrid(
     items: List<PosterUiModel>,
     onOpenDetails: (String) -> Unit,
     emptyTitle: String,
     emptyDescription: String,
+    firstFocus: FocusRequester? = null,
 ) {
     if (items.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -211,14 +295,18 @@ private fun PosterGrid(
         return
     }
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = PosterGridMinimumWidth),
+        columns = GridCells.Fixed(PosterGridColumnCount),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 6.dp, top = 7.dp, end = 18.dp, bottom = 38.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(start = 2.dp, top = 3.dp, end = 5.dp, bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(items = items, key = { it.id }) { item ->
-            PosterCard(item = item, onClick = { onOpenDetails(item.id) })
+        itemsIndexed(items = items, key = { _, item -> item.id }) { index, item ->
+            PosterCard(
+                item = item,
+                onClick = { onOpenDetails(item.id) },
+                focusRequester = if (index == 0) firstFocus else null,
+            )
         }
     }
 }

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,7 +34,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,6 +63,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -93,6 +97,9 @@ import com.kinogo.atv.player.EpisodeDirection
 import com.kinogo.atv.player.EpisodeNumberInput
 import com.kinogo.atv.player.Media3PlayerController
 import com.kinogo.atv.player.Media3PlayerHost
+import com.kinogo.atv.player.PlaybackCompletionDecision
+import com.kinogo.atv.player.PlaybackItemTransitionCompletion
+import com.kinogo.atv.player.PlaybackPauseCompletion
 import com.kinogo.atv.player.PlayerDrawer
 import com.kinogo.atv.player.PlayerHudFocusTarget
 import com.kinogo.atv.player.PlayerHudState
@@ -108,7 +115,11 @@ import com.kinogo.atv.player.TvPlayerKeyMapper
 import com.kinogo.atv.player.TvPlayerReducer
 import com.kinogo.atv.player.TvPlayerState
 import com.kinogo.atv.player.VisibleHudKeyKind
+import com.kinogo.atv.player.completedPlaybackCheckpoint
+import com.kinogo.atv.player.playbackItemTransitionCompletion
+import com.kinogo.atv.player.playbackPauseCompletion
 import com.kinogo.atv.player.shouldDispatchVisibleHudKeyAtRoot
+import com.kinogo.atv.player.playbackCompletionDecision
 import com.kinogo.atv.player.toPlayerReducerConfig
 import com.kinogo.atv.player.withSubtitlePreference
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
@@ -205,6 +216,7 @@ fun TvPlayerScreen(
             exitCallback = onExit,
             reducerConfig = reducerConfig,
             initialSubtitlesEnabled = textTracksEnabled,
+            autoNextEpisode = preferences.autoNextEpisode,
         )
     }
     val mediaSession = remember(player, runtime) {
@@ -331,6 +343,13 @@ fun TvPlayerScreen(
                 runtime = runtime,
                 firstItemFocus = drawerFocus,
                 modifier = Modifier.align(Alignment.CenterEnd),
+            )
+        }
+
+        if (runtime.isBuffering) {
+            PlayerBufferingIndicator(
+                reduceMotion = preferences.reduceMotion,
+                modifier = Modifier.align(Alignment.Center),
             )
         }
     }
@@ -614,13 +633,6 @@ private fun PlayerTimeline(
         modifier = modifier
             .fillMaxWidth()
             .onFocusChanged { focused = it.isFocused }
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (focused) Color(0x6637465E) else Color.Transparent)
-            .border(
-                width = if (focused) 3.dp else 0.dp,
-                color = if (focused) Color.White else Color.Transparent,
-                shape = RoundedCornerShape(8.dp),
-            )
             .onPreviewKeyEvent { event ->
                 val native = event.nativeKeyEvent
                 if (native.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
@@ -650,8 +662,73 @@ private fun PlayerTimeline(
             color = MaterialTheme.colorScheme.primary,
             trackColor = Color(0xFF465061),
         )
+        if (focused) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(18.dp),
+            ) {
+                val radius = 6.dp.toPx()
+                drawCircle(
+                    color = Color.White,
+                    radius = radius,
+                    center = Offset(
+                        x = timelineMarkerCenterX(
+                            widthPx = size.width,
+                            radiusPx = radius,
+                            progress = progress,
+                        ),
+                        y = size.height / 2f,
+                    ),
+                )
+            }
+        }
     }
 }
+
+@Composable
+private fun PlayerBufferingIndicator(
+    reduceMotion: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .size(88.dp)
+            .clip(CircleShape)
+            .background(Color(0xB8000000))
+            .semantics { contentDescription = "Буферизация" },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (reduceMotion) {
+            Canvas(modifier = Modifier.size(52.dp)) {
+                drawCircle(
+                    color = Color.White,
+                    radius = size.minDimension / 2f - 3.dp.toPx(),
+                    style = Stroke(width = 5.dp.toPx()),
+                )
+            }
+        } else {
+            CircularProgressIndicator(
+                modifier = Modifier.size(52.dp),
+                color = Color.White,
+                strokeWidth = 5.dp,
+            )
+        }
+    }
+}
+
+internal fun timelineMarkerCenterX(
+    widthPx: Float,
+    radiusPx: Float,
+    progress: Float,
+): Float {
+    val width = widthPx.coerceAtLeast(0f)
+    val radius = radiusPx.coerceIn(0f, width / 2f)
+    return radius + (width - radius * 2f) * progress.coerceIn(0f, 1f)
+}
+
+internal fun isPlayerBuffering(playbackState: Int): Boolean =
+    playbackState == Player.STATE_BUFFERING
 
 @Composable
 private fun EpisodeQuickRow(runtime: TvPlayerRuntime) {
@@ -1112,6 +1189,7 @@ private class TvPlayerRuntime(
     exitCallback: () -> Unit,
     reducerConfig: PlayerReducerConfig,
     initialSubtitlesEnabled: Boolean,
+    private val autoNextEpisode: Boolean,
 ) : Media3PlayerHost {
     private val reducer = TvPlayerReducer(reducerConfig)
     private val keyMapper = TvPlayerKeyMapper()
@@ -1121,6 +1199,8 @@ private class TvPlayerRuntime(
     private var lastAppliedAudioVariantId: String? = null
     private var lastAppliedVideoSelectionKey: String? = null
     private var lastAppliedSubtitleSelectionKey: String? = null
+    private var completionHandled = false
+    private var skipCloseCheckpoint = false
     private val hudRevealKeyReleaseGuard = PlayerKeyReleaseGuard()
 
     private val baseSelection: PlaybackSelectionUiModel = selection
@@ -1202,6 +1282,8 @@ private class TvPlayerRuntime(
         private set
     var durationMs by mutableLongStateOf(0L)
         private set
+    var isBuffering by mutableStateOf(false)
+        private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
     var state by mutableStateOf(TvPlayerState())
@@ -1230,10 +1312,48 @@ private class TvPlayerRuntime(
 
     private val playerListener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            if (!playWhenReady) checkpoint()
+            when (
+                playbackPauseCompletion(
+                    playWhenReady = playWhenReady,
+                    mediaItemEnded =
+                        reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM,
+                )
+            ) {
+                PlaybackPauseCompletion.IGNORE -> Unit
+                PlaybackPauseCompletion.CHECKPOINT -> checkpoint()
+                PlaybackPauseCompletion.CHECKPOINT_AND_EXIT -> {
+                    if (!completionHandled) {
+                        completionHandled = true
+                        checkpointCompletedSelection()
+                        skipCloseCheckpoint = true
+                        onExitRequested()
+                    }
+                }
+            }
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            when (
+                playbackItemTransitionCompletion(
+                    automaticTransition =
+                        reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO,
+                    autoNextEpisode = autoNextEpisode,
+                )
+            ) {
+                PlaybackItemTransitionCompletion.IGNORE -> Unit
+                PlaybackItemTransitionCompletion.CHECKPOINT_AND_ADVANCE -> {
+                    checkpointCompletedSelection()
+                }
+                PlaybackItemTransitionCompletion.CHECKPOINT_AND_EXIT -> {
+                    if (!completionHandled) {
+                        completionHandled = true
+                        checkpointCompletedSelection()
+                        skipCloseCheckpoint = true
+                        onExitRequested()
+                    }
+                    return
+                }
+            }
             val variantId = mediaItem?.localConfiguration?.tag as? String
             mediaPlan.findById(variantId.orEmpty())?.let { variant ->
                 selectedSourceId = variant.sourceId
@@ -1255,12 +1375,21 @@ private class TvPlayerRuntime(
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            isBuffering = isPlayerBuffering(playbackState)
             refreshTimeline()
-            if (playbackState == Player.STATE_READY) errorMessage = null
-            if (playbackState == Player.STATE_ENDED) checkpoint()
+            if (playbackState == Player.STATE_READY) {
+                completionHandled = false
+                errorMessage = null
+            }
+            if (playbackState == Player.STATE_ENDED && !completionHandled) {
+                completionHandled = true
+                checkpointCompletedSelection()
+                handlePlaybackCompleted()
+            }
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            isBuffering = false
             errorMessage = userSafePlaybackError(error)
             checkpoint()
             dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
@@ -1496,7 +1625,7 @@ private class TvPlayerRuntime(
     }
 
     fun close() {
-        checkpoint()
+        if (!skipCloseCheckpoint) checkpoint()
         timeoutJobs.values.forEach { it.cancel() }
         timeoutJobs.clear()
         controller.detach()
@@ -1531,6 +1660,37 @@ private class TvPlayerRuntime(
             dispatch(PlayerIntent.EpisodeTransitionFinished)
             return
         }
+        val target = when (direction) {
+            EpisodeDirection.NEXT -> mediaPlan.nextEpisodeCoordinate(
+                sourceId = selectedSourceId,
+                seasonNumber = season,
+                episodeNumber = selectedEpisode,
+                voiceover = selectedVoiceover,
+            )
+            EpisodeDirection.PREVIOUS -> mediaPlan.previousEpisodeCoordinate(
+                sourceId = selectedSourceId,
+                seasonNumber = season,
+                episodeNumber = selectedEpisode,
+                voiceover = selectedVoiceover,
+            )
+        }
+        if (target != null) {
+            val variant = mediaPlan.preferred(
+                sourceId = selectedSourceId,
+                seasonNumber = target.seasonNumber,
+                episodeNumber = target.episodeNumber,
+                voiceover = selectedVoiceover,
+                quality = selectedQuality,
+            )
+            replacePlaybackContext(
+                sourceId = selectedSourceId,
+                seasonNumber = target.seasonNumber,
+                episodeNumber = target.episodeNumber,
+                variant = variant,
+                retainPosition = false,
+            )
+            return
+        }
         when (direction) {
             EpisodeDirection.NEXT -> {
                 errorMessage = "Это последняя серия"
@@ -1541,6 +1701,44 @@ private class TvPlayerRuntime(
                 errorMessage = "Это первая серия"
                 dispatch(PlayerIntent.EpisodeTransitionFinished)
                 dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+            }
+        }
+    }
+
+    private fun handlePlaybackCompleted() {
+        when (
+            val decision = playbackCompletionDecision(
+                mediaPlan = mediaPlan,
+                sourceId = selectedSourceId,
+                seasonNumber = currentSeasonNumber(),
+                episodeNumber = currentEpisodeNumber(),
+                voiceover = selectedVoiceover,
+                autoNextEpisode = autoNextEpisode,
+            )
+        ) {
+            is PlaybackCompletionDecision.Advance -> {
+                val target = decision.coordinate
+                val variant = mediaPlan.preferred(
+                    sourceId = selectedSourceId,
+                    seasonNumber = target.seasonNumber,
+                    episodeNumber = target.episodeNumber,
+                    voiceover = selectedVoiceover,
+                    quality = selectedQuality,
+                )
+                replacePlaybackContext(
+                    sourceId = selectedSourceId,
+                    seasonNumber = target.seasonNumber,
+                    episodeNumber = target.episodeNumber,
+                    variant = variant,
+                    retainPosition = false,
+                    revealHud = false,
+                    checkpointBeforeReplace = false,
+                )
+                player.play()
+            }
+            PlaybackCompletionDecision.Exit -> {
+                skipCloseCheckpoint = true
+                onExitRequested()
             }
         }
     }
@@ -1588,8 +1786,10 @@ private class TvPlayerRuntime(
         episodeNumber: Int?,
         variant: PlaybackMediaVariant,
         retainPosition: Boolean,
+        revealHud: Boolean = true,
+        checkpointBeforeReplace: Boolean = true,
     ) {
-        checkpoint()
+        if (checkpointBeforeReplace) checkpoint()
         val currentPosition = if (retainPosition) {
             player.currentPosition.coerceAtLeast(0L)
         } else {
@@ -1609,7 +1809,19 @@ private class TvPlayerRuntime(
         player.prepare()
         player.playWhenReady = shouldPlay
         errorMessage = null
-        dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+        if (revealHud) dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+    }
+
+    private fun checkpointCompletedSelection() {
+        val completed = completedPlaybackCheckpoint(
+            lastPositionMs = positionMs,
+            lastDurationMs = durationMs,
+        )
+        checkpointCallback(
+            currentSelection(),
+            completed.positionMs,
+            completed.durationMs,
+        )
     }
 
     private fun mediaItems(): List<MediaItem> = if (isEpisode) {

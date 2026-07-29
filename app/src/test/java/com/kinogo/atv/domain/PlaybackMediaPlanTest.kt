@@ -168,6 +168,74 @@ class PlaybackMediaPlanTest {
     }
 
     @Test
+    fun `episode navigation crosses sparse season boundaries within selected translation`() {
+        val plan = PlaybackMediaPlan(
+            listOf(
+                variant(
+                    id = "dub-s1-e2",
+                    episode = 2,
+                    voiceover = "Дубляж",
+                    quality = "1080p",
+                    sourceId = "provider",
+                    sourceLabel = "Источник",
+                    season = 1,
+                ),
+                variant(
+                    id = "original-s2-e1",
+                    episode = 1,
+                    voiceover = "Оригинал",
+                    quality = "720p",
+                    sourceId = "provider",
+                    sourceLabel = "Источник",
+                    season = 2,
+                ),
+                variant(
+                    id = "dub-s3-e4",
+                    episode = 4,
+                    voiceover = "Дубляж",
+                    quality = "720p",
+                    sourceId = "provider",
+                    sourceLabel = "Источник",
+                    season = 3,
+                ),
+                variant(
+                    id = "dub-s3-e7",
+                    episode = 7,
+                    voiceover = "Дубляж",
+                    quality = "720p",
+                    sourceId = "provider",
+                    sourceLabel = "Источник",
+                    season = 3,
+                ),
+                variant(
+                    id = "other-source-s2-e9",
+                    episode = 9,
+                    voiceover = "Дубляж",
+                    quality = "Авто",
+                    sourceId = "other",
+                    sourceLabel = "Другой",
+                    season = 2,
+                ),
+            ),
+        )
+
+        assertEquals(
+            PlaybackEpisodeCoordinate(seasonNumber = 3, episodeNumber = 4),
+            plan.nextEpisodeCoordinate("provider", 1, 2, "Дубляж"),
+        )
+        assertEquals(
+            PlaybackEpisodeCoordinate(seasonNumber = 1, episodeNumber = 2),
+            plan.previousEpisodeCoordinate("provider", 3, 4, "Дубляж"),
+        )
+        assertEquals(
+            PlaybackEpisodeCoordinate(seasonNumber = 3, episodeNumber = 7),
+            plan.nextEpisodeCoordinate("provider", 3, 4, "Дубляж"),
+        )
+        assertNull(plan.previousEpisodeCoordinate("provider", 1, 2, "Дубляж"))
+        assertNull(plan.nextEpisodeCoordinate("provider", 3, 7, "Дубляж"))
+    }
+
+    @Test
     fun `plan rejects duplicate ids and duplicate selection coordinates`() {
         expectInvalid {
             PlaybackMediaPlan(

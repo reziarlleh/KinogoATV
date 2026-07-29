@@ -6,37 +6,35 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: интерфейсная полировка
+## Сейчас: аппаратная приёмка и точечная доводка 0.4.0-dev
 
-Функциональный baseline `0.3.3-dev` работает. До появления нового functional bug основная
-работа идёт над UI.
+Большая переработка интерфейса реализована: steel/cyan visual system, фиксированный rail,
+шестиколоночные сетки, новая главная, filters/search flow, компактные settings/details/source
+selection и уточнённый HUD. До дальнейшей графической полировки нужен полный TV regression
+pass; автоматическая сборка сама по себе не считается подтверждением focus/playback UX.
 
-### P0 — единая визуальная система
+### P0 — TV regression pass
 
-- Зафиксировать TV design tokens: safe area, сетка, размеры, радиусы, цвета, typography,
-  focus border/glow и disabled states.
-- Убрать локальные несогласованные размеры/цвета из экранов в общий theme/components layer.
-- Проверить overscan и читаемость на 1080p и 4K TV с реального расстояния.
-- Сохранить постоянный navigation rail и однозначную подсветку текущего раздела.
+- Проверить overscan, читаемость, плотность шести колонок и полный focus graph на 1080p/4K
+  с реального расстояния.
+- Проверить переход Left из каждого первого столбца/управляющей строки в rail и Right
+  обратно в content.
+- Проверить диалог фильтра, dropdown сортировки, search submit/keyboard hide и Settings
+  OK-only обычным пультом.
+- Проверить крупный poster/details, достижимость всех status actions и episode row на source
+  selection.
+- Проверить timeline marker и buffering overlay в реальном воспроизведении.
+- Проверить Previous/Next и auto-next на границе сезонов, а также возврат в details после
+  естественного окончания последнего материала.
 
-### P0 — экраны приложения
+### P1 — дальнейшая визуальная доводка
 
-- Главная: выровнять featured area, ряды и иерархию заголовков.
-- Каталог: улучшить filters/sort controls, card density, metadata badges и loading/error
-  состояния.
-- Поиск: привести keyboard/voice action/results к единому focus flow.
-- Карточка: разработать полноценную композицию с постером/backdrop, полным описанием и
-  действиями без пустых секций.
-- Закладки/История: улучшить фильтры, progress indication и empty states.
-- Настройки: уменьшить визуальный шум, сохранить доступность details action и D-pad cycling.
-
-### P0 — плеер
-
-- Довести размеры HUD ближе к компактному media-centre интерфейсу.
-- Проверить горизонтальное размещение transport и selectors на разных ширинах.
-- Улучшить timeline focus/feedback, buffer/error states и episode row.
+- Убирать оставшиеся локальные размеры/цвета в общий theme/components layer только после
+  characterization tests.
+- Улучшить loading/error/empty states без изменения установленного D-pad контракта.
+- Проверить горизонтальное размещение transport/selectors на разных TV aspect ratios.
 - Не менять принятый remote contract: первый OK показывает HUD, hidden seek фокусирует
-  timeline.
+  timeline, а окончание последнего материала возвращает в details.
 
 ### P1 — доступность
 
@@ -49,9 +47,10 @@ Roadmap задаёт направление, а не обещание даты. 
 
 ### Каталог
 
-- Формализовать безопасные server-side filters: жанр, год, страна.
 - Исследовать deterministic server sorting вместо зависимости только от клиентской
   сортировки загруженной страницы.
+- Исследовать комбинации нескольких серверных фильтров только при наличии воспроизводимого
+  GET/POST-контракта; не расширять одиночный `CatalogFilter` догадкой.
 - Добавить пагинацию server search.
 - Решить, нужен ли production Paging 3 flow вместо ручной пагинации.
 
@@ -98,6 +97,13 @@ Roadmap задаёт направление, а не обещание даты. 
 ## Выполненный baseline
 
 - Native Android TV shell и launcher tile.
+- Детерминированный TV branding с одобренной официальной иконкой, надписями
+  `KINOGO / for Android TV` и `ATV` launcher badge.
+- Edge-to-edge steel/cyan каркас, фиксированный rail и общая шестиколоночная poster grid.
+- Главная без hero: история одной строкой и многострочные новинки.
+- Одиночные GET-фильтры каталога по новинкам, году, стране и allowlisted жанру; локальный
+  sort dropdown.
+- Search debounce 750 ms, immediate submit с закрытием клавиатуры и graphical voice action.
 - Live catalog, top-level sections, text/voice search и early preload.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.
 - Account credentials + automatic re-login.
@@ -106,6 +112,9 @@ Roadmap задаёт направление, а не обещание даты. 
 - Native Media3 player and selection matrix.
 - Cinemar/Collaps native adapters, direct media и explicit provider Web fallback.
 - Compact HUD, bottom episode row и timeline focus after hidden seek.
+- White timeline focus marker, центральный buffering state, cross-season Previous/Next и
+  возврат в details после естественного окончания Media3.
+- Compact details/source/settings: крупный постер, видимая серия до старта и OK-only settings.
 - Persistent TV settings and exit confirmation.
 - Startup crash/stall diagnostics.
 - API 28 minimum and stable update signing.
@@ -116,7 +125,9 @@ Roadmap задаёт направление, а не обещание даты. 
 
 - WebView-оболочка всего сайта.
 - Portrait/smartphone UI.
-- Копирование UI/code/assets LazyMedia или официального APK.
+- Копирование UI/code/assets LazyMedia либо UI/code/decompiled output официального APK.
+  Единственное узкое исключение — явно одобренная официальная PNG-иконка Kinogo с
+  документированной provenance; оно не распространяется на другие assets.
 - Обход DRM, CAPTCHA, geo restrictions, 401/403 или provider protections.
 - Отключение HTTPS/public-DNS/SSRF boundary ради доступности.
 - Сохранение transient signed media URLs.

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kinogo.atv.domain.PlaybackMediaPlan
+import com.kinogo.atv.ui.KinogoTvTheme
 import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.components.TvChoiceChip
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
@@ -66,6 +67,7 @@ fun PlaybackSourceSelectionScreen(
     onWebSelected: (fallbackId: String, selection: PlaybackSelectionUiModel) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    highContrast: Boolean = false,
 ) {
     require(mediaPlan != null || webFallbacks.isNotEmpty())
     require(webFallbacks.map(PlaybackWebFallbackUiModel::id).distinct().size == webFallbacks.size)
@@ -93,43 +95,44 @@ fun PlaybackSourceSelectionScreen(
         runCatching { primaryFocus.requestFocus() }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(
-                        Color(0xFF05080E),
-                        Color(0xFF0B1D32),
-                        Color(0xFF06101D),
+    KinogoTvTheme(highContrast = highContrast) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF101A20),
+                            Color(0xFF1C3641),
+                            Color(0xFF132831),
+                        ),
                     ),
                 ),
-            ),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 46.dp, vertical = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            SelectorHeader(
-                title = title,
-                selection = effectiveSelection,
-                onBack = onBack,
-            )
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(17.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                SelectorHeader(
+                    title = title,
+                    selection = effectiveSelection,
+                    onBack = onBack,
+                )
+
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                 val plan = mediaPlan
                 val state = nativeState
                 if (plan != null && state != null) {
                     item(key = "native-heading") {
                         SelectorSectionHeading(
                             title = "Нативный плеер",
-                            description = "Единое управление обычным пультом",
+                            description = "Источник, перевод, сезон и серия",
                         )
                     }
                     item(key = "source") {
@@ -223,8 +226,8 @@ fun PlaybackSourceSelectionScreen(
                     }
                     item(key = "web-options") {
                         LazyRow(
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 5.dp),
-                            horizontalArrangement = Arrangement.spacedBy(11.dp),
+                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
                         ) {
                             items(
                                 items = webFallbacks,
@@ -249,35 +252,36 @@ fun PlaybackSourceSelectionScreen(
                         }
                     }
                 }
-            }
+                }
 
-            if (mediaPlan != null && nativeState != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Выбор можно изменить во время просмотра",
-                        color = Color(0xFF90A2B9),
-                        fontSize = 13.sp,
-                    )
-                    TvActionButton(
-                        text = if (mayContinue) {
-                            "Продолжить · ${formatPlaybackPosition(resumePositionMs)}"
-                        } else {
-                            "Смотреть"
-                        },
-                        onClick = {
-                            onNativeSelected(
-                                requireNotNull(nativeState).sourceId,
-                                launchSelection,
-                            )
-                        },
-                        modifier = Modifier.focusRequester(primaryFocus),
-                        primary = true,
-                        leadingMark = "▶",
-                    )
+                if (mediaPlan != null && nativeState != null) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Выбор можно изменить во время просмотра",
+                            color = Color(0xFFB7C8CF),
+                            fontSize = 12.sp,
+                        )
+                        TvActionButton(
+                            text = if (mayContinue) {
+                                "Продолжить · ${formatPlaybackPosition(resumePositionMs)}"
+                            } else {
+                                "Смотреть"
+                            },
+                            onClick = {
+                                onNativeSelected(
+                                    requireNotNull(nativeState).sourceId,
+                                    launchSelection,
+                                )
+                            },
+                            modifier = Modifier.focusRequester(primaryFocus),
+                            primary = true,
+                            leadingMark = "▶",
+                        )
+                    }
                 }
             }
         }
@@ -292,7 +296,7 @@ private fun SelectorHeader(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TvActionButton(
@@ -307,7 +311,7 @@ private fun SelectorHeader(
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 29.sp,
+                fontSize = 25.sp,
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -320,7 +324,7 @@ private fun SelectorHeader(
             Text(
                 text = "$unit · ${selection.voiceover} · ${selection.quality}",
                 color = Color(0xFF9FB1C8),
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -340,20 +344,20 @@ private fun SelectorSectionHeading(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 11.dp),
+                .padding(horizontal = 12.dp, vertical = 7.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 text = description,
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
             )
         }
     }
@@ -366,16 +370,16 @@ private fun SelectorOptionsRow(
     selectedId: String,
     onSelected: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             text = title,
             color = Color(0xFFD8E2EF),
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
         )
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             items(items = options, key = { it.first }) { (id, label) ->
                 TvChoiceChip(

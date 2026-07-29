@@ -12,7 +12,7 @@
 
 ### B-001 — 0.3.3-dev
 
-- Статус: verified current baseline
+- Статус: verified rollback baseline
 - Runtime-дата: 28 июля 2026 года
 - Source tag: `baseline-0.3.3-dev`
 - APK: `dist/KinogoTV-0.3.3-dev.apk`
@@ -65,8 +65,11 @@
 - Статус: Resolved before B-001
 - Наблюдалось: 22 июля 2026 года
 - Симптом: focus был виден, но Left/Right/OK не меняли значения либо значение не сохранялось.
-- Исправление: единый `TvPreferences.cycle`, `SettingCycleDirection`, DataStore codec/store и
-  D-pad row handling.
+- Исправление до B-001: единый `TvPreferences.cycle`, `SettingCycleDirection`, DataStore
+  codec/store и D-pad row handling.
+- Уточнение 0.4.0-dev: значение меняется только по OK через
+  `SettingCycleDirection.NEXT`; Left/Right больше не перехватываются строкой и остаются
+  навигационными клавишами, включая выход в rail.
 - Guards: `TvPreferencesTest`, `TvPreferencesStoreTest`, `TvPreferencesUiMapperTest`,
   `SettingsScreenDpadTest`.
 - При повторе: отдельно проверить pure cycle, persistence и Compose key routing.
@@ -119,8 +122,10 @@
 - Причина: одноразовый Compose `FocusRequester.requestFocus()` возвращал `false`, пока
   timeline ещё не был подключён к focus tree.
 - Исправление: `requestHudFocusWithRetry` повторяет запрос на следующих frames; visible-HUD
-  root routing сохраняет быстрые повторные key events.
-- Guards: `HudFocusRequestTest`, `VisibleHudKeyRoutingTest`, player reducer tests.
+  root routing сохраняет быстрые повторные key events. В 0.4.0-dev тяжёлая focus-рамка
+  timeline заменена белой точкой текущей позиции без изменения focus target.
+- Guards: `HudFocusRequestTest`, `VisibleHudKeyRoutingTest`, `PlayerHudVisualStateTest`,
+  player reducer tests.
 - Hardware evidence: timeline focus подтверждён на KIVI после появления HUD.
 
 ### R-008 — Managed instrumentation затронул данные пользовательского приложения
@@ -133,6 +138,28 @@
 - Исправление процесса: этот command запрещён в `AGENTS.md`; точечный test собирается и
   запускается вручную, затем удаляется только `com.kinogo.atv.test`.
 - Guard: review checklist в `TESTING.md` и `RELEASE_PROCESS.md`.
+
+### R-009 — Граница сезона и завершение player flow не были формализованы
+
+- Статус: Preventive contract implemented in 0.4.0-dev; hardware verification pending
+- Обнаружено: 29 июля 2026 года как явное продуктовое требование; подтверждённый старый
+  runtime-сбой не зафиксирован.
+- Affected baseline: B-001 подтверждает обычное воспроизведение и переходы в пределах
+  проверенного сценария, но не доказывает границу сезонов или естественное окончание
+  последнего материала.
+- Риск: алгоритм `episode ± 1` останавливается на конце сезона, создаёт несуществующую серию
+  либо оставляет пользователя на fullscreen/source screen после `STATE_ENDED`.
+- Исправление: `PlaybackMediaPlan.previousEpisodeCoordinate/nextEpisodeCoordinate` обходят
+  реальные sparse-координаты выбранных source/voiceover; `PlaybackCompletionPolicy`
+  выполняет cross-season auto-next и возвращает в details для фильма, последней серии или
+  отключённого auto-next. Автоматический переход Media3 сохраняет checkpoint завершённой
+  серии до смены координат, а `PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM` отдельно
+  закрывает сценарий с выключенным auto-next, где `STATE_ENDED` между элементами нет.
+- Protective tests: `PlaybackMediaPlanTest`, `PlaybackCompletionPolicyTest`.
+- Runtime verification: в этой записи не заявляется; требуется TV-сценарий с контентом,
+  содержащим минимум два сезона, и отдельная проверка окончания фильма/последней серии.
+- Rollback point: B-001 остаётся проверенной точкой возврата для основной playback-базы, но
+  не содержит новый completion contract.
 
 ## Шаблон новой записи
 

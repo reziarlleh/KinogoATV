@@ -28,7 +28,7 @@ class SettingsScreenDpadTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun focusedSettingHandlesLeftRightAndCenterWithoutLosingFocus() {
+    fun focusedSettingChangesOnlyOnCenterWhileHorizontalDpadRemainsNavigation() {
         composeRule.setContent {
             var preferences by remember { mutableStateOf(TvPreferences()) }
             MaterialTheme {
@@ -48,7 +48,7 @@ class SettingsScreenDpadTest {
 
         quality.performKeyInput { pressKey(Key.DirectionRight) }
         quality.assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "4K"),
+            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Авто"),
         )
 
         quality.performKeyInput { pressKey(Key.DirectionLeft) }

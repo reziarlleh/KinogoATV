@@ -133,13 +133,19 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 
 ## Repository hygiene
 
-В Git входят собственные source, tests, fixtures и Markdown-выводы.
+В Git входят собственные source, tests, fixtures и Markdown-выводы. Дополнительно по прямому
+требованию пользователя разрешён один точно идентифицированный branding bitmap:
+`drawable-nodpi/ic_kinogo_original.png`, SHA-256
+`8C35D58CD0688611D9B4BFB40EE35293CD86DE3D6275E10B26B675A8CB2410C1`.
+Его provenance зафиксирована в `OFFICIAL_APP_RESEARCH.md`; launcher/banner derivatives
+создаются детерминированно нашим скриптом.
 
 Исключены:
 
 - `.signing/`, `.tools/`, `.gradle-user-home/`, build outputs;
 - `.codex-remote-attachments/` и локальные agent files;
 - `research/` со сторонними APK, smali, JADX/apktool output и screenshots;
+- все остальные assets сторонних APK, их UI layouts и decompiled code;
 - APK/AAB/IDSIG, keystore/cert/private-key форматы;
 - `.env`, `local.properties` и secrets properties;
 - пользовательские DataStore, logs и crash reports.

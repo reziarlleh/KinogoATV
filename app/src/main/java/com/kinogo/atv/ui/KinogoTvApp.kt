@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,16 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kinogo.atv.ui.components.KinogoNavigationRail
-import com.kinogo.atv.ui.components.RailContentOffset
 import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.BookmarkUiModel
@@ -56,30 +54,44 @@ import com.kinogo.atv.ui.screens.HomeScreen
 import com.kinogo.atv.ui.screens.SearchScreen
 import com.kinogo.atv.ui.screens.SettingsScreen
 import com.kinogo.atv.domain.CatalogSection
+import com.kinogo.atv.domain.CatalogFilter
 import com.kinogo.atv.domain.AccountConnectionState
 import com.kinogo.atv.domain.SettingCycleDirection
 import com.kinogo.atv.domain.VideoQualityPreference
 import com.kinogo.atv.domain.WatchStatus
 
 private val KinogoTvColors = darkColorScheme(
-    primary = Color(0xFFF4C542),
-    onPrimary = Color(0xFF111318),
-    background = Color(0xFF080C13),
+    primary = Color(0xFF43D7D2),
+    onPrimary = Color(0xFF10272D),
+    secondary = Color(0xFF62BFE9),
+    onSecondary = Color(0xFF10242D),
+    background = Color(0xFF304955),
     onBackground = Color(0xFFF5F7FA),
-    surface = Color(0xFF151D2A),
+    surface = Color(0xFF385562),
     onSurface = Color(0xFFF5F7FA),
-    surfaceVariant = Color(0xFF222D40),
-    onSurfaceVariant = Color(0xFFB9C4D4),
-    outline = Color(0xFF3A465A),
+    surfaceVariant = Color(0xFF466773),
+    onSurfaceVariant = Color(0xFFD1E0E6),
+    outline = Color(0xFF5D7B87),
 )
 
 private val KinogoTvHighContrastColors = KinogoTvColors.copy(
-    primary = Color(0xFFFFE05D),
-    background = Color.Black,
-    surface = Color(0xFF0C111A),
-    surfaceVariant = Color(0xFF1A2536),
+    primary = Color(0xFF72FFF8),
+    background = Color(0xFF101B20),
+    surface = Color(0xFF1B3039),
+    surfaceVariant = Color(0xFF284650),
     outline = Color.White,
 )
+
+@Composable
+fun KinogoTvTheme(
+    highContrast: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    MaterialTheme(
+        colorScheme = if (highContrast) KinogoTvHighContrastColors else KinogoTvColors,
+        content = content,
+    )
+}
 
 /**
  * TV-only application shell. Domain models and playback implementation stay outside the UI layer.
@@ -107,6 +119,7 @@ fun KinogoTvApp(
     homeError: String? = null,
     catalogStatusLabel: String? = null,
     catalogSection: CatalogSection = CatalogSection.ROOT,
+    catalogFilter: CatalogFilter? = null,
     searchResults: List<com.kinogo.atv.ui.model.PosterUiModel> = catalog,
     searchLoading: Boolean = false,
     searchError: String? = null,
@@ -117,6 +130,7 @@ fun KinogoTvApp(
     onHomeRetry: () -> Unit = {},
     onDetailsRequested: (String) -> Unit = {},
     onCatalogSectionSelected: (CatalogSection) -> Unit = {},
+    onCatalogFilterSelected: (CatalogFilter?) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit = {},
     onFavoriteToggle: (String) -> Unit = {},
     onWatchStatusChange: (String, WatchStatus?) -> Unit = { _, _ -> },
@@ -175,26 +189,28 @@ fun KinogoTvApp(
         }
     }
 
-    MaterialTheme(colorScheme = if (highContrast) KinogoTvHighContrastColors else KinogoTvColors) {
+    KinogoTvTheme(highContrast = highContrast) {
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF0E1521), Color(0xFF080C13), Color(0xFF05080D)),
-                    ),
-                ),
+                .background(Color(0xFF17262E)),
         ) {
-            // UI controls stay inside a 5% TV safe area; decorative background remains full bleed.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 48.dp, vertical = 24.dp),
-            ) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                KinogoNavigationRail(
+                    selected = destination,
+                    onSelected = {
+                        selectedDetailsId = null
+                        destinationName = it.name
+                    },
+                    modifier = Modifier.fillMaxHeight(),
+                )
+
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(start = RailContentOffset),
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(Color(0xFF304955))
+                        .padding(start = 14.dp, top = 10.dp, end = 10.dp, bottom = 6.dp),
                 ) {
                     if (selectedDetails != null) {
                         DetailsScreen(
@@ -231,6 +247,8 @@ fun KinogoTvApp(
                                 useRemoteSections = useRemoteCatalog,
                                 selectedSection = catalogSection,
                                 onSectionSelected = onCatalogSectionSelected,
+                                selectedAdvancedFilter = catalogFilter,
+                                onAdvancedFilterSelected = onCatalogFilterSelected,
                             )
 
                             TvDestination.Search -> SearchScreen(
@@ -275,17 +293,6 @@ fun KinogoTvApp(
                         }
                     }
                 }
-
-                KinogoNavigationRail(
-                    selected = destination,
-                    onSelected = {
-                        selectedDetailsId = null
-                        destinationName = it.name
-                    },
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .zIndex(5f),
-                )
             }
 
             if (showExitConfirmation) {
@@ -331,14 +338,14 @@ private fun ExitConfirmationDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.74f))
-                .padding(horizontal = 48.dp, vertical = 24.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             contentAlignment = Alignment.Center,
         ) {
             Surface(
                 modifier = Modifier.width(560.dp),
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF111927),
-                border = BorderStroke(2.dp, Color(0xFF53647C)),
+                color = Color(0xFF213842),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
                 shadowElevation = 28.dp,
             ) {
                 Column(
@@ -353,7 +360,7 @@ private fun ExitConfirmationDialog(
                     )
                     Text(
                         text = "Случайное нажатие «Назад» больше не закроет приложение.",
-                        color = Color(0xFFADB9C9),
+                        color = Color(0xFFD0DEE4),
                         fontSize = 15.sp,
                     )
                     Row(

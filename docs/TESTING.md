@@ -28,16 +28,17 @@
 - mirror normalization, trust, redirect и health;
 - DNS/public destination policy;
 - Cinemar/Collaps/direct/gateway playback discovery;
-- media plan mapping и dependent choices;
+- media plan mapping, dependent choices и cross-season episode coordinates;
 - history codec, legacy resolver, resume/completion;
 - TV preferences;
-- player reducer, key mapper, focus retry и HUD routing;
+- player reducer, key mapper, focus retry, HUD routing и completion policy;
 - UI mappers и ключевые pure focus/back decisions.
 
 Live HTML не должен быть единственным тестом parser. Сначала redacted fixture, затем
 необязательная read-only live-проверка.
 
-Baseline 28 июля 2026 года: 60 suites, 257 tests, 0 failures/errors/skipped.
+Последний automated run для `0.4.0-dev` от 29 июля 2026 года: **67 suites,
+281 unit test**, 0 failures/errors/skipped.
 
 ## Lint и сборка
 
@@ -132,7 +133,31 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - season/episode change starts correct playback unit;
 - source/voice/quality change preserves position only when compatible;
 - episode row shows only variants compatible with selected voice;
+- Previous с первой доступной серии сезона выбирает последнюю совместимую серию предыдущего
+  сезона;
+- Next с последней доступной серии сезона выбирает первую совместимую серию следующего
+  сезона, пропуская отсутствующие координаты;
+- auto-next использует тот же cross-season порядок для выбранных source/voiceover;
+- естественное окончание фильма, последней доступной серии или любого эпизода при
+  отключённом auto-next возвращает в details;
 - exit/player error writes checkpoint without transient URL.
+
+### Evidence для границы сезона и natural end
+
+| Сценарий | Unit/contract evidence | Аппаратная проверка 0.4.0-dev |
+| --- | --- | --- |
+| Previous через границу сезона | `PlaybackMediaPlanTest` | Pending |
+| Next через границу сезона | `PlaybackMediaPlanTest` | Pending |
+| Auto-next в первую совместимую серию следующего сезона | `PlaybackCompletionPolicyTest` | Pending |
+| Natural end фильма возвращает в details | `PlaybackCompletionPolicyTest` | Pending |
+| Natural end последней серии возвращает в details | `PlaybackCompletionPolicyTest` | **Pending: полное окончание серии на TV ещё не дождались** |
+| Отключённый auto-next возвращает в details после серии | `PlaybackCompletionPolicyTest` | Pending |
+
+Базовый старт/seek/HUD реального playback был проверен на B-001, но это не переносится
+автоматически на новый cross-season/completion flow. Для закрытия pending нужен реальный
+сигнал естественного окончания Media3 (`STATE_ENDED`, automatic transition или
+`PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM` по сценарию), а не ручной Back, seek почти
+к концу или вызов unit policy.
 
 ## Работа с пользовательскими данными
 

@@ -108,6 +108,7 @@ fun ContentDetails.toDetailsUiModel(
         metadata = metadata,
         rating = rating,
         accentArgb = stableAccent(catalogItem.id),
+        posterUrl = catalogItem.posterUrl,
         seasons = seasons.mapIndexed { index, season -> season.number ?: index + 1 },
         episodes = episodeModels,
         voiceovers = voices.map { it.label },

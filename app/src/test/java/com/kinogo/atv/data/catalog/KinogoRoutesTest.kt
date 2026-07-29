@@ -1,5 +1,7 @@
 package com.kinogo.atv.data.catalog
 
+import com.kinogo.atv.domain.CatalogFilter
+import com.kinogo.atv.domain.CatalogGenre
 import com.kinogo.atv.domain.CatalogQuery
 import com.kinogo.atv.domain.CatalogSection
 import org.junit.Assert.assertEquals
@@ -42,9 +44,62 @@ class KinogoRoutesTest {
     }
 
     @Test
+    fun buildsOnlyConfirmedDeterministicFilterRoutes() {
+        assertEquals(
+            "/novinki/",
+            KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.NewReleases)),
+        )
+        assertEquals(
+            "/xfsearch/god/2026/",
+            KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.Year(2026))),
+        )
+        assertEquals(
+            "/xfsearch/country/%D0%A1%D0%A8%D0%90/page/2/",
+            KinogoRoutes.catalog(
+                CatalogQuery(filter = CatalogFilter.Country(" США "), page = 2),
+            ),
+        )
+        assertEquals(
+            "/boevik/",
+            KinogoRoutes.catalog(
+                CatalogQuery(filter = CatalogFilter.Genre(CatalogGenre.ACTION)),
+            ),
+        )
+        val genreRoutes = mapOf(
+            CatalogGenre.ACTION to "/boevik/",
+            CatalogGenre.COMEDY to "/komedija/",
+            CatalogGenre.THRILLER to "/triller/",
+            CatalogGenre.HORROR to "/uzhasy/",
+            CatalogGenre.SCIENCE_FICTION to "/fantastika/",
+            CatalogGenre.ADVENTURE to "/prikljuchenija/",
+        )
+        genreRoutes.forEach { (genre, route) ->
+            assertEquals(
+                route,
+                KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.Genre(genre))),
+            )
+        }
+    }
+
+    @Test
     fun rejectsInvalidQueries() {
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery(page = 0) }
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery.search("   ") }
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery.search("bad\u0000term") }
+        assertThrows(IllegalArgumentException::class.java) {
+            CatalogQuery(
+                section = CatalogSection.MOVIES,
+                filter = CatalogFilter.Year(2026),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CatalogQuery(
+                searchTerm = "test",
+                filter = CatalogFilter.Country("США"),
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CatalogFilter.Country("bad\u0000country")
+        }
     }
 }

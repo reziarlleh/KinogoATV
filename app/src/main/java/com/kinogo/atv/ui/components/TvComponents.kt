@@ -2,9 +2,11 @@ package com.kinogo.atv.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -28,9 +30,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -46,9 +52,17 @@ import com.kinogo.atv.ui.image.PosterUrlPolicy
 import com.kinogo.atv.ui.image.SafePosterImageLoader
 import com.kinogo.atv.ui.model.PosterUiModel
 
-val RailExpandedWidth = 224.dp
-val RailContentOffset = 240.dp
-val PosterGridMinimumWidth = 136.dp
+val RailExpandedWidth = 174.dp
+const val PosterGridColumnCount = 6
+
+private val QUALITY_WORD_PREFIX =
+    Regex("""^\s*(?:качество|якість)\s*:?\s*""", RegexOption.IGNORE_CASE)
+
+internal fun String?.posterBadgeLabel(): String? =
+    this
+        ?.replace(QUALITY_WORD_PREFIX, "")
+        ?.trim()
+        ?.takeIf(String::isNotEmpty)
 
 @Composable
 fun PosterCard(
@@ -60,7 +74,7 @@ fun PosterCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.055f else 1f,
+        targetValue = if (focused) 1.025f else 1f,
         label = "poster-focus-scale",
     )
     val requesterModifier = if (focusRequester != null) {
@@ -89,41 +103,41 @@ fun PosterCard(
                     item.progress?.let { append(", просмотрено ${(it * 100).toInt()} процентов") }
                 }
             },
-        shape = RoundedCornerShape(12.dp),
-        color = if (focused) Color(0xFF263247) else Color(0xFF151C29),
+        shape = RoundedCornerShape(8.dp),
+        color = if (focused) Color(0xFF476775) else Color(0xFF263B46),
         border = BorderStroke(
             width = if (focused) 3.dp else 1.dp,
-            color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF2A3446),
+            color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF526E7A),
         ),
-        shadowElevation = if (focused) 14.dp else 2.dp,
+        shadowElevation = if (focused) 10.dp else 1.dp,
     ) {
         Column {
             PosterArtwork(
                 title = item.title,
                 accentArgb = item.accentArgb,
                 posterUrl = item.posterUrl,
-                badge = item.badge,
+                badge = item.badge.posterBadgeLabel(),
                 progress = item.progress,
                 modifier = Modifier.fillMaxWidth(),
             )
             Column(
-                modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.padding(horizontal = 7.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 Text(
                     text = item.title,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     color = Color.White,
-                    fontSize = 15.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = item.subtitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = Color(0xFFB5C0D3),
-                    fontSize = 12.sp,
+                    color = Color(0xFFD0DEE4),
+                    fontSize = 10.sp,
                 )
             }
         }
@@ -175,15 +189,15 @@ fun PosterArtwork(
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp),
-                shape = RoundedCornerShape(5.dp),
-                color = Color.Black.copy(alpha = 0.72f),
+                    .padding(6.dp),
+                shape = RoundedCornerShape(4.dp),
+                color = Color(0xE6192A33),
             ) {
                 Text(
                     text = it,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
                     color = Color.White,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -193,7 +207,7 @@ fun PosterArtwork(
                 progress = it,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
             )
         }
     }
@@ -210,14 +224,14 @@ fun TvActionButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.04f else 1f,
+        targetValue = if (focused) 1.025f else 1f,
         label = "action-focus-scale",
     )
     val background = when {
-        !enabled -> Color(0xFF171D27)
+        !enabled -> Color(0xFF293B44)
         focused -> MaterialTheme.colorScheme.primary
         primary -> MaterialTheme.colorScheme.primary.copy(alpha = 0.86f)
-        else -> Color(0xFF222D40)
+        else -> Color(0xFF3C5966)
     }
     val foreground = when {
         !enabled -> Color(0xFF667185)
@@ -234,21 +248,21 @@ fun TvActionButton(
                 scaleY = scale
             }
             .onFocusChanged { focused = it.isFocused },
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(7.dp),
         color = background,
         border = BorderStroke(
-            if (focused) 3.dp else 1.dp,
+            if (focused) 2.dp else 1.dp,
             when {
-                !enabled -> Color(0xFF272F3D)
-                focused -> Color.White
-                else -> Color(0xFF38445A)
+                !enabled -> Color(0xFF42545D)
+                focused -> MaterialTheme.colorScheme.primary
+                else -> Color(0xFF587480)
             },
         ),
-        shadowElevation = if (focused) 12.dp else 0.dp,
+        shadowElevation = if (focused) 7.dp else 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             leadingMark?.let {
@@ -258,7 +272,7 @@ fun TvActionButton(
                 text = text,
                 color = foreground,
                 fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 maxLines = 1,
             )
         }
@@ -276,28 +290,94 @@ fun TvChoiceChip(
     Surface(
         onClick = onClick,
         modifier = modifier.onFocusChanged { focused = it.isFocused },
-        shape = RoundedCornerShape(50),
+        shape = RoundedCornerShape(7.dp),
         color = when {
-            focused -> MaterialTheme.colorScheme.primary
-            selected -> Color(0xFF37445A)
-            else -> Color(0xFF1A2230)
+            focused -> Color(0xFF547482)
+            selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.23f)
+            else -> Color(0xFF314B57)
         },
         border = BorderStroke(
-            if (focused) 3.dp else 1.dp,
+            if (focused || selected) 2.dp else 1.dp,
             when {
-                focused -> Color.White
+                focused -> MaterialTheme.colorScheme.primary
                 selected -> MaterialTheme.colorScheme.primary
-                else -> Color(0xFF344055)
+                else -> Color(0xFF57717C)
             },
         ),
     ) {
         Text(
             text = text,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-            color = if (focused) Color(0xFF10131A) else Color.White,
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+            color = Color.White,
             fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             maxLines = 1,
+        )
+    }
+}
+
+@Composable
+fun TvIconButton(
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.(Color) -> Unit,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val foreground = if (focused) Color(0xFF10272D) else Color.White
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(42.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .semantics { this.contentDescription = contentDescription },
+        shape = RoundedCornerShape(7.dp),
+        color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF3C5966),
+        border = BorderStroke(
+            width = 2.dp,
+            color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF587480),
+        ),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            content(foreground)
+        }
+    }
+}
+
+@Composable
+fun MicrophoneMark(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier.size(21.dp)) {
+        val stroke = size.minDimension * 0.11f
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(size.width * 0.35f, size.height * 0.08f),
+            size = Size(size.width * 0.3f, size.height * 0.5f),
+            cornerRadius = CornerRadius(size.width * 0.15f),
+            style = Stroke(width = stroke),
+        )
+        drawArc(
+            color = color,
+            startAngle = 0f,
+            sweepAngle = 180f,
+            useCenter = false,
+            topLeft = Offset(size.width * 0.21f, size.height * 0.27f),
+            size = Size(size.width * 0.58f, size.height * 0.48f),
+            style = Stroke(width = stroke),
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.5f, size.height * 0.74f),
+            end = Offset(size.width * 0.5f, size.height * 0.9f),
+            strokeWidth = stroke,
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * 0.34f, size.height * 0.9f),
+            end = Offset(size.width * 0.66f, size.height * 0.9f),
+            strokeWidth = stroke,
         )
     }
 }
@@ -310,14 +390,14 @@ fun TvProgressBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(5.dp)
+            .height(4.dp)
             .clip(RoundedCornerShape(50))
             .background(Color.White.copy(alpha = 0.28f)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(progress.coerceIn(0f, 1f))
-                .height(5.dp)
+                .height(4.dp)
                 .background(MaterialTheme.colorScheme.primary),
         )
     }
@@ -337,11 +417,11 @@ fun TvSectionTitle(
         Text(
             text = text,
             color = Color.White,
-            fontSize = 22.sp,
+            fontSize = 21.sp,
             fontWeight = FontWeight.Bold,
         )
         trailing?.let {
-            Text(text = it, color = Color(0xFF9EABC0), fontSize = 13.sp)
+            Text(text = it, color = Color(0xFFD0DEE4), fontSize = 12.sp)
         }
     }
 }
@@ -360,13 +440,13 @@ fun EmptyState(
         Surface(
             modifier = Modifier.size(62.dp),
             shape = RoundedCornerShape(18.dp),
-            color = Color(0xFF202A3B),
+            color = Color(0xFF3C5966),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(text = "·", color = MaterialTheme.colorScheme.primary, fontSize = 38.sp)
             }
         }
         Text(text = title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(text = description, color = Color(0xFF9EABC0), fontSize = 14.sp)
+        Text(text = description, color = Color(0xFFD0DEE4), fontSize = 14.sp)
     }
 }

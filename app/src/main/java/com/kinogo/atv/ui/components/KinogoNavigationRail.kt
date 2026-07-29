@@ -1,7 +1,6 @@
 package com.kinogo.atv.ui.components
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,14 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +28,8 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kinogo.atv.R
 import com.kinogo.atv.ui.model.TvDestination
 
 @Composable
@@ -57,10 +57,8 @@ fun KinogoNavigationRail(
         modifier = modifier
             .width(RailExpandedWidth)
             .fillMaxHeight(),
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xF20D131F),
-        border = BorderStroke(1.dp, Color(0xFF2B3547)),
-        shadowElevation = 8.dp,
+        shape = RectangleShape,
+        color = Color(0xFF17262E),
     ) {
         Column(
             modifier = Modifier
@@ -72,11 +70,11 @@ fun KinogoNavigationRail(
                     }
                 }
                 .focusGroup()
-                .padding(horizontal = 10.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp),
+                .padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             RailBrand()
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(5.dp))
             destinations.forEachIndexed { index, destination ->
                 NavigationRailItem(
                     destination = destination,
@@ -96,33 +94,31 @@ private fun RailBrand() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(50.dp),
+            .height(52.dp)
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Surface(
-            modifier = Modifier.size(48.dp),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.primary,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "K",
-                    color = Color(0xFF10131A),
-                    fontSize = 23.sp,
-                    fontWeight = FontWeight.Black,
-                )
-            }
-        }
+        Image(
+            painter = painterResource(R.drawable.ic_kinogo_original),
+            contentDescription = null,
+            modifier = Modifier.size(38.dp),
+        )
         Column {
             Text(
-                text = "KinoGo TV",
+                text = "KINOGO",
                 color = Color.White,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
                 maxLines = 1,
             )
-            Text(text = "Каталог и плеер", color = Color(0xFF8F9DB2), fontSize = 11.sp)
+            Text(
+                text = "for Android TV",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -135,18 +131,14 @@ private fun NavigationRailItem(
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val scale by animateFloatAsState(
-        targetValue = if (focused) 1.035f else 1f,
-        label = "rail-item-scale",
-    )
     val background = when {
-        focused -> MaterialTheme.colorScheme.primary
-        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        selected -> MaterialTheme.colorScheme.primary
+        focused -> Color(0xFF34525E)
         else -> Color.Transparent
     }
     val foreground = when {
-        focused -> Color(0xFF10131A)
-        selected -> MaterialTheme.colorScheme.primary
+        selected -> Color(0xFF10272D)
+        focused -> MaterialTheme.colorScheme.primary
         else -> Color.White
     }
 
@@ -155,43 +147,35 @@ private fun NavigationRailItem(
         modifier = Modifier
             .focusRequester(focusRequester)
             .fillMaxWidth()
-            .height(48.dp)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .height(44.dp)
             .onFocusChanged { focused = it.isFocused }
             .semantics {
                 contentDescription = destination.title
                 this.selected = selected
             },
-        shape = RoundedCornerShape(11.dp),
+        shape = RectangleShape,
         color = background,
-        border = BorderStroke(
-            width = if (focused) 3.dp else if (selected) 2.dp else 0.dp,
-            color = if (focused) Color.White else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-        ),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 13.dp),
+            modifier = Modifier.padding(start = 10.dp, end = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Box(
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = destination.mark,
                     color = foreground,
-                    fontSize = 20.sp,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
             Text(
                 text = destination.title,
                 color = foreground,
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Clip,
@@ -210,20 +194,20 @@ private fun RailStatus() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
-            .padding(horizontal = 15.dp),
+            .height(32.dp)
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(13.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Surface(
-            modifier = Modifier.size(9.dp),
-            shape = RoundedCornerShape(50),
-            color = Color(0xFF4ADE80),
+            modifier = Modifier.size(7.dp),
+            shape = androidx.compose.foundation.shape.CircleShape,
+            color = MaterialTheme.colorScheme.primary,
         ) {}
         Text(
             text = "Источник доступен",
-            color = Color(0xFFAAB5C6),
-            fontSize = 11.sp,
+            color = Color(0xFFB7C8CF),
+            fontSize = 10.sp,
             maxLines = 1,
         )
     }

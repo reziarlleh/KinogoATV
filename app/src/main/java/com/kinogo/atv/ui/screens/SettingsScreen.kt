@@ -42,7 +42,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.stateDescription
@@ -105,20 +104,20 @@ fun SettingsScreen(
     Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             TvSectionTitle(text = "Настройки", trailing = "TV-профиль")
             LazyColumn(
                 modifier = Modifier.testTag("settings-list"),
-                contentPadding = PaddingValues(start = 4.dp, top = 6.dp, end = 18.dp, bottom = 38.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
+                contentPadding = PaddingValues(start = 2.dp, top = 2.dp, end = 10.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 item(key = "account-heading") {
-                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
                             text = "Аккаунт Kinogo",
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                         )
                         Text(
@@ -128,7 +127,7 @@ fun SettingsScreen(
                                 "После входа логин и пароль будут сохранены на этом устройстве"
                             },
                             color = Color(0xFF96A4B8),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                         )
                     }
                 }
@@ -146,25 +145,25 @@ fun SettingsScreen(
                 }
                 item(key = "mirror-heading") {
                     Column(
-                        modifier = Modifier.padding(top = 13.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         Text(
                             text = "Источник и зеркала",
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                         )
                         Text(
                             text = "Новые адреса проходят проверку перед активацией",
                             color = Color(0xFF96A4B8),
-                            fontSize = 12.sp,
+                            fontSize = 11.sp,
                         )
                     }
                 }
                 item(key = "mirror-actions") {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TvActionButton(
@@ -207,9 +206,9 @@ fun SettingsScreen(
                     item(key = "section-${section.id}") {
                         Text(
                             text = section.title,
-                            modifier = Modifier.padding(top = 13.dp, bottom = 4.dp),
+                            modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
                             color = MaterialTheme.colorScheme.primary,
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Black,
                         )
                     }
@@ -301,16 +300,16 @@ private fun AccountCard(
         border = BorderStroke(1.dp, Color(0xFF303B4E)),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Surface(
-                    modifier = Modifier.width(9.dp).height(34.dp),
+                    modifier = Modifier.width(7.dp).height(28.dp),
                     shape = RoundedCornerShape(50),
                     color = statusColor,
                 ) {}
@@ -366,7 +365,7 @@ private fun AccountCard(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TvActionButton(
@@ -440,12 +439,12 @@ private fun MirrorRow(
         shadowElevation = if (focused) 10.dp else 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(11.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
-                modifier = Modifier.width(9.dp).height(34.dp),
+                modifier = Modifier.width(7.dp).height(28.dp),
                 shape = RoundedCornerShape(50),
                 color = statusColor,
             ) {}
@@ -642,19 +641,6 @@ private fun SettingRow(
         modifier = modifier
             .fillMaxWidth()
             .testTag("setting-${item.id}")
-            .onPreviewKeyEvent { event ->
-                val direction = event.nativeKeyEvent.settingCycleDirection()
-                if (direction == null) {
-                    false
-                } else {
-                    if (event.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
-                        onValueChange(direction)
-                    }
-                    // Keep horizontal D-pad presses inside the value selector. Vertical keys
-                    // remain available to Compose focus search and the LazyColumn.
-                    true
-                }
-            }
             .onFocusChanged { focused = it.isFocused }
             .semantics {
                 contentDescription = item.title
@@ -669,8 +655,8 @@ private fun SettingRow(
         shadowElevation = if (focused) 10.dp else 0.dp,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 13.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
@@ -680,14 +666,14 @@ private fun SettingRow(
                 Text(
                     text = item.title,
                     color = Color.White,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                 )
                 Text(
                     text = item.description,
                     color = Color(0xFF96A4B8),
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -699,15 +685,14 @@ private fun SettingRow(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
             )
-            Text(text = "›", color = Color(0xFF8F9DB2), fontSize = 23.sp)
+            Text(
+                text = "OK",
+                color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF8F9DB2),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+            )
         }
     }
-}
-
-private fun android.view.KeyEvent.settingCycleDirection(): SettingCycleDirection? = when (keyCode) {
-    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> SettingCycleDirection.PREVIOUS
-    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> SettingCycleDirection.NEXT
-    else -> null
 }
 
 @OptIn(ExperimentalComposeUiApi::class)

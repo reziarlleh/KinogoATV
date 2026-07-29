@@ -8,7 +8,9 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Проверенный `0.3.3-dev` является stable-signed **debug APK**, а не release variant.
+Текущий `0.4.0-dev` подготавливается как stable-signed **debug APK**, а не release variant.
+Статус verified baseline определяется только после полного release checklist и фиксируется
+в `PROJECT_STATE.md`; один versionName этого не доказывает.
 
 ## Signing identity
 
@@ -138,7 +140,15 @@ adb install -r <apk>
 4. убедиться, что account/library/history сохранены;
 5. выполнить реальное native playback;
 6. проверить D-pad HUD и checkpoint;
-7. удалить только созданные тестовые записи точечным store API.
+7. проверить Previous/Next через границу сезона на реальном многосезонном материале;
+8. проверить auto-next в первую совместимую серию следующего сезона;
+9. дождаться естественного Media3-окончания фильма либо последней серии и подтвердить
+   возврат в details;
+10. удалить только созданные тестовые записи точечным store API.
+
+Для `0.4.0-dev` полная аппаратная проверка natural end последней серии остаётся pending,
+пока воспроизведение действительно не выдаст соответствующий естественный Media3 callback.
+Unit test completion policy, ручной Back и перемотка почти к концу не заменяют этот evidence.
 
 ## 7. Локальная упаковка
 
@@ -157,21 +167,27 @@ KinogoTV-<version>.apk
 
 1. Commit исходников и документации.
 2. Push в private repository.
-3. Для законченного выпуска создать annotated tag `v<version>`.
-4. Создать GitHub Release.
+3. Для аппаратно подтверждённого known-good dev APK создать annotated baseline tag
+   `baseline-<version>`.
+4. Для законченного распространяемого выпуска отдельно создать release tag `v<version>` и
+   GitHub Release.
 5. Прикрепить APK и `SHA256SUMS.txt` как Release assets.
 6. В release notes перечислить только фактические пользовательские изменения и validation.
 
-Пример после подтверждения версии:
+Пример baseline tag после подтверждения `0.4.0-dev`:
 
 ```powershell
-git tag -a v0.3.3-dev -m "Kinogo TV 0.3.3-dev"
-git push origin v0.3.3-dev
+git tag -a baseline-0.4.0-dev -m "Kinogo TV 0.4.0-dev known-good baseline"
+git push origin baseline-0.4.0-dev
+```
 
-gh release create v0.3.3-dev `
-  dist/KinogoTV-0.3.3-dev.apk `
+Пример GitHub Release, только если этот dev milestone действительно решено публиковать:
+
+```powershell
+gh release create v0.4.0-dev `
+  dist/KinogoTV-0.4.0-dev.apk `
   dist/SHA256SUMS.txt `
-  --title "Kinogo TV 0.3.3-dev" `
+  --title "Kinogo TV 0.4.0-dev" `
   --notes-file <release-notes.md>
 ```
 
@@ -189,6 +205,8 @@ gh release create v0.3.3-dev `
 - [ ] `adb install -r` сохранил данные.
 - [ ] Cold launch и реальный playback проверены.
 - [ ] D-pad/media key regressions проверены.
+- [ ] Previous/Next и auto-next через границу сезона проверены на TV.
+- [ ] Natural end последнего материала вернул в details.
 - [ ] Тестовые данные очищены адресно.
 - [ ] Source commit и tag указывают на этот APK.
 - [ ] APK опубликован Release asset, а не Git blob.

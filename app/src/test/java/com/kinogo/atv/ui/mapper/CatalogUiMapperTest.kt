@@ -1,6 +1,7 @@
 package com.kinogo.atv.ui.mapper
 
 import com.kinogo.atv.domain.CatalogItem
+import com.kinogo.atv.domain.ContentDetails
 import com.kinogo.atv.domain.ContentType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -19,6 +20,26 @@ class CatalogUiMapperTest {
         )
 
         assertEquals(item.posterUrl, item.toPosterUiModel().posterUrl)
+    }
+
+    @Test
+    fun `keeps poster URL when mapping content details`() {
+        val item = CatalogItem(
+            id = "film-42",
+            relativePath = "/film/42",
+            title = "Film 42",
+            posterUrl = "https://cdn.example.org/film-42.webp",
+        )
+
+        val details = ContentDetails(
+            catalogItem = item,
+            description = "Description",
+        ).toDetailsUiModel(
+            playbackAvailable = true,
+            statusMessage = null,
+        )
+
+        assertEquals(item.posterUrl, details.posterUrl)
     }
 
     @Test

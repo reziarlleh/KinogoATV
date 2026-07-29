@@ -97,15 +97,42 @@ credentials.
 | Мультфильмы | `/multfilmy/` |
 | Аниме | `/anime/` |
 | Поиск | `/search/{encoded term}/` |
+| Новинки | `/novinki/` |
+| Год | `/xfsearch/god/{year}/` |
+| Страна | `/xfsearch/country/{encoded country}/` |
+| Жанр | `/{allowlisted genre}/` |
 | Следующая страница | `{base}page/{n}/` |
+
+Allowlisted жанровые сегменты:
+
+```text
+/boevik/
+/komedija/
+/triller/
+/uzhasy/
+/fantastika/
+/prikljuchenija/
+```
 
 `KinogoHtmlParser` извлекает карточки, next-page, details metadata, description, player
 notice и iframe candidates. ID и `relativePath` не должны включать active host.
 
-Текущий `CatalogQuery` содержит section/search/page. Сортировка в `CatalogScreen` применяется
-к уже загруженным карточкам. Серверные фильтры по жанру, стране, году и серверная сортировка
-пока не моделируются: DLE применяет их через mutable POST/session state, который нужно
-исследовать и формализовать отдельно.
+Текущий `CatalogQuery` содержит `section`, `searchTerm`, один optional `CatalogFilter` и
+`page`. Один запрос описывает только один детерминированный режим:
+
+- верхний раздел без фильтра;
+- текстовый поиск без фильтра;
+- один GET-фильтр при корневом разделе: новинки, год, страна или allowlisted жанр.
+
+Комбинировать фильтр с поиском/верхним разделом либо несколько фильтров нельзя: такой
+серверный контракт не подтверждён и поэтому запрещён domain-инвариантами. Значения страны
+проходят нормализацию и path-segment encoding; жанры выбираются только из allowlist, а не
+собираются из произвольного URL.
+
+Сортировка в `CatalogScreen` применяется локально к уже загруженным карточкам: сначала
+новые, по названию или по качеству. Она не выдаётся за серверную сортировку всего каталога.
+Если потребуется комбинация фильтров или deterministic server sort, сначала нужен отдельный
+read-only анализ реального GET/POST-контракта и fixtures.
 
 При изменении HTML:
 

@@ -57,6 +57,7 @@ import com.kinogo.atv.data.settings.TvPreferencesStore
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.CatalogQuery
+import com.kinogo.atv.domain.CatalogFilter
 import com.kinogo.atv.domain.CatalogSection
 import com.kinogo.atv.domain.ContentDetails
 import com.kinogo.atv.domain.PlaybackMediaPlan
@@ -212,6 +213,7 @@ fun KinogoAppRoot() {
     var catalogOrigin by remember { mutableStateOf<String?>(null) }
     var catalogGeneration by remember { mutableLongStateOf(0L) }
     var catalogSection by remember { mutableStateOf(CatalogSection.ROOT) }
+    var catalogFilter by remember { mutableStateOf<CatalogFilter?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var searchItems by remember { mutableStateOf(emptyList<CatalogItem>()) }
     var searchLoading by remember { mutableStateOf(false) }
@@ -303,7 +305,11 @@ fun KinogoAppRoot() {
             try {
                 val result = catalogRepository.loadPage(
                     origin = origin,
-                    query = CatalogQuery(section = catalogSection, page = page),
+                    query = CatalogQuery(
+                        section = catalogSection,
+                        filter = catalogFilter,
+                        page = page,
+                    ),
                 )
                 if (generation != catalogGeneration || activeMirrorOrigin != origin) return@launch
                 catalogItems = if (reset) {
@@ -872,6 +878,7 @@ fun KinogoAppRoot() {
         PlaybackPreparationScreen(
             title = launchUi.title,
             errorMessage = launchUi.errorMessage,
+            highContrast = tvPreferences.highContrast,
             onRetry = { startPlayback(launchUi.request) },
             onBack = {
                 playbackLaunchJob?.cancel()
@@ -885,6 +892,7 @@ fun KinogoAppRoot() {
             title = selectorSession.title,
             requestedSelection = selectorSession.selection,
             mediaPlan = selectorSession.mediaPlan,
+            highContrast = tvPreferences.highContrast,
             webFallbacks = selectorSession.webFallbacks.map { fallback ->
                 PlaybackWebFallbackUiModel(
                     id = fallback.id,
@@ -1026,6 +1034,7 @@ fun KinogoAppRoot() {
             },
             catalogStatusLabel = activeMirrorOrigin?.let { "Источник: $it" },
             catalogSection = catalogSection,
+            catalogFilter = catalogFilter,
             searchResults = searchPosters,
             searchLoading = searchLoading,
             searchError = searchError,
@@ -1058,8 +1067,18 @@ fun KinogoAppRoot() {
             },
             onDetailsRequested = ::requestDetails,
             onCatalogSectionSelected = { section ->
-                if (section != catalogSection) {
+                if (section != catalogSection || catalogFilter != null) {
+                    catalogFilter = null
                     catalogSection = section
+                    activeMirrorOrigin?.let { origin ->
+                        requestCatalogPage(origin = origin, page = 1, reset = true)
+                    }
+                }
+            },
+            onCatalogFilterSelected = { filter ->
+                if (filter != catalogFilter || catalogSection != CatalogSection.ROOT) {
+                    catalogSection = CatalogSection.ROOT
+                    catalogFilter = filter
                     activeMirrorOrigin?.let { origin ->
                         requestCatalogPage(origin = origin, page = 1, reset = true)
                     }
