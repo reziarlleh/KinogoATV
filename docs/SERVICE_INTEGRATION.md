@@ -1,6 +1,6 @@
 # Интеграция с Kinogo
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **1 августа 2026 года**.
 
 ## Граница интеграции
 
@@ -85,54 +85,125 @@ Cookie jar разделён по origin. Cookies и password POST нельзя �
 redirect. При смене зеркала `KinogoSessionManager` входит на новом origin сохранёнными
 credentials.
 
-## Каталог и поиск
+## Каталог, фильтры и поиск
 
-Детерминированные GET-маршруты определены в `KinogoRoutes`:
+### Live snapshot 2026-08-01
+
+На момент проверки оба bootstrap origin, `https://kinogo.parts` и
+`https://kinogo.online`, перенаправляли на `https://w.kinogo.solar/`. Это датированное
+наблюдение, а не постоянный адрес и не доказательство официальности домена. Raw filter block
+на трёх адресах совпадал; приложение по-прежнему использует выбранный проверенный origin и
+не сохраняет конечный host в карточках.
+
+Текущий DLE-шаблон использует stateful xSort, а не отдельные GET-маршруты года, страны и
+жанра. Корневые маршруты задают только ленту:
 
 | Назначение | Относительный путь |
 | --- | --- |
 | Главная | `/` |
-| Фильмы | `/filmy/` |
-| Сериалы | `/serialy/` |
-| Мультфильмы | `/multfilmy/` |
-| Аниме | `/anime/` |
-| Поиск | `/search/{encoded term}/` |
-| Новинки | `/novinki/` |
-| Год | `/xfsearch/god/{year}/` |
-| Страна | `/xfsearch/country/{encoded country}/` |
-| Жанр | `/{allowlisted genre}/` |
-| Следующая страница | `{base}page/{n}/` |
+| Категория | один из allowlisted путей ниже |
+| Поиск | `/search/{percent-encoded term}/` |
+| Страница главной | `/page/{n}/` |
+| Страница категории | `{category-base}page/{n}/`, например `/filmy/page/2/` |
+| Страница поиска | `/search/{percent-encoded term}/page/{n}/` |
 
-Allowlisted жанровые сегменты:
+`KinogoHtmlParser` определяет наличие следующей страницы по `.pagiNation a[href]` и номеру
+`/page/{n}/` либо ссылке `Позже`. `KinogoRoutes` затем строит page-route для той же базовой
+ленты. Один paging generation закреплён за origin и query identity; карточки добавляются по
+стабильному ID без повторов. Search является отдельным режимом и не комбинируется с
+категорией или browse filters.
 
-```text
-/boevik/
-/komedija/
-/triller/
-/uzhasy/
-/fantastika/
-/prikljuchenija/
-```
+### Категории
 
-`KinogoHtmlParser` извлекает карточки, next-page, details metadata, description, player
-notice и iframe candidates. ID и `relativePath` не должны включать active host.
+Когда ответ содержит sidebar, категории читаются из `aside#sideBar .categories` и
+`.bySearials`/`.bySerials`, но href принимается только при совпадении same-origin relative
+path с `CatalogCategory`. xSort POST может вернуть полноценный документ либо fragment без
+sidebar: непустой разобранный subset сохраняется как есть, а только при пустом списке UI
+использует ровно 28 проверенных `CatalogCategory.entries`. Произвольный href не становится
+fallback-пунктом. Числа рядом с категориями изменчивы и в модель не входят.
 
-Текущий `CatalogQuery` содержит `section`, `searchTerm`, один optional `CatalogFilter` и
-`page`. Один запрос описывает только один детерминированный режим:
+Фильмы, в порядке текущего сайта:
 
-- верхний раздел без фильтра;
-- текстовый поиск без фильтра;
-- один GET-фильтр при корневом разделе: новинки, год, страна или allowlisted жанр.
+| Название | Путь | Название | Путь |
+| --- | --- | --- | --- |
+| Все фильмы | `/filmy/` | Мультфильмы | `/multfilmy/` |
+| Новинки | `/novinki/` | Фантастика | `/fantastika/` |
+| Фэнтези | `/fjentezi/` | Нуар | `/nuar/` |
+| Ужасы | `/uzhasy/` | Триллер | `/triller/` |
+| Спорт | `/sport/` | Приключения | `/prikljuchenija/` |
+| Исторические | `/istoricheskie/` | Мюзикл | `/mjuzikl/` |
+| Мелодрама | `/melodrama/` | Короткометражка | `/korotkometrazhka/` |
+| Криминал | `/kriminal/` | Драма | `/drama/` |
+| Комедия | `/komedija/` | Документальные | `/dokumentalnye/` |
+| Детектив | `/detektiv/` | Детский | `/detskij/` |
+| Военный | `/voennyj/` | Вестерн | `/vestern/` |
 
-Комбинировать фильтр с поиском/верхним разделом либо несколько фильтров нельзя: такой
-серверный контракт не подтверждён и поэтому запрещён domain-инвариантами. Значения страны
-проходят нормализацию и path-segment encoding; жанры выбираются только из allowlist, а не
-собираются из произвольного URL.
+Сериалы:
 
-Сортировка в `CatalogScreen` применяется локально к уже загруженным карточкам: сначала
-новые, по названию или по качеству. Она не выдаётся за серверную сортировку всего каталога.
-Если потребуется комбинация фильтров или deterministic server sort, сначала нужен отдельный
-read-only анализ реального GET/POST-контракта и fixtures.
+| Название | Путь | Название | Путь |
+| --- | --- | --- | --- |
+| Все сериалы | `/serialy/` | Зарубежные | `/zarubezhnye-serialy/` |
+| Русские | `/russkie-serialy/` | Мультсериалы | `/multserialy/` |
+| Аниме-сериалы | `/anime-serialy/` | Аниме | `/anime/` |
+
+### xSort contract
+
+Контейнер управления — `.xsort-area`; каждый список имеет вид
+`.xsort-ul[data-field] > li[data-val]`, активный пункт отмечен `li.current`, отображаемое
+значение находится в `.xsort-selected`, сброс — в `.xsort-div-clearall`, а карточки ответа —
+в `#dle-content`.
+
+Поддерживаются ровно четыре server fields:
+
+| Поле | Назначение | Источник вариантов |
+| --- | --- | --- |
+| `defaultsort` | серверная сортировка | allowlisted wire values из HTML |
+| `podborki` | подборка | динамически из HTML |
+| `year` | год | динамически из HTML |
+| `country` | страна | динамически из HTML |
+
+Wire values сортировки: `date`, `rating`, `views_top`, `views`, `comm`, `year`, `kp`. На
+главной в snapshot отсутствовал пустой вариант, текущим был `views_top` с направлением
+DESC. На `/filmy/` и `/serialy/` перед теми же семью вариантами присутствовал пустой
+`data-val=""` с подписью `по умолчанию`.
+
+В snapshot списки `podborki`, `year` и `country` содержали соответственно 98, 88 и 101
+`li`, включая пустые placeholders. Годы шли от 2026 до 1940; список стран содержал 100
+значений. Эти размеры и тексты не хардкодятся: UI получает только разобранные серверные
+варианты. Пять элементов `podborki` с неэкранированными кавычками имели повреждённый
+`data-val`; parser пропускает только конкретный элемент, если нормализованные `data-val` и
+видимая метка не совпадают, не теряя остальные варианты.
+
+Изменение browse identity выполняется последовательно под mutex:
+
+1. POST на base route с form-urlencoded body
+   `xsort=1&xs_field=clearallfields`;
+2. разбор доступных controls из HTML-документа либо xSort fragment;
+3. по одному POST для выбранных значений в порядке sort, collection, year, country:
+   `xsort=1&xs_field={field}&xs_value={value}`;
+4. разбор последнего ответа либо GET соответствующего `/page/{n}/`;
+5. проверка, что активные sort/direction/collection/year/country в ответе совпадают с явно
+   запрошенными значениями; несовпадение не кэшируется и не добавляется к старой выдаче.
+
+xSort хранит состояние в origin-scoped cookie session. Все POST и следующие page GET
+обязаны идти через один `KinogoSessionHttpClient`; перенос cookies на другой origin
+запрещён. При переключении между Главной и Каталогом repository заново применяет identity,
+поскольку серверная xSort-сессия общая. Transport публикует только числовой session epoch,
+не содержимое cookies: фактическая cookie mutation или clear инвалидирует applied-query
+cache, поэтому после входа или переподключения фильтры применяются заново.
+Если epoch меняется конкурентно с catalog transaction, repository ограниченно повторяет
+clear/apply/page целиком; частичный ответ не возвращается в UI.
+
+Отдельного `xs_order` нет: сервер меняет `xasc`/`xdesc` повторным идентичным POST текущей
+сортировки. В приложении поле и направление разделены: повторный выбор того же пункта
+dropdown не меняет направление, это делает только отдельная кнопка `↑`/`↓`. Repository
+отправляет необходимое число одинаковых POST, чтобы получить выбранное состояние.
+
+Не смешивать HTML wire values с идентификаторами закрытого шлюза официального приложения
+(`top`, `comm_num`, `news_read` и другими): это разные контракты.
+
+`KinogoHtmlParser` также извлекает карточки, details metadata, description, player notice и
+iframe candidates. ID и `relativePath` не должны включать active host.
 
 При изменении HTML:
 
@@ -140,7 +211,8 @@ read-only анализ реального GET/POST-контракта и fixture
 2. Добавить failing contract test.
 3. Исправить parser, не UI.
 4. Сохранить content-size/fingerprint boundary.
-5. Выполнить live read-only проверку минимум двух страниц и одного поиска.
+5. Выполнить live read-only проверку главной, категории, xSort response, следующей страницы
+   и поиска без account mutations.
 6. Обновить этот документ и `CHANGELOG.md`.
 
 ## Авторизация

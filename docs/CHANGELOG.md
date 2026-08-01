@@ -7,7 +7,47 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
-## [Unreleased] — 2026-07-29
+## [0.4.1-dev] — 2026-08-01
+
+### Каталог и фильтры
+
+- Удалены устаревшие локальная сортировка и одиночные GET-фильтры. Главная и Каталог теперь
+  используют реальный stateful xSort-контракт сайта с полями `defaultsort`, `podborki`,
+  `year` и `country` через form-urlencoded POST и origin-scoped cookie session.
+- Реализованы все семь текущих server sort values; поле сортировки и направление разделены.
+  Повторный выбор текущего пункта dropdown не меняет порядок, направление переключается
+  только отдельной кнопкой `↑`/`↓`.
+- Подборки, годы и страны разбираются из HTML текущего зеркала. Повреждённые quote-entries
+  пропускаются поэлементно; неизвестные значения не превращаются в запросы.
+- Каталог получил единый dropdown реальных категорий с группами `Фильмы` и `Сериалы` и
+  открывается на `Новинки`. Пути категорий allowlisted и остаются origin-independent;
+  xSort fragment без sidebar получает empty-only fallback из всех 28 проверенных путей.
+- Главная больше не дублирует историю и не показывает заголовок `Новинки`: над общей сеткой
+  размещена компактная строка реальных сортировки и фильтров сайта.
+- Главная, Каталог и Поиск переведены на общий шестиколоночный grid: следующая page-route
+  загружается из последней видимой строки, stable IDs сохраняют текущий фокус, а явная
+  D-pad-навигация исключает wrap и произвольные скачки на неполной строке.
+- Preload boundary учитывает identity выдачи, focus job отменяется при смене выдачи или
+  удалении target, но не при обычном append, а выход за viewport прокручивает ровно одну
+  строку. Поиск получил явный retry первой/следующей страницы.
+- Dropdown фокусирует выбранный пункт и после выбора либо Back возвращает фокус на свою
+  кнопку, не требуя аэромыши; focus request ограниченно повторяется на следующих кадрах.
+- При reset категории или фильтра старые page-specific controls временно отключаются до
+  ответа новой страницы, поэтому нельзя отправить option от предыдущей категории.
+
+### Контракт и проверка
+
+- Read-only live snapshot от 1 августа 2026 года зафиксировал актуальные категории,
+  xSort selectors/wire values, HTML document/fragment POST и page routes для главной,
+  категории и поиска.
+- Добавлены offline fixtures и unit/contract guards для route generation, xSort session
+  commands, parser controls, раннего preload и детерминированной D-pad-навигации.
+- Cookie-session epoch инвалидирует applied xSort после login/reconnect; перед append
+  repository проверяет, что сервер подтвердил явно выбранные фильтры и направление.
+  Конкурирующая смена сессии автоматически повторяет transaction с bounded retry и не
+  требует ручного нажатия `Повторить` при старте.
+- На KIVI пройдены установка/запуск и точечные Home/Catalog/D-pad сценарии. Полный перебор
+  xSort-комбинаций, длинная search-пагинация и playback regression остаются pending.
 
 ### Documentation
 
@@ -26,9 +66,13 @@
 
 ### Validation
 
-- Повторены 257 unit-тестов, lint (0 errors) и `assembleDebug`.
-- Проверен debug build с отсутствующим stable key.
-- Проверен явный отказ `packageRelease` без stable key.
+- Каноническая команда `testDebugUnitTest lintDebug assembleDebug` завершена успешно:
+  **304 unit tests**, lint 0 errors / 7 warnings / 2 hints.
+- Stable-signed debug APK code 11 / `0.4.1-dev` прошёл zipalign, v2 verification и сверку
+  certificate SHA-256; artifact SHA-256:
+  `ECF7BEADF8606987D19F663E352D72FCB7E1D1D30A8D3FD7A4B1476CE7A1B56B`.
+- `adb install -r` сохранил `firstInstallTime` и данные приложения; cold launch оставил
+  `MainActivity` foreground без fatal exception/ANR.
 
 ## [0.4.0-dev] — 2026-07-29
 

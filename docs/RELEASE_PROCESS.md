@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **1 августа 2026 года**.
 
 ## Виды сборок
 
@@ -8,7 +8,7 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий `0.4.0-dev` подготавливается как stable-signed **debug APK**, а не release variant.
+Текущий C-003 / `0.4.1-dev` собран как stable-signed **debug APK**, а не release variant.
 Статус verified baseline определяется только после полного release checklist и фиксируется
 в `PROJECT_STATE.md`; один versionName этого не доказывает.
 
@@ -146,7 +146,7 @@ adb install -r <apk>
    возврат в details;
 10. удалить только созданные тестовые записи точечным store API.
 
-Для `0.4.0-dev` полная аппаратная проверка natural end последней серии остаётся pending,
+Для `0.4.1-dev` полная аппаратная проверка natural end последней серии остаётся pending,
 пока воспроизведение действительно не выдаст соответствующий естественный Media3 callback.
 Unit test completion policy, ручной Back и перемотка почти к концу не заменяют этот evidence.
 
@@ -174,20 +174,20 @@ KinogoTV-<version>.apk
 5. Прикрепить APK и `SHA256SUMS.txt` как Release assets.
 6. В release notes перечислить только фактические пользовательские изменения и validation.
 
-Пример baseline tag после подтверждения `0.4.0-dev`:
+Пример baseline tag после подтверждения `0.4.1-dev`:
 
 ```powershell
-git tag -a baseline-0.4.0-dev -m "Kinogo TV 0.4.0-dev known-good baseline"
-git push origin baseline-0.4.0-dev
+git tag -a baseline-0.4.1-dev -m "Kinogo TV 0.4.1-dev known-good baseline"
+git push origin baseline-0.4.1-dev
 ```
 
 Пример GitHub Release, только если этот dev milestone действительно решено публиковать:
 
 ```powershell
-gh release create v0.4.0-dev `
-  dist/KinogoTV-0.4.0-dev.apk `
+gh release create v0.4.1-dev `
+  dist/KinogoTV-0.4.1-dev.apk `
   dist/SHA256SUMS.txt `
-  --title "Kinogo TV 0.4.0-dev" `
+  --title "Kinogo TV 0.4.1-dev" `
   --notes-file <release-notes.md>
 ```
 

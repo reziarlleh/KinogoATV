@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **1 августа 2026 года**.
 
 ## Принцип доказательств
 
@@ -23,7 +23,8 @@
 
 Покрываются:
 
-- catalog routes, HTML parser, paging/preload и safe transport;
+- catalog category/search routes, HTML/xSort parser, origin-session commands, paging/preload
+  и safe GET/POST transport;
 - auth/library codecs, HTML parsers и status/favorite semantics;
 - mirror normalization, trust, redirect и health;
 - DNS/public destination policy;
@@ -32,13 +33,14 @@
 - history codec, legacy resolver, resume/completion;
 - TV preferences;
 - player reducer, key mapper, focus retry, HUD routing и completion policy;
-- UI mappers и ключевые pure focus/back decisions.
+- UI mappers, отдельное направление сортировки и ключевые pure focus/back/grid decisions.
 
 Live HTML не должен быть единственным тестом parser. Сначала redacted fixture, затем
 необязательная read-only live-проверка.
 
-Последний automated run для `0.4.0-dev` от 29 июля 2026 года: **67 suites,
-281 unit test**, 0 failures/errors/skipped.
+Последний unit run для `0.4.1-dev` от 1 августа 2026 года: **67 suites,
+304 unit tests**, 0 failures/errors/skipped. Полный canonical lint/build указан в
+`PROJECT_STATE.md` после завершения сборки кандидата.
 
 ## Lint и сборка
 
@@ -48,7 +50,7 @@ Live HTML не должен быть единственным тестом parse
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
 
-Baseline: lint 0 errors, 6 warnings; debug APK успешно создан.
+Текущий C-003: lint 0 errors, 7 warnings и 2 hints; debug APK успешно создан.
 
 После изменения signing/build logic дополнительно проверить clean clone без `.signing`:
 unit/lint/debug должны работать со стандартной debug signature, release — завершаться ясной
@@ -109,8 +111,9 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | --- | --- |
 | Cold launch | Плитка открывает native first frame и Compose; app остаётся focused |
 | Rail | Все разделы достижимы D-pad, текущий раздел подсвечен |
-| Каталог | Постеры, сортировка, разделы и preload за две строки до конца |
-| Поиск | Text query; voice query при наличии system recognizer |
+| Главная | Нет истории/заголовка; xSort controls; append из последней строки без focus jump |
+| Каталог | Default «Новинки»; 28 категорий; xSort dropdowns/direction; непрерывный append |
+| Поиск | Text/voice query; keyboard hide; retry и append того же encoded query |
 | Details | Полное описание, status/favorite actions, Play |
 | Mirrors | Check, details action, manual HTTPS input, selection |
 | Account | Login, process restart, expired-session reconnect |
@@ -142,9 +145,32 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
   отключённом auto-next возвращает в details;
 - exit/player error writes checkpoint without transient URL.
 
+### Catalog/focus regression matrix 0.4.1-dev
+
+- повторный выбор sort option не меняет направление; отдельная `↑`/`↓` меняет;
+- category dropdown группирует фильмы/сериалы и восстанавливает focus trigger после
+  выбора/Back;
+- xSort fragment без sidebar получает все 28 allowlisted categories, а непустой server
+  subset не расширяется;
+- смена категории очищает page-specific browse filters и запускает новую generation;
+- reset временно отключает controls предыдущей страницы до получения новой;
+- Home/Catalog/Search append используют собственные query identity и next page;
+- cookie-session epoch требует повторного apply после login/reconnect, а postcondition не
+  допускает append при неприменённом сервером фильтре; конкурентная смена epoch проходит
+  bounded automatic retry;
+- вход в последнюю строку инициирует один preload для данного query-aware boundary;
+- append не запрашивает первый focus повторно и не отменяет in-flight move к оставшейся
+  карточке;
+- offscreen Up/Down прокручивает одну строку, Left/Right не выполняет wrap;
+- ошибка search page имеет retry и не теряет уже загруженные карточки.
+
+Pure guards присутствуют. На KIVI точечно проверены открытие/Back длинного category popup,
+точные соседние переходы и Home append; полный перебор фильтров и длинный Search append
+требуют дальнейшего TV smoke.
+
 ### Evidence для границы сезона и natural end
 
-| Сценарий | Unit/contract evidence | Аппаратная проверка 0.4.0-dev |
+| Сценарий | Unit/contract evidence | Текущий C-003 |
 | --- | --- | --- |
 | Previous через границу сезона | `PlaybackMediaPlanTest` | Pending |
 | Next через границу сезона | `PlaybackMediaPlanTest` | Pending |

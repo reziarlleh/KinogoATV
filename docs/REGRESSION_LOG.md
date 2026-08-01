@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **1 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,27 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-003 — 0.4.1-dev
+
+- Статус: automated + focused Home/Catalog/D-pad hardware smoke passed; extended
+  catalog/search и full player runtime pass pending
+- Application source commit: `071300c`
+- APK: `dist/KinogoTV-0.4.1-dev.apk`
+- SHA-256: `ECF7BEADF8606987D19F663E352D72FCB7E1D1D30A8D3FD7A4B1476CE7A1B56B`
+- Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Automated: 67 suites, 304 unit tests, lint 0 errors / 7 warnings / 2 hints,
+  assembleDebug, zipalign и v2 signature
+- Hardware: KIVI 4K Android TV 14; `install -r` с сохранённым `firstInstallTime`, cold
+  launch/foreground, default `Новинки`, category popup/Back/long D-pad scroll, отдельное
+  направление сортировки и ранний Home append без сброса фокуса
+- Pending: полный перебор live xSort, длинный Search append, overscan каждого раздела и весь
+  player pass из C-002
+- Rollback point: B-001 / `baseline-0.3.3-dev`
+
+C-003 не заменяет B-001: новый catalog/focus flow проверен точечно, а playback completion
+flow всё ещё не прошёл естественное окончание на устройстве.
 
 ### C-002 — 0.4.0-dev
 
@@ -181,6 +202,57 @@ C-002 нельзя переименовывать в B-002 и помечать b
   содержащим минимум два сезона, и отдельная проверка окончания фильма/последней серии.
 - Rollback point: B-001 остаётся проверенной точкой возврата для основной playback-базы, но
   не содержит новый completion contract.
+
+### R-010 — Ленты обрывались, а фокус постеров мог перескакивать
+
+- Статус: Resolved by automated guards + focused KIVI smoke in 0.4.1-dev; extended TV
+  verification pending
+- Обнаружено: 1 августа 2026 года при пользовательской проверке интерфейса.
+- Affected version: C-002 / `0.4.0-dev`.
+- Last-known-good: для непрерывной пагинации всех трёх лент отсутствует; B-001/C-002 не
+  доказывали этот полный контракт.
+- Симптом: Главная, Каталог или Поиск могли закончиться на фиксированном наборе карточек;
+  геометрический Compose focus search и перезапрос начального фокуса создавали визуально
+  произвольные переходы при движении D-pad и append.
+- Причина: экраны имели разные paging/focus paths, search не дозагружался, а focus graph не
+  задавал точного соседа по шести колонкам и identity конкретной выдачи. Дополнительно xSort
+  fragment мог не содержать sidebar, смена cookie-сессии делала applied-query cache
+  устаревшим, а обычный append мог отменить уже начатый offscreen focus move.
+- Исправление: независимые `CatalogFeedState` сохраняют query/next page; общий
+  `TvPosterGrid` использует stable ID, явные индексные переходы, query-aware preload
+  boundary, сохраняет in-flight move при append и прокручивает ровно одну строку. Ошибка
+  append поиска получила явный retry. Empty-only category fallback использует ровно 28
+  allowlisted `CatalogCategory.entries`; cookie epoch и active-filter postcondition не дают
+  смешать страницы разных server states, а bounded transaction retry автоматически
+  восстанавливает запрос после конкурентного login/reconnect.
+- Protective tests: `HtmlCatalogRepositoryXSortTest`, `KinogoRoutesTest`,
+  `KinogoHtmlParserTest`, `TvPosterGridTest`, `CatalogFilterBarLogicTest`.
+- Runtime verification: на KIVI проверены category popup/Back/длинный scroll, точные
+  соседние переходы и ранний Home append. Полный перебор xSort и длинный Search append ещё
+  не проверены.
+- Rollback point: B-001 / `baseline-0.3.3-dev`; он сохраняет основную playback-базу, но не
+  новый каталог/xSort/paging contract.
+
+### R-011 — После cold start Главная просила вручную повторить загрузку
+
+- Статус: Resolved in C-003 / `0.4.1-dev`
+- Обнаружено: 1 августа 2026 года на промежуточном stable-signed APK до source commit
+  `071300c`; этот промежуточный artifact не является точкой отката.
+- Симптом: после `adb install -r` и cold launch Главная показывала
+  `Сессия каталога изменилась во время загрузки. Повторите запрос`, хотя сеть и зеркало были
+  доступны.
+- Причина: начальный xSort transaction и фоновое восстановление сохранённого аккаунта
+  одновременно меняли origin-scoped cookies. Epoch guard правильно не возвращал смешанную
+  страницу, но оставлял восстановление пользователю.
+- Исправление: `HtmlCatalogRepository` при `CatalogSessionChangedException` обнуляет applied
+  identity и ограниченно повторяет весь clear/apply/page transaction с короткой задержкой.
+  Postcondition и лимит попыток сохраняются; бесконечного retry нет.
+- Protective test: `HtmlCatalogRepositoryXSortTest.sessionChangeDuringAppendReappliesSelectionAutomatically`.
+- Runtime verification: финальный APK SHA-256 `ECF7BEAD…A1B56B` прошёл cold launch на KIVI
+  за 2958 ms; Главная загрузила реальные карточки, а в очищенном post-launch log нет
+  `KinogoAppRoot` error, fatal exception или ANR.
+- Rollback point: application source commit `071300c`; playback rollback по-прежнему B-001 /
+  `baseline-0.3.3-dev`.
 
 ## Шаблон новой записи
 

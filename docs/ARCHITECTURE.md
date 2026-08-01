@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **1 августа 2026 года**.
 
 ## Цели архитектуры
 
@@ -79,27 +79,46 @@ frame, бирюзовый focus/active color и общую шестиколон�
 ```mermaid
 flowchart LR
     A["MirrorRegistry"] --> B["active HTTPS origin"]
-    B --> C["KinogoRoutes"]
-    C --> D["KinogoSessionHttpClient"]
-    D --> E["SafeHtmlClient policy"]
-    E --> F["KinogoHtmlParser"]
-    F --> G["CatalogItem / ContentDetails"]
-    G --> H["CatalogUiMapper"]
-    H --> I["Compose TV screens"]
+    B --> C["Home / Catalog / Search feed state"]
+    C --> D["CatalogQuery + KinogoRoutes"]
+    D --> E["HtmlCatalogRepository: serialized xSort"]
+    E --> F["KinogoSessionHttpClient + safe HTML policy"]
+    F --> G["KinogoHtmlParser"]
+    G --> H["CatalogItem / CatalogControls"]
+    H --> I["Shared TvPosterGrid"]
 ```
 
 `CatalogItem.relativePath` не содержит домен. При смене зеркала тот же объект можно запросить
 у нового origin. Асинхронные запросы защищены generation counters: старый ответ не может
 заменить данные нового зеркала, раздела или поискового запроса.
 
-`CatalogQuery` содержит `section`, `searchTerm`, один optional `CatalogFilter` и `page`.
-Детерминированный маршрут может описывать только один из трёх режимов: верхний раздел,
-текстовый поиск либо серверный GET-фильтр. Фильтр нельзя одновременно комбинировать с
-поиском или верхним разделом. `CatalogFilter` сейчас покрывает новинки, год, страну и
-allowlisted жанр; сортировка загруженных карточек остаётся локальной UI-операцией.
+`CatalogQuery` содержит optional allowlisted `CatalogCategory`, комбинируемый
+`CatalogBrowseFilters`, optional `searchTerm` и `page`. Поиск остаётся отдельным
+режимом и не смешивается с category/xSort-фильтрами. Категории фильмов и
+сериалов хранят точные host-independent routes, а случайные href из HTML не
+попадают в domain allowlist. Каталог по умолчанию открывает категорию `Новинки`.
+Если xSort fragment не содержит sidebar, UI подставляет ровно полный allowlist из 28
+`CatalogCategory.entries`; непустой разобранный subset используется без расширения.
 
-Production-пагинация сейчас координируется вручную в `KinogoAppRoot`; существующий
-`HtmlCatalogPagingSource` не подключён к этому flow.
+Списки сортировки, подборки, года и страны разбираются из xSort-элементов
+конкретной страницы. Выбор применяется сервером через POST xSort; направление
+сортировки передаётся повторным выбором того же поля и имеет отдельную
+кнопку в TV UI. xSort-состояние является session-wide, поэтому `HtmlCatalogRepository`
+сериализует все browse/search-запросы через `Mutex`, очищает и восстанавливает
+нужную выборку при переключении между лентами. Числовой cookie-session epoch инвалидирует
+applied-query cache после login/reconnect, а финальное активное xSort-состояние сверяется с
+явно запрошенными полями до append. Конкурентная смена epoch запускает bounded retry всего
+catalog transaction.
+
+`KinogoAppRoot` владеет тремя независимыми `CatalogFeedState`: Home, Catalog и Search.
+Каждая лента хранит собственные query, items, controls, `nextPage`, loading/error,
+origin и generation. Дозагрузка главной, каталога и поиска сохраняет identity и
+делает GET точного page-route в той же cookie-сессии. Общий `TvPosterGrid` задаёт
+одинаковую шестиколоночную раскладку, стабильные D-pad-переходы и ранний
+query-aware preload для всех трёх лент; focus coroutine отменяется при смене identity либо
+удалении её target, но не при обычном append, а offscreen-переход сдвигает viewport на одну
+строку. Production-пагинация по-прежнему координируется
+вручную в `KinogoAppRoot`; `HtmlCatalogPagingSource` в этот flow не подключён.
 
 ### Авторизация и библиотека
 
@@ -194,11 +213,11 @@ device-bound.
 
 ## Точки расширения
 
-### Новый раздел каталога
+### Новая категория каталога
 
-1. Добавить стабильный маршрут в `CatalogSection` и `KinogoRoutes`.
-2. Добавить parser fixture и тест.
-3. Обновить `CatalogScreen`, focus и preload tests.
+1. Подтвердить маршрут в актуальном server-rendered HTML.
+2. Добавить host-independent route в allowlist `CatalogCategory`.
+3. Добавить parser fixture, route/parser test и focus/preload test dropdown/grid.
 4. Обновить `SERVICE_INTEGRATION`, `PROJECT_STATE`, `CHANGELOG`.
 
 ### Новый provider adapter
@@ -221,9 +240,8 @@ device-bound.
 - `KinogoAppRoot.kt` слишком велик и совмещает composition, orchestration и use cases.
 - Нет ViewModel/state-holder слоя и формализованного DI.
 - Production catalog использует ручную пагинацию при наличии отдельного PagingSource.
-- Поиск загружает одну страницу.
-- Комбинации нескольких server-side filters и server-side sort не представлены в domain;
-  одиночные GET-фильтры года, страны, жанра и новинок уже формализованы.
+- xSort session-wide и потому требует общей сериализации даже при независимых UI feed
+  states; разделение cookie sessions на browse/search пока не вводилось.
 - `reduceMotion` применяется только к части Settings UI.
 - Нет CI, dependency verification и автоматического clean-clone smoke test.
 
