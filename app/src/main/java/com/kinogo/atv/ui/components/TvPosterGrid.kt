@@ -1,0 +1,352 @@
+package com.kinogo.atv.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.unit.dp
+import com.kinogo.atv.ui.model.PosterUiModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+
+/** Deterministic result of one D-pad direction inside a poster grid. */
+internal sealed interface PosterGridNavigationDecision {
+    data class Move(val targetIndex: Int) : PosterGridNavigationDecision
+
+    data object Exit : PosterGridNavigationDecision
+
+    data object Stay : PosterGridNavigationDecision
+}
+
+/**
+ * Resolves poster navigation without relying on Compose's geometric focus search.
+ *
+ * [Exit] deliberately leaves the key event unconsumed so focus can move to controls above the
+ * first row or to the navigation rail from the first column. [Stay] consumes a directional event
+ * and prevents wrapping to another row or escaping from an incomplete final row.
+ */
+internal fun posterGridNavigationDecision(
+    index: Int,
+    itemCount: Int,
+    columns: Int,
+    key: Key,
+): PosterGridNavigationDecision {
+    if (columns <= 0 || index !in 0 until itemCount) {
+        return PosterGridNavigationDecision.Stay
+    }
+
+    return when (key) {
+        Key.DirectionLeft -> if (index % columns == 0) {
+            PosterGridNavigationDecision.Exit
+        } else {
+            PosterGridNavigationDecision.Move(index - 1)
+        }
+
+        Key.DirectionRight -> if (
+            index % columns == columns - 1 ||
+            index + 1 >= itemCount
+        ) {
+            PosterGridNavigationDecision.Stay
+        } else {
+            PosterGridNavigationDecision.Move(index + 1)
+        }
+
+        Key.DirectionUp -> if (index < columns) {
+            PosterGridNavigationDecision.Exit
+        } else {
+            PosterGridNavigationDecision.Move(index - columns)
+        }
+
+        Key.DirectionDown -> if (index + columns < itemCount) {
+            PosterGridNavigationDecision.Move(index + columns)
+        } else {
+            PosterGridNavigationDecision.Stay
+        }
+
+        else -> PosterGridNavigationDecision.Stay
+    }
+}
+
+/** True when focus has entered one of the final [preloadRows] loaded rows. */
+internal fun shouldPreloadPosterGrid(
+    focusedIndex: Int,
+    itemCount: Int,
+    columns: Int,
+    preloadRows: Int = 1,
+): Boolean {
+    if (
+        columns <= 0 ||
+        preloadRows <= 0 ||
+        focusedIndex !in 0 until itemCount
+    ) {
+        return false
+    }
+    val focusedRow = focusedIndex / columns
+    val lastLoadedRow = (itemCount - 1) / columns
+    return lastLoadedRow - focusedRow < preloadRows
+}
+
+/** Keeps the same visual row when a one-row D-pad move crosses the viewport boundary. */
+internal fun posterGridScrollAnchor(
+    firstVisibleItemIndex: Int,
+    currentIndex: Int,
+    targetIndex: Int,
+    itemCount: Int,
+    columns: Int,
+): Int {
+    if (
+        columns <= 0 ||
+        itemCount <= 0 ||
+        currentIndex !in 0 until itemCount ||
+        targetIndex !in 0 until itemCount
+    ) {
+        return 0
+    }
+    val firstVisibleRowStart =
+        (firstVisibleItemIndex.coerceIn(0, itemCount - 1) / columns) * columns
+    val adjacentRowStart = if (targetIndex > currentIndex) {
+        firstVisibleRowStart + columns
+    } else {
+        firstVisibleRowStart - columns
+    }
+    val finalRowStart = ((itemCount - 1) / columns) * columns
+    return adjacentRowStart.coerceIn(0, finalRowStart)
+}
+
+/** An append must not cancel an in-flight D-pad move to a card that is still present. */
+internal fun shouldCancelPosterGridFocusMove(
+    previousPagingKey: Any?,
+    pagingKey: Any?,
+    targetId: String?,
+    itemIds: List<String>,
+): Boolean = previousPagingKey != pagingKey || (targetId?.let { it !in itemIds } == true)
+
+internal fun ownsPosterGridFocusMove(
+    activeGeneration: Long,
+    moveGeneration: Long,
+): Boolean = activeGeneration == moveGeneration
+
+/**
+ * Shared six-column TV poster grid with stable identity, deterministic D-pad movement and early
+ * page preloading. The component only attaches [firstFocus]; it never requests initial focus on
+ * its own, so appending cards cannot steal focus from the current poster or surrounding controls.
+ */
+@Composable
+fun TvPosterGrid(
+    items: List<PosterUiModel>,
+    onOpenDetails: (String) -> Unit,
+    emptyTitle: String,
+    emptyDescription: String,
+    hasMore: Boolean,
+    onNearEnd: () -> Unit,
+    modifier: Modifier = Modifier,
+    firstFocus: FocusRequester? = null,
+    columns: Int = PosterGridColumnCount,
+    preloadRows: Int = 1,
+    pagingKey: Any? = null,
+) {
+    require(columns > 0) { "Poster grid column count must be positive" }
+    require(preloadRows > 0) { "Poster grid preload row count must be positive" }
+
+    val gridState = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    val focusRequestersById = remember { mutableMapOf<String, FocusRequester>() }
+    val itemIds = remember(items) { items.map(PosterUiModel::id) }
+    var focusMoveJob by remember { mutableStateOf<Job?>(null) }
+    var focusMoveTargetId by remember { mutableStateOf<String?>(null) }
+    var focusMoveGeneration by remember { mutableLongStateOf(0L) }
+    var previousPagingKey by remember { mutableStateOf(pagingKey) }
+    LaunchedEffect(itemIds, pagingKey) {
+        if (
+            shouldCancelPosterGridFocusMove(
+                previousPagingKey = previousPagingKey,
+                pagingKey = pagingKey,
+                targetId = focusMoveTargetId,
+                itemIds = itemIds,
+            )
+        ) {
+            focusMoveGeneration++
+            focusMoveJob?.cancel()
+            focusMoveJob = null
+            focusMoveTargetId = null
+        }
+        previousPagingKey = pagingKey
+    }
+
+    var requestedPreloadBoundary by remember { mutableStateOf<PosterGridPreloadBoundary?>(null) }
+    val preloadBoundary = remember(itemIds, pagingKey) {
+        PosterGridPreloadBoundary(
+            pagingKey = pagingKey,
+            firstItemId = itemIds.firstOrNull(),
+            lastItemId = itemIds.lastOrNull(),
+            itemCount = itemIds.size,
+        )
+    }
+
+    if (items.isEmpty()) {
+        Box(
+            modifier = modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            EmptyState(title = emptyTitle, description = emptyDescription)
+        }
+        return
+    }
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(columns),
+        state = gridState,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 2.dp, top = 3.dp, end = 5.dp, bottom = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        itemsIndexed(
+            items = items,
+            key = { _, item -> item.id },
+        ) { index, item ->
+            val itemRequester = remember(item.id) { FocusRequester() }
+            DisposableEffect(item.id, itemRequester) {
+                focusRequestersById[item.id] = itemRequester
+                onDispose {
+                    if (focusRequestersById[item.id] === itemRequester) {
+                        focusRequestersById.remove(item.id)
+                    }
+                }
+            }
+            val effectiveRequester = if (index == 0) firstFocus ?: itemRequester else itemRequester
+
+            PosterCard(
+                item = item,
+                onClick = { onOpenDetails(item.id) },
+                focusRequester = effectiveRequester,
+                onFocused = {
+                    if (
+                        hasMore &&
+                        requestedPreloadBoundary != preloadBoundary &&
+                        shouldPreloadPosterGrid(
+                            focusedIndex = index,
+                            itemCount = items.size,
+                            columns = columns,
+                            preloadRows = preloadRows,
+                        )
+                    ) {
+                        requestedPreloadBoundary = preloadBoundary
+                        onNearEnd()
+                    }
+                },
+                modifier = Modifier.onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown || !event.key.isGridDirection()) {
+                        return@onPreviewKeyEvent false
+                    }
+                    when (
+                        val decision = posterGridNavigationDecision(
+                            index = index,
+                            itemCount = items.size,
+                            columns = columns,
+                            key = event.key,
+                        )
+                    ) {
+                        PosterGridNavigationDecision.Exit -> false
+                        PosterGridNavigationDecision.Stay -> true
+                        is PosterGridNavigationDecision.Move -> {
+                            val target = items.getOrNull(decision.targetIndex)
+                                ?: return@onPreviewKeyEvent true
+                            focusMoveJob?.cancel()
+                            focusMoveGeneration++
+                            val moveGeneration = focusMoveGeneration
+                            focusMoveTargetId = target.id
+                            focusMoveJob = scope.launch {
+                                try {
+                                    val targetIsVisible = gridState.layoutInfo.visibleItemsInfo
+                                        .any { it.key == target.id }
+                                    if (!targetIsVisible) {
+                                        val nextRowStart = posterGridScrollAnchor(
+                                            firstVisibleItemIndex = gridState.firstVisibleItemIndex,
+                                            currentIndex = index,
+                                            targetIndex = decision.targetIndex,
+                                            itemCount = items.size,
+                                            columns = columns,
+                                        )
+                                        gridState.scrollToItem(nextRowStart)
+                                        withTimeoutOrNull(1_000L) {
+                                            snapshotFlow {
+                                                gridState.layoutInfo.visibleItemsInfo.any {
+                                                    it.key == target.id
+                                                }
+                                            }.first { it }
+                                        }
+                                        withFrameNanos { }
+                                    }
+                                    if (
+                                        gridState.layoutInfo.visibleItemsInfo.any {
+                                            it.key == target.id
+                                        }
+                                    ) {
+                                        val targetRequester = if (
+                                            decision.targetIndex == 0 && firstFocus != null
+                                        ) {
+                                            firstFocus
+                                        } else {
+                                            focusRequestersById[target.id]
+                                        }
+                                        runCatching { targetRequester?.requestFocus() }
+                                    }
+                                } finally {
+                                    if (
+                                        ownsPosterGridFocusMove(
+                                            activeGeneration = focusMoveGeneration,
+                                            moveGeneration = moveGeneration,
+                                        )
+                                    ) {
+                                        focusMoveTargetId = null
+                                        focusMoveJob = null
+                                    }
+                                }
+                            }
+                            true
+                        }
+                    }
+                },
+            )
+        }
+    }
+}
+
+private data class PosterGridPreloadBoundary(
+    val pagingKey: Any?,
+    val firstItemId: String?,
+    val lastItemId: String?,
+    val itemCount: Int,
+)
+
+private fun Key.isGridDirection(): Boolean =
+    this == Key.DirectionLeft ||
+        this == Key.DirectionRight ||
+        this == Key.DirectionUp ||
+        this == Key.DirectionDown

@@ -7,15 +7,11 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,12 +42,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.kinogo.atv.domain.LibraryFilter
-import com.kinogo.atv.ui.components.EmptyState
 import com.kinogo.atv.ui.components.MicrophoneMark
-import com.kinogo.atv.ui.components.PosterCard
-import com.kinogo.atv.ui.components.PosterGridColumnCount
+import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.components.TvChoiceChip
 import com.kinogo.atv.ui.components.TvIconButton
+import com.kinogo.atv.ui.components.TvPosterGrid
 import com.kinogo.atv.ui.components.TvSectionTitle
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
@@ -68,6 +63,8 @@ fun SearchScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onQueryChanged: (String) -> Unit = {},
+    hasMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
 ) {
     var query by remember { mutableStateOf("") }
     var submittedQuery by remember { mutableStateOf<String?>(null) }
@@ -194,23 +191,44 @@ fun SearchScreen(
                 fontSize = 11.sp,
             )
         }
-        Text(
-            text = when {
-                isLoading -> "Ищем на активном зеркале…"
-                errorMessage != null -> errorMessage
-                query.isBlank() -> "Новинки каталога"
-                else -> "Найдено: ${results.size}"
-            },
-            color = if (errorMessage != null) Color(0xFFFFD0CC) else Color(0xFFE0EBEF),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = when {
+                    isLoading -> "Ищем на активном зеркале…"
+                    errorMessage != null -> errorMessage
+                    query.isBlank() -> "Введите название фильма или сериала"
+                    else -> "Найдено: ${results.size}"
+                },
+                modifier = Modifier.weight(1f),
+                color = if (errorMessage != null) Color(0xFFFFD0CC) else Color(0xFFE0EBEF),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            if (errorMessage != null && query.isNotBlank()) {
+                TvActionButton(
+                    text = "Повторить",
+                    onClick = { onQueryChanged(query.trim()) },
+                    leadingMark = "↺",
+                )
+            }
+        }
         PosterGrid(
             items = results,
             onOpenDetails = onOpenDetails,
             emptyTitle = "Ничего не найдено",
-            emptyDescription = "Попробуйте изменить запрос",
+            emptyDescription = if (query.isBlank()) {
+                "Введите запрос в строке выше"
+            } else {
+                "Попробуйте изменить запрос"
+            },
             firstFocus = firstResultFocus,
+            hasMore = hasMore,
+            onNearEnd = onLoadMore,
+            pagingKey = query.trim(),
         )
     }
 }
@@ -287,26 +305,18 @@ internal fun PosterGrid(
     emptyTitle: String,
     emptyDescription: String,
     firstFocus: FocusRequester? = null,
+    hasMore: Boolean = false,
+    onNearEnd: () -> Unit = {},
+    pagingKey: Any? = null,
 ) {
-    if (items.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            EmptyState(title = emptyTitle, description = emptyDescription)
-        }
-        return
-    }
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(PosterGridColumnCount),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 2.dp, top = 3.dp, end = 5.dp, bottom = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        itemsIndexed(items = items, key = { _, item -> item.id }) { index, item ->
-            PosterCard(
-                item = item,
-                onClick = { onOpenDetails(item.id) },
-                focusRequester = if (index == 0) firstFocus else null,
-            )
-        }
-    }
+    TvPosterGrid(
+        items = items,
+        onOpenDetails = onOpenDetails,
+        emptyTitle = emptyTitle,
+        emptyDescription = emptyDescription,
+        hasMore = hasMore,
+        onNearEnd = onNearEnd,
+        firstFocus = firstFocus,
+        pagingKey = pagingKey,
+    )
 }

@@ -2,10 +2,16 @@ package com.kinogo.atv.data.catalog
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.kinogo.atv.domain.CatalogBrowseFilters
+import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.CatalogQuery
+import com.kinogo.atv.domain.CatalogSortDirection
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 interface CatalogRepository {
@@ -15,12 +21,51 @@ interface CatalogRepository {
 }
 
 class HtmlCatalogRepository(
-    private val transport: HtmlTransport,
+    private val transport: CatalogFilterHtmlTransport,
     private val parser: KinogoHtmlParser,
 ) : CatalogRepository {
-    override suspend fun loadPage(origin: String, query: CatalogQuery): ParsedCatalogPage {
-        val response = transport.get(origin, KinogoRoutes.catalog(query))
-        return withContext(Dispatchers.Default) {
+    private val browseMutex = Mutex()
+    private var appliedQuery: AppliedCatalogQuery? = null
+
+    override suspend fun loadPage(origin: String, query: CatalogQuery): ParsedCatalogPage =
+        browseMutex.withLock {
+            var lastSessionError: CatalogSessionChangedException? = null
+            repeat(MAX_SESSION_CHANGE_RETRIES + 1) { sessionRetry ->
+                try {
+                    return@withLock loadPageInStableSession(origin, query)
+                } catch (changed: CatalogSessionChangedException) {
+                    appliedQuery = null
+                    lastSessionError = changed
+                    if (sessionRetry < MAX_SESSION_CHANGE_RETRIES) {
+                        delay(SESSION_CHANGE_RETRY_DELAY_MS * (sessionRetry + 1L))
+                    }
+                }
+            }
+            throw checkNotNull(lastSessionError)
+        }
+
+    private suspend fun loadPageInStableSession(
+        origin: String,
+        query: CatalogQuery,
+    ): ParsedCatalogPage {
+        val identity = query.identity
+        val initialSessionEpoch = transport.sessionEpoch(origin)
+        val selectionChanged = appliedQuery != AppliedCatalogQuery(
+            origin = origin,
+            identity = identity,
+            sessionEpoch = initialSessionEpoch,
+        )
+        val response = if (selectionChanged) {
+            applyBrowseSelection(origin, identity, query.page)
+        } else {
+            transport.get(origin, KinogoRoutes.catalog(query))
+        }
+        val responseSessionEpoch = transport.sessionEpoch(origin)
+        if (!selectionChanged && responseSessionEpoch != initialSessionEpoch) {
+            throw CatalogSessionChangedException()
+        }
+
+        val parsed = withContext(Dispatchers.Default) {
             parseSafely {
                 parser.parseCatalog(
                     html = response.body,
@@ -28,11 +73,28 @@ class HtmlCatalogRepository(
                     page = query.page,
                 )
             }
-        }.also { parsed ->
-            if (query.searchTerm == null && parsed.items.isEmpty()) {
-                throw CatalogParseException("Каталог не содержит поддерживаемых карточек")
+        }
+        val commitSessionEpoch = transport.sessionEpoch(origin)
+        if (commitSessionEpoch != responseSessionEpoch) {
+            throw CatalogSessionChangedException()
+        }
+        if (identity.searchTerm == null) {
+            try {
+                validateExplicitActiveFilters(identity.filters, parsed.controls)
+            } catch (error: CatalogParseException) {
+                appliedQuery = null
+                throw error
             }
         }
+        if (!allowsEmptyPage(query, parsed)) {
+            throw CatalogParseException("Каталог не содержит поддерживаемых карточек")
+        }
+        appliedQuery = AppliedCatalogQuery(
+            origin = origin,
+            identity = identity,
+            sessionEpoch = commitSessionEpoch,
+        )
+        return parsed
     }
 
     override suspend fun loadDetails(origin: String, item: CatalogItem): ParsedContentPage {
@@ -63,6 +125,146 @@ class HtmlCatalogRepository(
         throw known
     } catch (error: Exception) {
         throw CatalogParseException("Не удалось разобрать HTML сервиса", error)
+    }
+
+    private suspend fun applyBrowseSelection(
+        origin: String,
+        identity: CatalogQuery,
+        requestedPage: Int,
+    ): HtmlResponse {
+        val basePath = KinogoRoutes.catalog(identity)
+        var response = transport.postCatalogForm(origin, basePath, CLEAR_XSORT_FORM)
+        val controls = withContext(Dispatchers.Default) {
+            parseSafely { parser.parseCatalogControls(response.body, response.resolvedOrigin) }
+        }
+
+        if (identity.searchTerm == null) {
+            xSortCommands(identity.filters, controls).forEach { form ->
+                response = transport.postCatalogForm(origin, basePath, form)
+            }
+        }
+
+        return if (requestedPage == 1) {
+            response
+        } else {
+            transport.get(origin, KinogoRoutes.catalog(identity.copy(page = requestedPage)))
+        }
+    }
+
+    private fun xSortCommands(
+        requested: CatalogBrowseFilters,
+        controls: CatalogControls,
+    ): List<Map<String, String>> = buildList {
+        requested.defaultSort?.let { sort ->
+            if (controls.sortOptions.none { it.value == sort }) {
+                throw CatalogParseException("Выбранная сортировка недоступна на этой странице")
+            }
+            val activeSort = controls.activeFilters.defaultSort
+            val activeDirection = controls.activeFilters.sortDirection
+            val postCount = when {
+                activeSort == sort && activeDirection == requested.sortDirection -> 0
+                activeSort == sort -> 1
+                requested.sortDirection == CatalogSortDirection.ASC -> 2
+                else -> 1
+            }
+            repeat(postCount) {
+                add(xSortForm(XSORT_DEFAULT_SORT_FIELD, sort.wireValue))
+            }
+        }
+
+        requested.collection?.let { option ->
+            if (controls.collectionOptions.none { it.value == option.value }) {
+                throw CatalogParseException("Выбранная подборка недоступна на этой странице")
+            }
+            if (controls.activeFilters.collection?.value != option.value) {
+                add(xSortForm(XSORT_COLLECTION_FIELD, option.value))
+            }
+        }
+
+        requested.year?.let { year ->
+            val value = year.toString()
+            if (controls.yearOptions.none { it.value == value }) {
+                throw CatalogParseException("Выбранный год недоступен на этой странице")
+            }
+            if (controls.activeFilters.year != year) {
+                add(xSortForm(XSORT_YEAR_FIELD, value))
+            }
+        }
+
+        requested.country?.let { option ->
+            if (controls.countryOptions.none { it.value == option.value }) {
+                throw CatalogParseException("Выбранная страна недоступна на этой странице")
+            }
+            if (controls.activeFilters.country?.value != option.value) {
+                add(xSortForm(XSORT_COUNTRY_FIELD, option.value))
+            }
+        }
+    }
+
+    private fun validateExplicitActiveFilters(
+        requested: CatalogBrowseFilters,
+        controls: CatalogControls,
+    ) {
+        val active = controls.activeFilters
+        requested.defaultSort?.let { sort ->
+            if (active.defaultSort != sort || active.sortDirection != requested.sortDirection) {
+                throw CatalogParseException(
+                    "Сервер не применил выбранную сортировку и направление",
+                )
+            }
+        }
+        requested.collection?.let { option ->
+            if (active.collection?.value != option.value) {
+                throw CatalogParseException("Сервер не применил выбранную подборку")
+            }
+        }
+        requested.year?.let { year ->
+            if (active.year != year) {
+                throw CatalogParseException("Сервер не применил выбранный год")
+            }
+        }
+        requested.country?.let { option ->
+            if (active.country?.value != option.value) {
+                throw CatalogParseException("Сервер не применил выбранную страну")
+            }
+        }
+    }
+
+    private fun allowsEmptyPage(
+        query: CatalogQuery,
+        parsed: ParsedCatalogPage,
+    ): Boolean {
+        if (parsed.items.isNotEmpty() || query.searchTerm != null) return true
+        if (query.page > 1) return parsed.nextPage == null
+        return query.filters.collection != null ||
+            query.filters.year != null ||
+            query.filters.country != null
+    }
+
+    private companion object {
+        data class AppliedCatalogQuery(
+            val origin: String,
+            val identity: CatalogQuery,
+            val sessionEpoch: Long,
+        )
+
+        const val XSORT_DEFAULT_SORT_FIELD = "defaultsort"
+        const val XSORT_COLLECTION_FIELD = "podborki"
+        const val XSORT_YEAR_FIELD = "year"
+        const val XSORT_COUNTRY_FIELD = "country"
+        const val MAX_SESSION_CHANGE_RETRIES = 3
+        const val SESSION_CHANGE_RETRY_DELAY_MS = 100L
+
+        val CLEAR_XSORT_FORM = linkedMapOf(
+            "xsort" to "1",
+            "xs_field" to "clearallfields",
+        )
+
+        fun xSortForm(field: String, value: String): Map<String, String> = linkedMapOf(
+            "xsort" to "1",
+            "xs_field" to field,
+            "xs_value" to value,
+        )
     }
 }
 

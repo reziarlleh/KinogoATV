@@ -44,7 +44,7 @@ class KinogoSessionHttpClient(
     private val maxRedirects: Int = 4,
     private val maxBodyBytes: Int = 2 * 1_024 * 1_024,
     private val dns: Dns = ResilientPublicDns(),
-) : HtmlTransport {
+) : CatalogFilterHtmlTransport {
     private val cookieStore = OriginCookieStore()
     private val client = OkHttpClient.Builder()
         .dns(dns)
@@ -90,6 +90,28 @@ class KinogoSessionHttpClient(
         rawRelativePath: String,
         form: Map<String, String>,
     ): SessionHttpResponse = request(rawOrigin, rawRelativePath, "POST", form)
+
+    override suspend fun postCatalogForm(
+        rawOrigin: String,
+        rawRelativePath: String,
+        form: Map<String, String>,
+    ): HtmlResponse {
+        val response = postForm(rawOrigin, rawRelativePath, form)
+        if (response.statusCode !in 200..299) {
+            throw CatalogHttpStatusException(response.statusCode)
+        }
+        CatalogHtmlDocumentPolicy.validate(response.body)
+        return HtmlResponse(
+            requestedOrigin = response.requestedOrigin,
+            resolvedOrigin = response.resolvedOrigin,
+            relativePath = response.relativePath,
+            statusCode = response.statusCode,
+            body = response.body,
+        )
+    }
+
+    override fun sessionEpoch(rawOrigin: String): Long =
+        cookieStore.epoch(MirrorUrlNormalizer.normalize(rawOrigin))
 
     fun clearCookies(rawOrigin: String) {
         cookieStore.clear(MirrorUrlNormalizer.normalize(rawOrigin))
@@ -271,6 +293,7 @@ internal object SessionRouteNormalizer {
 /** Minimal same-origin cookie jar; only name/value pairs are ever replayed. */
 internal class OriginCookieStore {
     private val cookiesByOrigin = linkedMapOf<String, LinkedHashMap<String, String>>()
+    private val epochsByOrigin = linkedMapOf<String, Long>()
 
     @Synchronized
     fun absorb(origin: String, headers: Map<String?, List<String>>) {
@@ -283,6 +306,7 @@ internal class OriginCookieStore {
     @Synchronized
     fun absorb(origin: String, values: List<String>) {
         if (values.isEmpty()) return
+        val before = cookiesByOrigin[origin]?.toMap().orEmpty()
         val target = cookiesByOrigin.getOrPut(origin) { linkedMapOf() }
         values.forEach { raw ->
             val pair = raw.substringBefore(';').trim()
@@ -298,6 +322,8 @@ internal class OriginCookieStore {
             }
         }
         if (target.isEmpty()) cookiesByOrigin.remove(origin)
+        val after = cookiesByOrigin[origin]?.toMap().orEmpty()
+        if (before != after) incrementEpoch(origin)
     }
 
     @Synchronized
@@ -307,7 +333,14 @@ internal class OriginCookieStore {
         ?.takeIf(String::isNotEmpty)
 
     @Synchronized
+    fun epoch(origin: String): Long = epochsByOrigin[origin] ?: 0L
+
+    @Synchronized
     fun clear(origin: String) {
-        cookiesByOrigin.remove(origin)
+        if (cookiesByOrigin.remove(origin) != null) incrementEpoch(origin)
+    }
+
+    private fun incrementEpoch(origin: String) {
+        epochsByOrigin[origin] = (epochsByOrigin[origin] ?: 0L) + 1L
     }
 }

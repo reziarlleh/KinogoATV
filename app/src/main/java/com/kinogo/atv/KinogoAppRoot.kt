@@ -56,9 +56,10 @@ import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
 import com.kinogo.atv.data.settings.TvPreferencesStore
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.CatalogItem
+import com.kinogo.atv.domain.CatalogBrowseFilters
+import com.kinogo.atv.domain.CatalogCategory
+import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.CatalogQuery
-import com.kinogo.atv.domain.CatalogFilter
-import com.kinogo.atv.domain.CatalogSection
 import com.kinogo.atv.domain.ContentDetails
 import com.kinogo.atv.domain.PlaybackMediaPlan
 import com.kinogo.atv.domain.PlaybackMediaVariant
@@ -71,7 +72,6 @@ import com.kinogo.atv.player.ui.TvPlayerScreen
 import com.kinogo.atv.player.web.ProviderEmbedPlayerScreen
 import com.kinogo.atv.ui.KinogoTvApp
 import com.kinogo.atv.ui.model.HistoryUiModel
-import com.kinogo.atv.ui.model.HomeSectionUiModel
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.MirrorStatusUi
 import com.kinogo.atv.ui.model.MirrorUiModel
@@ -140,6 +140,29 @@ private data class PendingPlaybackSelectionSession(
             "webFallbacks=<redacted>, initialPositionMs=$initialPositionMs)"
 }
 
+private enum class CatalogFeedKind {
+    HOME,
+    CATALOG,
+    SEARCH,
+}
+
+private data class CatalogFeedState(
+    val query: CatalogQuery? = null,
+    val items: List<CatalogItem> = emptyList(),
+    val controls: CatalogControls = CatalogControls(),
+    val nextPage: Int? = null,
+    val loading: Boolean = false,
+    val error: String? = null,
+    val origin: String? = null,
+    val generation: Long = 0L,
+)
+
+private val CatalogControls.hasParsedBrowseControls: Boolean
+    get() = sortOptions.isNotEmpty() ||
+        collectionOptions.isNotEmpty() ||
+        yearOptions.isNotEmpty() ||
+        countryOptions.isNotEmpty()
+
 @Composable
 fun KinogoAppRoot() {
     val localContext = LocalContext.current
@@ -205,20 +228,17 @@ fun KinogoAppRoot() {
         mutableStateOf<PendingPlaybackSelectionSession?>(null)
     }
     var playbackReturnDetailsId by remember { mutableStateOf<String?>(null) }
-    var catalogItems by remember { mutableStateOf(emptyList<CatalogItem>()) }
-    var catalogNextPage by remember { mutableStateOf<Int?>(null) }
-    var catalogLoading by remember { mutableStateOf(false) }
-    var catalogError by remember { mutableStateOf<String?>(null) }
     var startupError by remember { mutableStateOf<String?>(null) }
-    var catalogOrigin by remember { mutableStateOf<String?>(null) }
-    var catalogGeneration by remember { mutableLongStateOf(0L) }
-    var catalogSection by remember { mutableStateOf(CatalogSection.ROOT) }
-    var catalogFilter by remember { mutableStateOf<CatalogFilter?>(null) }
-    var searchQuery by remember { mutableStateOf("") }
-    var searchItems by remember { mutableStateOf(emptyList<CatalogItem>()) }
-    var searchLoading by remember { mutableStateOf(false) }
-    var searchError by remember { mutableStateOf<String?>(null) }
-    var searchGeneration by remember { mutableLongStateOf(0L) }
+    var homeFeed by remember {
+        mutableStateOf(CatalogFeedState(query = CatalogQuery()))
+    }
+    var catalogFeed by remember {
+        mutableStateOf(
+            CatalogFeedState(query = CatalogQuery(category = CatalogCategory.NEW_RELEASES)),
+        )
+    }
+    var searchFeed by remember { mutableStateOf(CatalogFeedState()) }
+    var contentGeneration by remember { mutableLongStateOf(0L) }
     var liveDetailsById by remember {
         mutableStateOf(emptyMap<String, com.kinogo.atv.ui.model.DetailsUiModel>())
     }
@@ -227,8 +247,9 @@ fun KinogoAppRoot() {
 
     fun knownCatalogItems(): List<CatalogItem> =
         (
-            catalogItems +
-                searchItems +
+            homeFeed.items +
+                catalogFeed.items +
+                searchFeed.items +
                 libraryRecords.map { it.item } +
                 history.mapNotNull(WatchProgress::historyCatalogItem)
             ).distinctBy(CatalogItem::id)
@@ -283,108 +304,161 @@ fun KinogoAppRoot() {
         }
     }
 
-    fun requestCatalogPage(origin: String, page: Int, reset: Boolean) {
-        if (!reset && catalogLoading) return
-        val generation = if (reset) catalogGeneration + 1L else catalogGeneration
-        if (reset) {
-            catalogGeneration = generation
-            catalogOrigin = origin
-            catalogItems = emptyList()
-            catalogNextPage = null
-            catalogError = null
-            liveDetailsById = emptyMap()
-            loadingDetailIds = emptySet()
-            searchGeneration++
-            searchQuery = ""
-            searchItems = emptyList()
-            searchLoading = false
-            searchError = null
+    fun currentFeed(kind: CatalogFeedKind): CatalogFeedState = when (kind) {
+        CatalogFeedKind.HOME -> homeFeed
+        CatalogFeedKind.CATALOG -> catalogFeed
+        CatalogFeedKind.SEARCH -> searchFeed
+    }
+
+    fun setFeed(kind: CatalogFeedKind, value: CatalogFeedState) {
+        when (kind) {
+            CatalogFeedKind.HOME -> homeFeed = value
+            CatalogFeedKind.CATALOG -> catalogFeed = value
+            CatalogFeedKind.SEARCH -> searchFeed = value
         }
-        catalogLoading = true
+    }
+
+    fun requestFeedPage(
+        kind: CatalogFeedKind,
+        origin: String,
+        query: CatalogQuery,
+        page: Int,
+        reset: Boolean,
+    ) {
+        val identity = query.identity
+        val previous = currentFeed(kind)
+        if (!reset && (previous.loading || previous.query?.identity != identity)) return
+        val generation = if (reset) previous.generation + 1L else previous.generation
+        val started = if (reset) {
+            previous.copy(
+                query = identity,
+                items = emptyList(),
+                controls = CatalogControls(categories = previous.controls.categories),
+                nextPage = null,
+                loading = true,
+                error = null,
+                origin = origin,
+                generation = generation,
+            )
+        } else {
+            previous.copy(loading = true, error = null)
+        }
+        setFeed(kind, started)
+
         scope.launch {
             try {
                 val result = catalogRepository.loadPage(
                     origin = origin,
-                    query = CatalogQuery(
-                        section = catalogSection,
-                        filter = catalogFilter,
-                        page = page,
+                    query = identity.copy(page = page),
+                )
+                val latest = currentFeed(kind)
+                if (
+                    latest.generation != generation ||
+                    latest.origin != origin ||
+                    latest.query?.identity != identity ||
+                    activeMirrorOrigin != origin
+                ) {
+                    return@launch
+                }
+                val parsedBrowseControls = result.controls.hasParsedBrowseControls
+                val controls = when {
+                    parsedBrowseControls -> result.controls.copy(
+                        categories = result.controls.categories.ifEmpty {
+                            latest.controls.categories
+                        },
+                    )
+                    result.controls.categories.isNotEmpty() -> latest.controls.copy(
+                        categories = result.controls.categories,
+                    )
+                    else -> latest.controls
+                }
+                val effectiveQuery = if (
+                    identity.searchTerm == null && parsedBrowseControls
+                ) {
+                    identity.copy(filters = result.controls.activeFilters)
+                } else {
+                    identity
+                }
+                setFeed(
+                    kind,
+                    latest.copy(
+                        query = effectiveQuery,
+                        items = if (reset) {
+                            result.items
+                        } else {
+                            (latest.items + result.items).distinctBy(CatalogItem::id)
+                        },
+                        controls = controls,
+                        nextPage = result.nextPage,
+                        loading = false,
+                        error = null,
                     ),
                 )
-                if (generation != catalogGeneration || activeMirrorOrigin != origin) return@launch
-                catalogItems = if (reset) {
-                    result.items
-                } else {
-                    (catalogItems + result.items).distinctBy { it.id }
-                }
-                catalogNextPage = result.nextPage
-                catalogError = null
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                if (generation == catalogGeneration && activeMirrorOrigin == origin) {
-                    catalogError = catalogErrorLabel(error)
-                }
-            } finally {
-                if (generation == catalogGeneration && catalogOrigin == origin) {
-                    catalogLoading = false
+                Log.e(
+                    APP_ROOT_LOG_TAG,
+                    "Catalog feed $kind page $page failed",
+                    error,
+                )
+                val latest = currentFeed(kind)
+                if (
+                    latest.generation == generation &&
+                    latest.origin == origin &&
+                    activeMirrorOrigin == origin
+                ) {
+                    setFeed(
+                        kind,
+                        latest.copy(loading = false, error = catalogErrorLabel(error)),
+                    )
                 }
             }
         }
     }
 
     fun requestSearch(rawQuery: String) {
-        val query = rawQuery.trim()
-        if (query == searchQuery && (query.isEmpty() || searchItems.isNotEmpty())) return
-        searchQuery = query
-        searchGeneration++
-        val generation = searchGeneration
-        searchError = null
-        if (query.isEmpty()) {
-            searchItems = emptyList()
-            searchLoading = false
+        val value = rawQuery.trim()
+        if (value.isEmpty()) {
+            searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
             return
+        }
+        val query = CatalogQuery.search(value)
+        if (searchFeed.query?.identity == query.identity) {
+            if (searchFeed.loading) return
+            if (searchFeed.error == null && searchFeed.items.isNotEmpty()) return
         }
         val origin = activeMirrorOrigin
         if (origin == null) {
-            searchItems = emptyList()
-            searchLoading = false
-            searchError = "Нет доступного зеркала для поиска"
+            searchFeed = CatalogFeedState(
+                query = query,
+                error = "Нет доступного зеркала для поиска",
+                generation = searchFeed.generation + 1L,
+            )
             return
         }
-        searchLoading = true
-        scope.launch {
-            try {
-                val result = catalogRepository.loadPage(
-                    origin = origin,
-                    query = CatalogQuery.search(query),
-                )
-                if (generation != searchGeneration || activeMirrorOrigin != origin) return@launch
-                searchItems = result.items
-                searchError = null
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (error: Exception) {
-                if (generation == searchGeneration && activeMirrorOrigin == origin) {
-                    searchItems = emptyList()
-                    searchError = catalogErrorLabel(error)
-                }
-            } finally {
-                if (generation == searchGeneration) searchLoading = false
-            }
-        }
+        val retryAppend = searchFeed.query?.identity == query.identity &&
+            searchFeed.items.isNotEmpty() &&
+            searchFeed.nextPage != null
+        requestFeedPage(
+            kind = CatalogFeedKind.SEARCH,
+            origin = origin,
+            query = query,
+            page = if (retryAppend) requireNotNull(searchFeed.nextPage) else 1,
+            reset = !retryAppend,
+        )
     }
 
     fun requestDetails(contentId: String) {
         val item = knownCatalogItems().firstOrNull { it.id == contentId } ?: return
         val origin = activeMirrorOrigin ?: return
         if (contentId in liveDetailsById || contentId in loadingDetailIds) return
-        val generation = catalogGeneration
+        val generation = contentGeneration
         loadingDetailIds = loadingDetailIds + contentId
         scope.launch {
             try {
                 val parsed = loadCatalogDetails(origin, item)
-                if (generation != catalogGeneration || activeMirrorOrigin != origin) return@launch
+                if (generation != contentGeneration || activeMirrorOrigin != origin) return@launch
                 persistHistorySnapshot(parsed.catalogItem)
                 val details = ContentDetails(
                     catalogItem = parsed.catalogItem,
@@ -428,7 +502,7 @@ fun KinogoAppRoot() {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                if (generation == catalogGeneration && activeMirrorOrigin == origin) {
+                if (generation == contentGeneration && activeMirrorOrigin == origin) {
                     val unavailable = ContentDetails(
                         catalogItem = item,
                         description = "Не удалось загрузить подробную карточку.",
@@ -439,7 +513,7 @@ fun KinogoAppRoot() {
                     liveDetailsById = liveDetailsById + (contentId to unavailable)
                 }
             } finally {
-                if (generation == catalogGeneration) {
+                if (generation == contentGeneration) {
                     loadingDetailIds = loadingDetailIds - contentId
                 }
             }
@@ -452,21 +526,62 @@ fun KinogoAppRoot() {
             entry.origin == preferredOrigin && mirrorRegistry.isEligible(entry.origin)
         }
         val selectedOrigin = (preferred ?: result.active)?.origin
+        val mirrorChanged = activeMirrorOrigin != selectedOrigin
         activeMirrorOrigin = selectedOrigin
-        if (selectedOrigin == null) {
-            catalogGeneration++
-            catalogOrigin = null
-            catalogItems = emptyList()
-            catalogNextPage = null
-            catalogLoading = false
-            catalogError = "Нет доступного проверенного зеркала"
+        if (mirrorChanged) {
+            contentGeneration++
             liveDetailsById = emptyMap()
-            searchGeneration++
-            searchItems = emptyList()
-            searchLoading = false
-            searchError = null
-        } else if (catalogOrigin != selectedOrigin || catalogItems.isEmpty()) {
-            requestCatalogPage(origin = selectedOrigin, page = 1, reset = true)
+            loadingDetailIds = emptySet()
+            searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
+        }
+        if (selectedOrigin == null) {
+            val message = "Нет доступного проверенного зеркала"
+            homeFeed = CatalogFeedState(
+                query = CatalogQuery(),
+                error = message,
+                generation = homeFeed.generation + 1L,
+            )
+            catalogFeed = CatalogFeedState(
+                query = CatalogQuery(category = CatalogCategory.NEW_RELEASES),
+                error = message,
+                generation = catalogFeed.generation + 1L,
+            )
+        } else {
+            val homeQuery = if (mirrorChanged) {
+                CatalogQuery()
+            } else {
+                homeFeed.query ?: CatalogQuery()
+            }
+            val catalogQuery = if (mirrorChanged) {
+                CatalogQuery(
+                    category = catalogFeed.query?.category ?: CatalogCategory.NEW_RELEASES,
+                )
+            } else {
+                catalogFeed.query
+                    ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
+            }
+            if (mirrorChanged || homeFeed.origin != selectedOrigin || homeFeed.items.isEmpty()) {
+                requestFeedPage(
+                    CatalogFeedKind.HOME,
+                    selectedOrigin,
+                    homeQuery,
+                    page = 1,
+                    reset = true,
+                )
+            }
+            if (
+                mirrorChanged ||
+                catalogFeed.origin != selectedOrigin ||
+                catalogFeed.items.isEmpty()
+            ) {
+                requestFeedPage(
+                    CatalogFeedKind.CATALOG,
+                    selectedOrigin,
+                    catalogQuery,
+                    page = 1,
+                    reset = true,
+                )
+            }
         }
         if (selectedOrigin != null) {
             scope.launch {
@@ -489,7 +604,10 @@ fun KinogoAppRoot() {
         if (mirrorCheckInProgress) return
         mirrorCheckInProgress = true
         startupError = null
-        if (activeMirrorOrigin == null && catalogItems.isEmpty()) catalogError = null
+        if (activeMirrorOrigin == null && homeFeed.items.isEmpty()) {
+            homeFeed = homeFeed.copy(error = null)
+            catalogFeed = catalogFeed.copy(error = null)
+        }
         mirrorEntries = mirrorRegistry.all()
         scope.launch {
             try {
@@ -511,9 +629,9 @@ fun KinogoAppRoot() {
                 mirrorEntries = mirrorRegistry.all()
                 val message = mirrorRefreshErrorLabel(error)
                 startupError = message
-                if (activeMirrorOrigin == null && catalogItems.isEmpty()) {
-                    catalogLoading = false
-                    catalogError = message
+                if (activeMirrorOrigin == null && homeFeed.items.isEmpty()) {
+                    homeFeed = homeFeed.copy(loading = false, error = message)
+                    catalogFeed = catalogFeed.copy(loading = false, error = message)
                 }
             } finally {
                 mirrorCheckInProgress = false
@@ -778,10 +896,17 @@ fun KinogoAppRoot() {
         }
     }
 
-    val historyCatalogItems = remember(catalogItems, searchItems, libraryRecords, history) {
+    val historyCatalogItems = remember(
+        homeFeed.items,
+        catalogFeed.items,
+        searchFeed.items,
+        libraryRecords,
+        history,
+    ) {
         (
-            catalogItems +
-                searchItems +
+            homeFeed.items +
+                catalogFeed.items +
+                searchFeed.items +
                 libraryRecords.map { it.item } +
                 history.mapNotNull(WatchProgress::historyCatalogItem)
             )
@@ -798,18 +923,19 @@ fun KinogoAppRoot() {
     val favoriteIds = remember(libraryRecords) {
         libraryRecords.filter(LibraryRecord::favorite).mapTo(linkedSetOf()) { it.item.id }
     }
-    val catalogPosters = remember(catalogItems, favoriteIds) {
-        catalogItems.map { item ->
+    val homePosters = remember(homeFeed.items, favoriteIds) {
+        homeFeed.items.map { item ->
             item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
         }
     }
-    val searchPosters = remember(searchQuery, searchItems, catalogPosters, favoriteIds) {
-        if (searchQuery.isBlank()) {
-            catalogPosters.take(10)
-        } else {
-            searchItems.map { item ->
-                item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
-            }
+    val catalogPosters = remember(catalogFeed.items, favoriteIds) {
+        catalogFeed.items.map { item ->
+            item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
+        }
+    }
+    val searchPosters = remember(searchFeed.items, favoriteIds) {
+        searchFeed.items.map { item ->
+            item.toPosterUiModel().copy(isFavorite = item.id in favoriteIds)
         }
     }
     val favoritePosters = remember(libraryRecords) {
@@ -825,44 +951,6 @@ fun KinogoAppRoot() {
                 favorite = record.favorite,
             )
         }
-    }
-    val homeSections = remember(historyUi, catalogPosters) {
-        val continueItems = historyUi
-            .filter { it.progress < 0.9f }
-            .map { it.poster }
-        buildList {
-            if (continueItems.isNotEmpty()) add(
-                HomeSectionUiModel(
-                    id = "continue-persisted",
-                    title = "Продолжить просмотр",
-                    items = continueItems,
-                ),
-            )
-            if (catalogPosters.isNotEmpty()) add(
-                HomeSectionUiModel(
-                    id = "live-new",
-                    title = "Новинки",
-                    items = catalogPosters.take(12),
-                ),
-            )
-            val series = catalogPosters.filter { "Сериал" in it.subtitle }.take(12)
-            if (series.isNotEmpty()) add(
-                HomeSectionUiModel(
-                    id = "live-series",
-                    title = "Сериалы",
-                    items = series,
-                ),
-            )
-        }
-    }
-    val featuredDetails = catalogItems.firstOrNull()?.let { item ->
-        liveDetailsById[item.id] ?: ContentDetails(
-            catalogItem = item,
-            description = "Перейдите к материалу, чтобы загрузить описание с активного зеркала.",
-        ).toDetailsUiModel(
-            playbackAvailable = false,
-            statusMessage = "Живой каталог: ${activeMirrorOrigin.orEmpty()}",
-        )
     }
     val mirrorUiState = MirrorUiState(
         mirrors = mirrorEntries.map { it.toUiModel(activeMirrorOrigin) },
@@ -1011,8 +1099,7 @@ fun KinogoAppRoot() {
     } else {
         KinogoTvApp(
             initialDetailsId = playbackReturnDetailsId,
-            homeSections = homeSections,
-            featured = featuredDetails,
+            homeCatalog = homePosters,
             history = historyUi,
             mirrorState = mirrorUiState,
             catalog = catalogPosters,
@@ -1023,36 +1110,54 @@ fun KinogoAppRoot() {
                 record.status?.let { record.item.id to it }
             }.toMap(),
             detailsById = liveDetailsById,
-            catalogHasMore = catalogNextPage != null,
-            catalogLoading = catalogLoading ||
+            catalogHasMore = catalogFeed.nextPage != null,
+            catalogLoading = catalogFeed.loading ||
                 (activeMirrorOrigin == null && mirrorCheckInProgress),
-            catalogError = catalogError,
-            homeError = if (mirrorCheckInProgress || catalogLoading) {
+            catalogError = catalogFeed.error,
+            catalogControls = catalogFeed.controls,
+            catalogCategory = catalogFeed.query?.category ?: CatalogCategory.NEW_RELEASES,
+            catalogFilters = catalogFeed.query?.filters ?: CatalogBrowseFilters(),
+            homeHasMore = homeFeed.nextPage != null,
+            homeLoading = homeFeed.loading ||
+                (activeMirrorOrigin == null && mirrorCheckInProgress),
+            homeError = if (mirrorCheckInProgress || homeFeed.loading) {
                 null
             } else {
-                startupError ?: catalogError
+                startupError ?: homeFeed.error
             },
-            catalogStatusLabel = activeMirrorOrigin?.let { "Источник: $it" },
-            catalogSection = catalogSection,
-            catalogFilter = catalogFilter,
+            homeControls = homeFeed.controls,
+            homeFilters = homeFeed.query?.filters ?: CatalogBrowseFilters(),
+            catalogStatusLabel = null,
             searchResults = searchPosters,
-            searchLoading = searchLoading,
-            searchError = searchError,
+            searchLoading = searchFeed.loading,
+            searchError = searchFeed.error,
+            searchHasMore = searchFeed.nextPage != null,
             useRemoteCatalog = true,
             onPlayRequested = ::startPlayback,
             onCatalogLoadMore = {
                 val origin = activeMirrorOrigin
-                val page = catalogNextPage
-                if (origin != null && page != null) {
-                    requestCatalogPage(origin = origin, page = page, reset = false)
+                val query = catalogFeed.query
+                val page = catalogFeed.nextPage
+                if (origin != null && query != null && page != null) {
+                    requestFeedPage(
+                        kind = CatalogFeedKind.CATALOG,
+                        origin = origin,
+                        query = query,
+                        page = page,
+                        reset = false,
+                    )
                 }
             },
             onCatalogRetry = {
                 activeMirrorOrigin?.let { origin ->
-                    val reset = catalogItems.isEmpty()
-                    requestCatalogPage(
+                    val query = catalogFeed.query
+                        ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
+                    val reset = catalogFeed.items.isEmpty()
+                    requestFeedPage(
+                        kind = CatalogFeedKind.CATALOG,
                         origin = origin,
-                        page = if (reset) 1 else catalogNextPage ?: 1,
+                        query = query,
+                        page = if (reset) 1 else catalogFeed.nextPage ?: 1,
                         reset = reset,
                     )
                 }
@@ -1062,29 +1167,95 @@ fun KinogoAppRoot() {
                 if (origin == null) {
                     requestMirrorRefresh()
                 } else {
-                    requestCatalogPage(origin = origin, page = 1, reset = true)
+                    val query = homeFeed.query ?: CatalogQuery()
+                    val reset = homeFeed.items.isEmpty()
+                    requestFeedPage(
+                        kind = CatalogFeedKind.HOME,
+                        origin = origin,
+                        query = query,
+                        page = if (reset) 1 else homeFeed.nextPage ?: 1,
+                        reset = reset,
+                    )
                 }
             },
-            onDetailsRequested = ::requestDetails,
-            onCatalogSectionSelected = { section ->
-                if (section != catalogSection || catalogFilter != null) {
-                    catalogFilter = null
-                    catalogSection = section
+            onHomeLoadMore = {
+                val origin = activeMirrorOrigin
+                val query = homeFeed.query
+                val page = homeFeed.nextPage
+                if (origin != null && query != null && page != null) {
+                    requestFeedPage(
+                        kind = CatalogFeedKind.HOME,
+                        origin = origin,
+                        query = query,
+                        page = page,
+                        reset = false,
+                    )
+                }
+            },
+            onHomeFiltersChanged = { filters ->
+                val current = homeFeed.query ?: CatalogQuery()
+                if (filters != current.filters) {
                     activeMirrorOrigin?.let { origin ->
-                        requestCatalogPage(origin = origin, page = 1, reset = true)
+                        requestFeedPage(
+                            kind = CatalogFeedKind.HOME,
+                            origin = origin,
+                            query = current.copy(filters = filters, page = 1),
+                            page = 1,
+                            reset = true,
+                        )
                     }
                 }
             },
-            onCatalogFilterSelected = { filter ->
-                if (filter != catalogFilter || catalogSection != CatalogSection.ROOT) {
-                    catalogSection = CatalogSection.ROOT
-                    catalogFilter = filter
+            onDetailsRequested = ::requestDetails,
+            onCatalogCategorySelected = { category ->
+                val current = catalogFeed.query
+                    ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
+                if (category != current.category) {
                     activeMirrorOrigin?.let { origin ->
-                        requestCatalogPage(origin = origin, page = 1, reset = true)
+                        requestFeedPage(
+                            kind = CatalogFeedKind.CATALOG,
+                            origin = origin,
+                            query = current.copy(
+                                category = category,
+                                filters = CatalogBrowseFilters(),
+                                page = 1,
+                            ),
+                            page = 1,
+                            reset = true,
+                        )
+                    }
+                }
+            },
+            onCatalogFiltersChanged = { filters ->
+                val current = catalogFeed.query
+                    ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
+                if (filters != current.filters) {
+                    activeMirrorOrigin?.let { origin ->
+                        requestFeedPage(
+                            kind = CatalogFeedKind.CATALOG,
+                            origin = origin,
+                            query = current.copy(filters = filters, page = 1),
+                            page = 1,
+                            reset = true,
+                        )
                     }
                 }
             },
             onSearchQueryChanged = ::requestSearch,
+            onSearchLoadMore = {
+                val origin = activeMirrorOrigin
+                val query = searchFeed.query
+                val page = searchFeed.nextPage
+                if (origin != null && query != null && page != null) {
+                    requestFeedPage(
+                        kind = CatalogFeedKind.SEARCH,
+                        origin = origin,
+                        query = query,
+                        page = page,
+                        reset = false,
+                    )
+                }
+            },
             onFavoriteToggle = ::toggleFavorite,
             onWatchStatusChange = ::changeWatchStatus,
             onCheckMirrors = { requestMirrorRefresh() },
@@ -1099,9 +1270,43 @@ fun KinogoAppRoot() {
             onMirrorSelected = { origin ->
                 val entry = mirrorRegistry.get(origin)
                 if (entry != null && mirrorRegistry.isEligible(entry.origin)) {
+                    val mirrorChanged = activeMirrorOrigin != entry.origin
                     activeMirrorOrigin = entry.origin
-                    if (catalogOrigin != entry.origin) {
-                        requestCatalogPage(origin = entry.origin, page = 1, reset = true)
+                    if (mirrorChanged) {
+                        contentGeneration++
+                        liveDetailsById = emptyMap()
+                        loadingDetailIds = emptySet()
+                        searchFeed = CatalogFeedState(
+                            generation = searchFeed.generation + 1L,
+                        )
+                    }
+                    if (mirrorChanged || homeFeed.origin != entry.origin) {
+                        requestFeedPage(
+                            kind = CatalogFeedKind.HOME,
+                            origin = entry.origin,
+                            query = if (mirrorChanged) CatalogQuery() else {
+                                homeFeed.query ?: CatalogQuery()
+                            },
+                            page = 1,
+                            reset = true,
+                        )
+                    }
+                    if (mirrorChanged || catalogFeed.origin != entry.origin) {
+                        requestFeedPage(
+                            kind = CatalogFeedKind.CATALOG,
+                            origin = entry.origin,
+                            query = if (mirrorChanged) {
+                                CatalogQuery(
+                                    category = catalogFeed.query?.category
+                                        ?: CatalogCategory.NEW_RELEASES,
+                                )
+                            } else {
+                                catalogFeed.query
+                                    ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
+                            },
+                            page = 1,
+                            reset = true,
+                        )
                     }
                     scope.launch {
                         mirrorPreferences.setSelectedOrigin(entry.origin)

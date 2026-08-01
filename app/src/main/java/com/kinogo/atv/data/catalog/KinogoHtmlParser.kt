@@ -1,6 +1,13 @@
 package com.kinogo.atv.data.catalog
 
 import com.kinogo.atv.domain.CatalogItem
+import com.kinogo.atv.domain.CatalogBrowseFilters
+import com.kinogo.atv.domain.CatalogCategory
+import com.kinogo.atv.domain.CatalogControls
+import com.kinogo.atv.domain.CatalogDefaultSort
+import com.kinogo.atv.domain.CatalogFilterOption
+import com.kinogo.atv.domain.CatalogSortDirection
+import com.kinogo.atv.domain.CatalogSortOption
 import com.kinogo.atv.domain.ContentRatings
 import com.kinogo.atv.domain.ContentType
 import com.kinogo.atv.data.library.HtmlLibraryParser
@@ -15,6 +22,7 @@ data class ParsedCatalogPage(
     val items: List<CatalogItem>,
     val page: Int,
     val nextPage: Int?,
+    val controls: CatalogControls = CatalogControls(),
 ) {
     init {
         require(page > 0)
@@ -66,6 +74,11 @@ data class ParsedContentPage(
  * returned as untrusted candidates for the separate source-resolver layer.
  */
 class KinogoHtmlParser {
+    fun parseCatalogControls(html: String, origin: String): CatalogControls {
+        val normalizedOrigin = normalizeOrigin(origin)
+        return parseCatalogControls(Jsoup.parse(html, "$normalizedOrigin/"), normalizedOrigin)
+    }
+
     fun parseCatalog(
         html: String,
         origin: String,
@@ -86,6 +99,7 @@ class KinogoHtmlParser {
             items = items,
             page = page,
             nextPage = findNextPage(document, page),
+            controls = parseCatalogControls(document, normalizedOrigin),
         )
     }
 
@@ -242,6 +256,112 @@ class KinogoHtmlParser {
         }
         return (page + 1).takeIf { hasLaterLink }
     }
+
+    private fun parseCatalogControls(document: Document, origin: String): CatalogControls {
+        val sortList = document.selectFirst(".xsort-ul[data-field=defaultsort]")
+        val sortOptions = sortList
+            ?.select("li[data-val]")
+            .orEmpty()
+            .mapNotNull { item ->
+                val title = item.normalizedText() ?: return@mapNotNull null
+                val rawValue = item.attr("data-val").trim()
+                val value = if (rawValue.isEmpty()) {
+                    null
+                } else {
+                    CatalogDefaultSort.fromWireValue(rawValue) ?: return@mapNotNull null
+                }
+                runCatching { CatalogSortOption(value = value, title = title) }.getOrNull()
+            }
+            .distinctBy(CatalogSortOption::value)
+
+        val collectionOptions = parseFilterOptions(document, XSORT_COLLECTION_FIELD)
+        val yearOptions = parseFilterOptions(document, XSORT_YEAR_FIELD)
+            .filter { option ->
+                option.value.toIntOrNull()?.let { year ->
+                    year in CatalogBrowseFilters.MIN_CATALOG_YEAR..
+                        CatalogBrowseFilters.MAX_CATALOG_YEAR
+                } == true
+            }
+        val countryOptions = parseFilterOptions(document, XSORT_COUNTRY_FIELD)
+
+        val activeSortItem = sortList?.selectFirst("li.current[data-val]")
+        val activeSort = activeSortItem
+            ?.attr("data-val")
+            ?.trim()
+            ?.takeIf(String::isNotEmpty)
+            ?.let(CatalogDefaultSort::fromWireValue)
+        val activeDirection = if (
+            activeSort != null &&
+            (
+                activeSortItem.hasClass("xasc") ||
+                    sortList.parent()?.selectFirst(".xsort-selected .xasc") != null
+                )
+        ) {
+            CatalogSortDirection.ASC
+        } else {
+            CatalogSortDirection.DESC
+        }
+
+        return CatalogControls(
+            sortOptions = sortOptions,
+            collectionOptions = collectionOptions,
+            yearOptions = yearOptions,
+            countryOptions = countryOptions,
+            categories = document
+                .select(".categories a[href], .bySearials a[href], .bySerials a[href]")
+                .mapNotNull { anchor ->
+                    sameOriginRelativePath(anchor.attr("href"), origin)
+                        ?.let(CatalogCategory::fromRelativePath)
+                }
+                .distinct(),
+            activeFilters = CatalogBrowseFilters(
+                defaultSort = activeSort,
+                sortDirection = activeDirection,
+                collection = currentFilterOption(document, XSORT_COLLECTION_FIELD),
+                year = currentFilterOption(document, XSORT_YEAR_FIELD)
+                    ?.value
+                    ?.toIntOrNull()
+                    ?.takeIf {
+                        it in CatalogBrowseFilters.MIN_CATALOG_YEAR..
+                            CatalogBrowseFilters.MAX_CATALOG_YEAR
+                    },
+                country = currentFilterOption(document, XSORT_COUNTRY_FIELD),
+            ),
+        )
+    }
+
+    private fun parseFilterOptions(document: Document, field: String): List<CatalogFilterOption> =
+        document
+            .selectFirst(".xsort-ul[data-field=$field]")
+            ?.select("li[data-val]")
+            .orEmpty()
+            .mapNotNull { item ->
+                val value = normalizeControlValue(item.attr("data-val"))
+                    .takeIf(String::isNotEmpty)
+                    ?: return@mapNotNull null
+                val title = item.normalizedText() ?: return@mapNotNull null
+                // Current xSort values for collection/year/country are their visible labels. Five
+                // live collection entries contain unescaped quotes, which makes HTML parsers
+                // truncate data-val and invent bogus attributes. Skip only that malformed entry.
+                if (value != title) return@mapNotNull null
+                runCatching { CatalogFilterOption(value = value, title = title) }.getOrNull()
+            }
+            .distinctBy(CatalogFilterOption::value)
+
+    private fun currentFilterOption(document: Document, field: String): CatalogFilterOption? {
+        val item = document.selectFirst(".xsort-ul[data-field=$field] li.current[data-val]")
+            ?: return null
+        val value = normalizeControlValue(item.attr("data-val"))
+            .takeIf(String::isNotEmpty)
+            ?: return null
+        val title = item.normalizedText() ?: return null
+        if (value != title) return null
+        return runCatching { CatalogFilterOption(value = value, title = title) }.getOrNull()
+    }
+
+    private fun normalizeControlValue(raw: String): String = raw
+        .replace(WHITESPACE_PATTERN, " ")
+        .trim()
 
     private fun sameOriginRelativePath(rawUrl: String, origin: String): String? = runCatching {
         val originUri = URI.create("$origin/")
@@ -409,6 +529,9 @@ class KinogoHtmlParser {
         val LIST_SEPARATOR_PATTERN = Regex("\\s*(?:,|/|;|\\|)\\s*")
         val NEXT_PAGE_LABELS = setOf("позже", "следующая", "далее", "next", ">", "»")
         val EMPTY_VALUES = setOf("неизвестно", "отсутствует", "нет", "-")
+        const val XSORT_COLLECTION_FIELD = "podborki"
+        const val XSORT_YEAR_FIELD = "year"
+        const val XSORT_COUNTRY_FIELD = "country"
         const val MAX_PLAYER_NOTICE_LENGTH = 500
     }
 }

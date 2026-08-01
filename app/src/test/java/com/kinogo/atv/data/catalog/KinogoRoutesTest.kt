@@ -1,34 +1,93 @@
 package com.kinogo.atv.data.catalog
 
-import com.kinogo.atv.domain.CatalogFilter
-import com.kinogo.atv.domain.CatalogGenre
+import com.kinogo.atv.domain.CatalogBrowseFilters
+import com.kinogo.atv.domain.CatalogCategory
+import com.kinogo.atv.domain.CatalogDefaultSort
+import com.kinogo.atv.domain.CatalogFilterOption
 import com.kinogo.atv.domain.CatalogQuery
-import com.kinogo.atv.domain.CatalogSection
+import com.kinogo.atv.domain.CatalogSortDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class KinogoRoutesTest {
     @Test
-    fun buildsSectionAndPageRoutes() {
+    fun buildsHomeCategoryAndPageRoutes() {
         assertEquals("/", KinogoRoutes.catalog(CatalogQuery()))
         assertEquals("/page/3/", KinogoRoutes.catalog(CatalogQuery(page = 3)))
         assertEquals(
             "/filmy/",
-            KinogoRoutes.catalog(CatalogQuery(section = CatalogSection.MOVIES)),
+            KinogoRoutes.catalog(CatalogQuery(category = CatalogCategory.ALL_MOVIES)),
         )
         assertEquals(
             "/serialy/page/2/",
-            KinogoRoutes.catalog(CatalogQuery(section = CatalogSection.SERIES, page = 2)),
+            KinogoRoutes.catalog(
+                CatalogQuery(category = CatalogCategory.ALL_SERIES, page = 2),
+            ),
         )
-        assertEquals(
-            "/multfilmy/",
-            KinogoRoutes.catalog(CatalogQuery(section = CatalogSection.CARTOONS)),
+    }
+
+    @Test
+    fun everyObservedCategoryUsesItsExactAllowlistedRoute() {
+        val expected = mapOf(
+            CatalogCategory.ALL_MOVIES to "/filmy/",
+            CatalogCategory.CARTOONS to "/multfilmy/",
+            CatalogCategory.NEW_RELEASES to "/novinki/",
+            CatalogCategory.SCIENCE_FICTION to "/fantastika/",
+            CatalogCategory.FANTASY to "/fjentezi/",
+            CatalogCategory.NOIR to "/nuar/",
+            CatalogCategory.HORROR to "/uzhasy/",
+            CatalogCategory.THRILLER to "/triller/",
+            CatalogCategory.SPORT to "/sport/",
+            CatalogCategory.ADVENTURE to "/prikljuchenija/",
+            CatalogCategory.HISTORICAL to "/istoricheskie/",
+            CatalogCategory.MUSICAL to "/mjuzikl/",
+            CatalogCategory.MELODRAMA to "/melodrama/",
+            CatalogCategory.SHORT_FILM to "/korotkometrazhka/",
+            CatalogCategory.CRIME to "/kriminal/",
+            CatalogCategory.DRAMA to "/drama/",
+            CatalogCategory.COMEDY to "/komedija/",
+            CatalogCategory.DOCUMENTARY to "/dokumentalnye/",
+            CatalogCategory.DETECTIVE to "/detektiv/",
+            CatalogCategory.CHILDREN to "/detskij/",
+            CatalogCategory.WAR to "/voennyj/",
+            CatalogCategory.WESTERN to "/vestern/",
+            CatalogCategory.ALL_SERIES to "/serialy/",
+            CatalogCategory.FOREIGN_SERIES to "/zarubezhnye-serialy/",
+            CatalogCategory.RUSSIAN_SERIES to "/russkie-serialy/",
+            CatalogCategory.ANIMATED_SERIES to "/multserialy/",
+            CatalogCategory.ANIME_SERIES to "/anime-serialy/",
+            CatalogCategory.ANIME to "/anime/",
         )
-        assertEquals(
-            "/anime/",
-            KinogoRoutes.catalog(CatalogQuery(section = CatalogSection.ANIME)),
+
+        assertEquals(CatalogCategory.entries.size, expected.size)
+        expected.forEach { (category, path) ->
+            assertEquals(path, category.relativePath)
+            assertEquals(path, KinogoRoutes.catalog(CatalogQuery(category = category)))
+            assertEquals(
+                "${path}page/4/",
+                KinogoRoutes.catalog(CatalogQuery(category = category, page = 4)),
+            )
+            assertEquals(category, CatalogCategory.fromRelativePath(path))
+        }
+    }
+
+    @Test
+    fun browseFiltersDoNotChangeTheDeterministicListingRoute() {
+        val query = CatalogQuery(
+            category = CatalogCategory.DRAMA,
+            filters = CatalogBrowseFilters(
+                defaultSort = CatalogDefaultSort.RATING,
+                sortDirection = CatalogSortDirection.ASC,
+                collection = CatalogFilterOption("Netflix", "Netflix"),
+                year = 2026,
+                country = CatalogFilterOption("США", "США"),
+            ),
+            page = 2,
         )
+
+        assertEquals("/drama/page/2/", KinogoRoutes.catalog(query))
+        assertEquals(query.copy(page = 1), query.identity)
     }
 
     @Test
@@ -44,62 +103,27 @@ class KinogoRoutesTest {
     }
 
     @Test
-    fun buildsOnlyConfirmedDeterministicFilterRoutes() {
-        assertEquals(
-            "/novinki/",
-            KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.NewReleases)),
-        )
-        assertEquals(
-            "/xfsearch/god/2026/",
-            KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.Year(2026))),
-        )
-        assertEquals(
-            "/xfsearch/country/%D0%A1%D0%A8%D0%90/page/2/",
-            KinogoRoutes.catalog(
-                CatalogQuery(filter = CatalogFilter.Country(" США "), page = 2),
-            ),
-        )
-        assertEquals(
-            "/boevik/",
-            KinogoRoutes.catalog(
-                CatalogQuery(filter = CatalogFilter.Genre(CatalogGenre.ACTION)),
-            ),
-        )
-        val genreRoutes = mapOf(
-            CatalogGenre.ACTION to "/boevik/",
-            CatalogGenre.COMEDY to "/komedija/",
-            CatalogGenre.THRILLER to "/triller/",
-            CatalogGenre.HORROR to "/uzhasy/",
-            CatalogGenre.SCIENCE_FICTION to "/fantastika/",
-            CatalogGenre.ADVENTURE to "/prikljuchenija/",
-        )
-        genreRoutes.forEach { (genre, route) ->
-            assertEquals(
-                route,
-                KinogoRoutes.catalog(CatalogQuery(filter = CatalogFilter.Genre(genre))),
-            )
-        }
-    }
-
-    @Test
-    fun rejectsInvalidQueries() {
+    fun rejectsInvalidQueriesAndFilterValues() {
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery(page = 0) }
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery.search("   ") }
         assertThrows(IllegalArgumentException::class.java) { CatalogQuery.search("bad\u0000term") }
         assertThrows(IllegalArgumentException::class.java) {
             CatalogQuery(
-                section = CatalogSection.MOVIES,
-                filter = CatalogFilter.Year(2026),
+                category = CatalogCategory.ALL_MOVIES,
+                searchTerm = "test",
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
             CatalogQuery(
+                filters = CatalogBrowseFilters(year = 2026),
                 searchTerm = "test",
-                filter = CatalogFilter.Country("США"),
             )
         }
         assertThrows(IllegalArgumentException::class.java) {
-            CatalogFilter.Country("bad\u0000country")
+            CatalogBrowseFilters(sortDirection = CatalogSortDirection.ASC)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CatalogFilterOption("bad\u0000value", "Плохо")
         }
     }
 }

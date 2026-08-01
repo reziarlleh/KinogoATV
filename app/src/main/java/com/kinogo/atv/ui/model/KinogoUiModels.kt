@@ -31,12 +31,6 @@ data class BookmarkUiModel(
     val favorite: Boolean = false,
 )
 
-data class HomeSectionUiModel(
-    val id: String,
-    val title: String,
-    val items: List<PosterUiModel>,
-)
-
 data class EpisodeUiModel(
     val id: String,
     val season: Int,
@@ -176,24 +170,6 @@ object KinogoFixtures {
             isFavorite = index % 6 == 0,
         )
     }
-
-    val homeSections = listOf(
-        HomeSectionUiModel(
-            id = "continue",
-            title = "Продолжить просмотр",
-            items = catalog.slice(1..6),
-        ),
-        HomeSectionUiModel(
-            id = "new",
-            title = "Новинки",
-            items = catalog.slice(7..14),
-        ),
-        HomeSectionUiModel(
-            id = "series",
-            title = "Сериалы",
-            items = catalog.slice(15..22),
-        ),
-    )
 
     val details: List<DetailsUiModel> = catalog.mapIndexed { index, poster ->
         val isSeries = index % 3 == 0 || poster.id == "title-2"

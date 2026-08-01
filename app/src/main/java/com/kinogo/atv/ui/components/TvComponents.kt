@@ -274,6 +274,7 @@ fun TvActionButton(
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp,
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

@@ -1,6 +1,9 @@
 package com.kinogo.atv.data.catalog
 
 import com.kinogo.atv.domain.ContentType
+import com.kinogo.atv.domain.CatalogCategory
+import com.kinogo.atv.domain.CatalogDefaultSort
+import com.kinogo.atv.domain.CatalogSortDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -28,6 +31,64 @@ class KinogoHtmlParserTest {
             assertEquals("WEB-DL 1080", qualityBadge)
             assertEquals("1 сезон 1-19 серия", episodeBadge)
         }
+    }
+
+    @Test
+    fun parsesCurrentXSortControlsAndOnlyAllowlistedCategories() {
+        val parsed = parser.parseCatalog(
+            fixture("catalog_controls.html"),
+            ORIGIN,
+            page = 1,
+        )
+
+        with(parsed.controls) {
+            assertEquals(CatalogDefaultSort.entries, sortOptions.mapNotNull { it.value })
+            assertEquals(listOf("Netflix", "Marvel"), collectionOptions.map { it.value })
+            assertEquals(listOf("2026", "2025"), yearOptions.map { it.value })
+            assertEquals(listOf("США", "Россия"), countryOptions.map { it.value })
+            assertEquals(CatalogCategory.entries, categories)
+            assertEquals(CatalogDefaultSort.TOP_3_DAYS, activeFilters.defaultSort)
+            assertEquals(CatalogSortDirection.DESC, activeFilters.sortDirection)
+            assertEquals("Netflix", activeFilters.collection?.value)
+            assertEquals(2026, activeFilters.year)
+            assertEquals("США", activeFilters.country?.value)
+        }
+    }
+
+    @Test
+    fun preservesPageSpecificBlankSortAndAscendingSelection() {
+        val controls = parser.parseCatalogControls(
+            """
+                <html><body>
+                  <ul class="xsort-ul" data-field="defaultsort">
+                    <li data-val="" class="current">по умолчанию</li>
+                    <li data-val="date" class="xasc">по дате</li>
+                  </ul>
+                </body></html>
+            """.trimIndent(),
+            ORIGIN,
+        )
+
+        assertEquals(null, controls.sortOptions.first().value)
+        assertEquals("по умолчанию", controls.sortOptions.first().title)
+        assertEquals(null, controls.activeFilters.defaultSort)
+        assertEquals(CatalogSortDirection.DESC, controls.activeFilters.sortDirection)
+
+        val ascending = parser.parseCatalogControls(
+            """
+                <html><body>
+                  <div class="xsort-div">
+                    <div class="xsort-selected"><span class="xasc">по дате</span></div>
+                    <ul class="xsort-ul" data-field="defaultsort">
+                      <li data-val="date" class="current xasc">по дате</li>
+                    </ul>
+                  </div>
+                </body></html>
+            """.trimIndent(),
+            ORIGIN,
+        )
+        assertEquals(CatalogDefaultSort.DATE, ascending.activeFilters.defaultSort)
+        assertEquals(CatalogSortDirection.ASC, ascending.activeFilters.sortDirection)
     }
 
     @Test
@@ -250,4 +311,7 @@ class KinogoHtmlParserTest {
             </div></body></html>
         """.trimIndent()
     }
+
+    private fun fixture(name: String): String =
+        requireNotNull(javaClass.getResource("/fixtures/catalog/$name")).readText()
 }

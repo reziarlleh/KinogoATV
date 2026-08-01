@@ -31,18 +31,37 @@ class KinogoSessionHttpClientTest {
     @Test
     fun cookiesAreIsolatedByOriginAndDeletionIsHonored() {
         val store = OriginCookieStore()
+        assertEquals(0L, store.epoch("https://kinogo.parts"))
         store.absorb(
             "https://kinogo.parts",
             mapOf("Set-Cookie" to listOf("PHPSESSID=abc; Path=/; Secure; HttpOnly")),
         )
 
         assertEquals("PHPSESSID=abc", store.header("https://kinogo.parts"))
+        assertEquals(1L, store.epoch("https://kinogo.parts"))
         assertNull(store.header("https://another.example"))
+
+        store.absorb(
+            "https://kinogo.parts",
+            mapOf("Set-Cookie" to listOf("PHPSESSID=abc; Path=/; Secure; HttpOnly")),
+        )
+        assertEquals(1L, store.epoch("https://kinogo.parts"))
 
         store.absorb(
             "https://kinogo.parts",
             mapOf("set-cookie" to listOf("PHPSESSID=; Max-Age=0; Path=/")),
         )
         assertNull(store.header("https://kinogo.parts"))
+        assertEquals(2L, store.epoch("https://kinogo.parts"))
+
+        store.absorb(
+            "https://kinogo.parts",
+            listOf("PHPSESSID=next; Path=/; Secure; HttpOnly"),
+        )
+        assertEquals(3L, store.epoch("https://kinogo.parts"))
+        store.clear("https://kinogo.parts")
+        assertEquals(4L, store.epoch("https://kinogo.parts"))
+        store.clear("https://kinogo.parts")
+        assertEquals(4L, store.epoch("https://kinogo.parts"))
     }
 }

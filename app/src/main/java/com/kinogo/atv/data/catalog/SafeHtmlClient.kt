@@ -27,6 +27,23 @@ fun interface HtmlTransport {
     suspend fun get(rawOrigin: String, rawRelativePath: String): HtmlResponse
 }
 
+/** Stateful HTML transport required by the server-side xSort catalog protocol. */
+interface CatalogFilterHtmlTransport : HtmlTransport {
+    /**
+     * Opaque per-origin version of the cookie session.
+     *
+     * Implementations must change it whenever the stored cookie name/value set actually changes.
+     * No cookie name or value crosses this boundary.
+     */
+    fun sessionEpoch(rawOrigin: String): Long
+
+    suspend fun postCatalogForm(
+        rawOrigin: String,
+        rawRelativePath: String,
+        form: Map<String, String>,
+    ): HtmlResponse
+}
+
 /**
  * Small HTTPS-only transport for untrusted mirror HTML.
  *

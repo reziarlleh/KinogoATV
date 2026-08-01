@@ -37,5 +37,8 @@ class CatalogCharsetException(val charsetName: String) :
             charsetName.ifBlank { "пустое значение" },
     )
 
+class CatalogSessionChangedException :
+    CatalogException("Сессия каталога изменилась во время загрузки. Повторите запрос")
+
 class CatalogParseException(message: String, cause: Throwable? = null) :
     CatalogException(message, cause)

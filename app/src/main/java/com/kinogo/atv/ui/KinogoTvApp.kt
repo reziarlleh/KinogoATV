@@ -40,7 +40,6 @@ import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.HistoryUiModel
-import com.kinogo.atv.ui.model.HomeSectionUiModel
 import com.kinogo.atv.ui.model.MirrorUiState
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
@@ -53,8 +52,9 @@ import com.kinogo.atv.ui.screens.HistoryScreen
 import com.kinogo.atv.ui.screens.HomeScreen
 import com.kinogo.atv.ui.screens.SearchScreen
 import com.kinogo.atv.ui.screens.SettingsScreen
-import com.kinogo.atv.domain.CatalogSection
-import com.kinogo.atv.domain.CatalogFilter
+import com.kinogo.atv.domain.CatalogBrowseFilters
+import com.kinogo.atv.domain.CatalogCategory
+import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.AccountConnectionState
 import com.kinogo.atv.domain.SettingCycleDirection
 import com.kinogo.atv.domain.VideoQualityPreference
@@ -101,7 +101,7 @@ fun KinogoTvApp(
     modifier: Modifier = Modifier,
     initialDestination: TvDestination = TvDestination.Home,
     initialDetailsId: String? = null,
-    homeSections: List<HomeSectionUiModel> = KinogoFixtures.homeSections,
+    homeCatalog: List<PosterUiModel> = KinogoFixtures.catalog,
     history: List<HistoryUiModel> = KinogoFixtures.history,
     mirrorState: MirrorUiState = KinogoFixtures.mirrorState,
     catalog: List<com.kinogo.atv.ui.model.PosterUiModel> = KinogoFixtures.catalog,
@@ -109,29 +109,36 @@ fun KinogoTvApp(
     bookmarks: List<BookmarkUiModel> = favorites.map { BookmarkUiModel(it, favorite = true) },
     favoriteIds: Set<String> = favorites.mapTo(linkedSetOf()) { it.id },
     watchStatusById: Map<String, WatchStatus> = emptyMap(),
-    featured: com.kinogo.atv.ui.model.DetailsUiModel? =
-        KinogoFixtures.detailsFor("title-2"),
     detailsById: Map<String, com.kinogo.atv.ui.model.DetailsUiModel> =
         KinogoFixtures.details.associateBy { it.id },
     catalogHasMore: Boolean = false,
     catalogLoading: Boolean = false,
     catalogError: String? = null,
+    catalogControls: CatalogControls = CatalogControls(),
+    catalogCategory: CatalogCategory = CatalogCategory.NEW_RELEASES,
+    catalogFilters: CatalogBrowseFilters = CatalogBrowseFilters(),
+    homeHasMore: Boolean = false,
+    homeLoading: Boolean = false,
     homeError: String? = null,
+    homeControls: CatalogControls = CatalogControls(),
+    homeFilters: CatalogBrowseFilters = CatalogBrowseFilters(),
     catalogStatusLabel: String? = null,
-    catalogSection: CatalogSection = CatalogSection.ROOT,
-    catalogFilter: CatalogFilter? = null,
     searchResults: List<com.kinogo.atv.ui.model.PosterUiModel> = catalog,
     searchLoading: Boolean = false,
     searchError: String? = null,
+    searchHasMore: Boolean = false,
     useRemoteCatalog: Boolean = false,
     onPlayRequested: (PlaybackSelectionUiModel) -> Unit = {},
     onCatalogLoadMore: () -> Unit = {},
     onCatalogRetry: () -> Unit = {},
     onHomeRetry: () -> Unit = {},
+    onHomeLoadMore: () -> Unit = {},
+    onHomeFiltersChanged: (CatalogBrowseFilters) -> Unit = {},
     onDetailsRequested: (String) -> Unit = {},
-    onCatalogSectionSelected: (CatalogSection) -> Unit = {},
-    onCatalogFilterSelected: (CatalogFilter?) -> Unit = {},
+    onCatalogCategorySelected: (CatalogCategory) -> Unit = {},
+    onCatalogFiltersChanged: (CatalogBrowseFilters) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit = {},
+    onSearchLoadMore: () -> Unit = {},
     onFavoriteToggle: (String) -> Unit = {},
     onWatchStatusChange: (String, WatchStatus?) -> Unit = { _, _ -> },
     onCheckMirrors: () -> Unit = {},
@@ -159,11 +166,14 @@ fun KinogoTvApp(
     val destination = remember(destinationName, initialDestination) {
         restoredTvDestination(destinationName, initialDestination)
     }
+    val allCatalogPosters = remember(homeCatalog, catalog) {
+        (homeCatalog + catalog).distinctBy(PosterUiModel::id)
+    }
     val selectedDetails = selectedDetailsId?.let { id ->
         detailsById[id]
             ?: pendingDetailsPoster(
                 id = id,
-                catalog = catalog,
+                catalog = allCatalogPosters,
                 searchResults = searchResults,
                 favorites = favorites,
                 history = history,
@@ -228,9 +238,14 @@ fun KinogoTvApp(
                     } else {
                         when (destination) {
                             TvDestination.Home -> HomeScreen(
-                                featured = featured,
-                                sections = homeSections,
+                                items = homeCatalog,
+                                controls = homeControls,
+                                filters = homeFilters,
+                                hasMore = homeHasMore,
+                                onLoadMore = onHomeLoadMore,
+                                onFiltersChanged = onHomeFiltersChanged,
                                 onOpenDetails = ::openDetails,
+                                isLoading = homeLoading,
                                 errorMessage = homeError,
                                 onRetry = onHomeRetry,
                             )
@@ -244,11 +259,11 @@ fun KinogoTvApp(
                                 errorMessage = catalogError,
                                 statusLabel = catalogStatusLabel,
                                 onRetry = onCatalogRetry,
-                                useRemoteSections = useRemoteCatalog,
-                                selectedSection = catalogSection,
-                                onSectionSelected = onCatalogSectionSelected,
-                                selectedAdvancedFilter = catalogFilter,
-                                onAdvancedFilterSelected = onCatalogFilterSelected,
+                                controls = catalogControls,
+                                selectedCategory = catalogCategory,
+                                filters = catalogFilters,
+                                onCategorySelected = onCatalogCategorySelected,
+                                onFiltersChanged = onCatalogFiltersChanged,
                             )
 
                             TvDestination.Search -> SearchScreen(
@@ -258,6 +273,8 @@ fun KinogoTvApp(
                                 isLoading = searchLoading,
                                 errorMessage = searchError,
                                 onQueryChanged = onSearchQueryChanged,
+                                hasMore = searchHasMore,
+                                onLoadMore = onSearchLoadMore,
                             )
 
                             TvDestination.Favorites -> BookmarksScreen(
