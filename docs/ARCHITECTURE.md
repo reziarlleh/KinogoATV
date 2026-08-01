@@ -107,8 +107,17 @@ flowchart LR
 сериализует все browse/search-запросы через `Mutex`, очищает и восстанавливает
 нужную выборку при переключении между лентами. Числовой cookie-session epoch инвалидирует
 applied-query cache после login/reconnect, а финальное активное xSort-состояние сверяется с
-явно запрошенными полями до append. Конкурентная смена epoch запускает bounded retry всего
-catalog transaction.
+явно запрошенными полями до append. Stateful DLE-потоки каталога, авторизации и библиотеки
+используют `KinogoSessionHttpClient`, принудительно ограниченный HTTP/1.1: на реальном
+Android TV HTTP/2-соединение зависало в ожидании response headers. Playback-клиенты отделены
+от этой cookie-сессии и этим ограничением не изменяются.
+
+Конкурентная смена cookie-session epoch запускает bounded retry всего catalog transaction.
+Сетевой сбой допускает ровно одну такую же полную попытку: заново выполняются
+`clearallfields` и все необходимые xSort-команды. Отдельный toggle POST никогда не
+повторяется сам по себе, иначе сервер может незаметно перевернуть направление сортировки.
+`appliedQuery` инвалидируется после сетевого сбоя, отмены coroutine и любой незавершённой
+transaction; общий repository `Mutex` при этом сохраняется.
 
 `KinogoAppRoot` владеет тремя независимыми `CatalogFeedState`: Home, Catalog и Search.
 Каждая лента хранит собственные query, items, controls, `nextPage`, loading/error,
@@ -118,25 +127,24 @@ origin и generation. Дозагрузка главной, каталога и �
 query-aware preload для всех трёх лент: следующая страница запрашивается, когда под строкой
 фокуса остаётся меньше двух загруженных строк. Focus coroutine отменяется при смене identity
 либо удалении её target, но не при обычном append, а offscreen-переход сдвигает viewport на
-одну строку.
+одну строку. Reset той же ленты отменяет её устаревший request job. При смене фильтра Home
+или Catalog на том же origin прежние карточки и controls остаются видимыми до успешной
+замены и при transient failure; Search и любая смена origin очищают старую выдачу.
 
 Начальная загрузка имеет явный приоритет. После первой страницы Home автоматически цепляет
 только строго возрастающие `nextPage`, пока `distinctBy(CatalogItem::id)` не даст минимум
-18 карточек (`3 × 6`) либо сервер не исчерпает страницы. Лишь затем запускается невидимый
-прогрев Catalog с неизменным default query
-`CatalogCategory.NEW_RELEASES` (`/novinki/`). Если пользователь сам входит в Catalog, его
-первая страница планируется немедленно и не ждёт достижения Home-порога; уже запущенный
-background preload не дублируется через `CatalogFeedState.loading`.
+18 карточек (`3 × 6`) либо сервер не исчерпает страницы. Невидимого прогрева Catalog больше
+нет: он конкурировал с видимой лентой за общую stateful xSort-сессию. Первая страница
+Catalog запрашивается только при явном входе пользователя, с неизменной default-категорией
+`CatalogCategory.NEW_RELEASES` (`/novinki/`).
 
-Home chain, фоновый Catalog warm-up и прямой Catalog load создают отдельные coroutine
-requests, но не выполняют xSort параллельно. Каждый `loadPage` проходит через общий
-`HtmlCatalogRepository` mutex, потому что Home и Catalog меняют одну cookie-session. Поэтому
-прямой вход в Catalog может дождаться завершения уже выполняющегося Home transaction, но
-запрос ставится в работу сразу; фоновый warm-up намеренно не ставится до готовности Home
-reserve. После каждого переключения identity repository заново подтверждает активное
+Home chain и прямой Catalog load создают отдельные coroutine requests, но не выполняют
+xSort параллельно. Каждый `loadPage` проходит через общий `HtmlCatalogRepository` mutex,
+потому что Home и Catalog меняют одну cookie-session. Поэтому прямой вход в Catalog может
+дождаться завершения уже выполняющегося Home transaction, но запрос ставится в работу
+сразу. После каждого переключения identity repository заново подтверждает активное
 xSort-состояние, а generation/origin/query guards не позволяют позднему ответу смешать
-ленты. Append и фоновые запросы не запрашивают Compose focus, поэтому не меняют текущую
-D-pad-позицию.
+ленты. Append не запрашивает Compose focus, поэтому не меняет текущую D-pad-позицию.
 
 Production-пагинация по-прежнему координируется
 вручную в `KinogoAppRoot`; `HtmlCatalogPagingSource` в этот flow не подключён.

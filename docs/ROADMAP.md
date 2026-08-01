@@ -6,16 +6,16 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: аппаратная приёмка и точечная доводка 0.4.2-dev
+## Сейчас: аппаратная приёмка и точечная доводка 0.4.3-dev
 
 Большая переработка интерфейса реализована: steel/cyan visual system, фиксированный rail,
 шестиколоночные сетки, новая главная, серверный xSort и paged search flow, компактные
-settings/details/source selection и уточнённый HUD. В 0.4.2-dev добавлены ранняя дозагрузка
-общих сеток, начальный резерв Главной и приоритетная последовательность прогрева
-Home/Catalog. До дальнейшей графической полировки нужен полный TV regression pass;
-автоматическая сборка сама по себе не считается подтверждением focus/playback UX. Установка,
-запуск и точечный Home/Catalog/D-pad smoke кандидата пройдены, но сборка остаётся validation
-candidate, а не новым playback baseline.
+settings/details/source selection и уточнённый HUD. В 0.4.3-dev DLE/xSort-сессия защищена
+HTTP/1.1 и безопасным полным transaction retry, а невидимый Catalog warmup удалён. Все семь
+видов сортировки аппаратно проверены на Главной и в Каталоге, включая оба направления
+рейтинга. До дальнейшей графической полировки нужен полный TV regression pass;
+автоматическая сборка сама по себе не считается подтверждением focus/playback UX. Кандидат
+остаётся validation candidate, а не новым playback baseline.
 
 ### P0 — TV regression pass
 
@@ -23,10 +23,10 @@ candidate, а не новым playback baseline.
   с реального расстояния.
 - Проверить переход Left из каждого первого столбца/управляющей строки в rail и Right
   обратно в content.
-- Проверить все category/xSort dropdown, возврат фокуса, search submit/keyboard hide и
+- Проверить category и filter dropdown, возврат фокуса, search submit/keyboard hide и
   Settings OK-only обычным пультом.
-- Проверить на живом зеркале все xSort dropdown, отдельную кнопку направления, смену
-  категорий и длинную непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
+- Проверить на живом зеркале combinations подборки/года/страны, смену категорий и длинную
+  непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
 - Проверить крупный poster/details, достижимость всех status actions и episode row на source
   selection.
 - Проверить timeline marker и buffering overlay в реальном воспроизведении.
@@ -56,6 +56,8 @@ candidate, а не новым playback baseline.
 - Решить, нужен ли production Paging 3 flow вместо ручной пагинации.
 - После TV smoke решить, нужно ли запоминать выбранные category/xSort-параметры между
   запусками приложения.
+- Продолжить live-проверку combinations подборки/года/страны и пустых результатов без
+  ослабления server postcondition.
 
 ### Зеркала
 
@@ -105,13 +107,16 @@ candidate, а не новым playback baseline.
 - Edge-to-edge steel/cyan каркас, фиксированный rail и общая шестиколоночная poster grid.
 - Главная без hero и без дублирующей истории: серверная лента и xSort-управление.
 - Объединённый category dropdown фильмов/сериалов; каталог по умолчанию открывает `Новинки`.
-- Серверные xSort dropdown сортировки/подборки/года/страны и отдельная кнопка направления.
+- Серверные xSort dropdown сортировки/подборки/года/страны и отдельная кнопка направления;
+  все семь видов сортировки и rating ASC/DESC проверены на Главной и в Каталоге.
 - Сессионное xSort-состояние сериализовано и восстанавливается при переключении лент.
 - Независимые Home/Catalog/Search feed states, общая стабильная D-pad grid и динамическая
   подгрузка следующих страниц во всех трёх лентах.
 - Общая сетка начинает preload при остатке менее двух загруженных строк; Главная при старте
-  набирает минимум 18 уникальных карточек, затем прогревает Каталог. Прямой переход в
-  Каталог запускает его feed независимо от фонового прогрева.
+  набирает минимум 18 уникальных карточек. Невидимый Catalog warmup удалён, прямой переход
+  в Каталог запускает его feed.
+- DLE/xSort session работает по HTTP/1.1; неоднозначный сетевой сбой допускает один
+  безопасный полный retry от `clearallfields`, без повторения отдельной toggle-команды.
 - Search debounce 750 ms, immediate submit с закрытием клавиатуры и graphical voice action.
 - Live catalog, top-level sections, text/voice search и early preload.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.

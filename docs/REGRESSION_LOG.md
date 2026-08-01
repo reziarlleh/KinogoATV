@@ -31,6 +31,30 @@
 
 ## Validation candidates
 
+### C-005 — 0.4.3-dev
+
+- Статус: automated + all-seven-sorts Home/Catalog hardware smoke passed; extended filters,
+  long pagination и full player runtime pass pending
+- Application source commit: `15efacc`
+- APK: `dist/KinogoTV-0.4.3-dev.apk`
+- SHA-256: `5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`
+- Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Metadata: version code 13, minSdk 28, targetSdk 37
+- Automated: 68 suites, 309 unit tests, lint 0 errors / 7 warnings / 2 hints,
+  assembleDebug, zipalign и v2 signature
+- Hardware: KIVI 4K Android TV 14; `install -r` сохранил `firstInstallTime`
+  `2026-07-26 16:42:18`; cold launch 2504 ms; все семь server sorts загрузились без ошибки
+  на Главной и в Каталоге; rating ASC/DESC изменил выдачу; финальный logcat без catalog
+  error, fatal exception и ANR
+- Pending: combinations подборки/года/страны, длинная Home/Catalog/Search-пагинация,
+  overscan каждого раздела и полный player pass
+- Rollback point: B-001 / `baseline-0.3.3-dev`
+
+C-005 не заменяет B-001: сортировки проверены на реальном TV, но полный playback regression
+для этого APK не выполнялся. C-004 остаётся историческим кандидатом ниже и содержит
+регрессию R-013.
+
 ### C-004 — 0.4.2-dev
 
 - Статус: automated + focused Home/Catalog/D-pad hardware smoke passed; extended
@@ -307,8 +331,41 @@ C-002 нельзя переименовывать в B-002 и помечать b
   в Каталог показал 20+ `Новинок`; final checks не содержали fatal/ANR/Home/Catalog errors.
 - External note: единичная ошибка mirror-health перед smoke исчезла после явной повторной
   проверки. Она не воспроизвелась и не приписывается этому application fix.
+- Follow-up: C-005 удалил невидимый Catalog warmup, сохранив стартовый резерв Home и загрузку
+  Каталога при прямом входе.
 - Rollback point: C-003 / `071300c` возвращает предыдущий paging threshold; для playback
   rollback остаётся B-001 / `baseline-0.3.3-dev`.
+
+### R-013 — Часть сортировок завершалась ошибкой загрузки каталога
+
+- Статус: Resolved in C-005 / `0.4.3-dev`
+- Обнаружено: 1 августа 2026 года при пользовательской проверке C-004.
+- Affected version/commit: C-004 / `0.4.2-dev`, application source commit `6f5fd7a`.
+- Last-known-good: отсутствовал для полного набора live sorts; C-003/C-004 проверяли только
+  отдельные xSort и paging-сценарии.
+- Устройство/source: KIVI 4K Android TV 14, активное live-зеркало Kinogo.
+- Воспроизведение: на Главной выбрать `по рейтингу` — появлялось `Не удалось загрузить
+  каталог`; в Каталоге аналогично не завершалась часть видов сортировки.
+- Причина: Android-клиент согласовывал HTTP/2, и stateful xSort request иногда завершался
+  `Http2Stream$StreamTimeout.takeHeaders` / `SocketTimeoutException`. Последовательность
+  состоит из меняющих серверную сессию POST, поэтому простой повтор одного запроса был бы
+  некорректен: повтор той же sort-команды может переключить направление. Фоновый невидимый
+  Catalog warmup и неотменённый obsolete reset создавали лишние конкурирующие транзакции.
+- Исправление: DLE session transport закреплён на HTTP/1.1; при одном network timeout
+  репозиторий инвалидирует applied query и перезапускает всю `clear + apply` транзакцию.
+  Повторная ошибка завершает запрос без бесконечного retry. Отмена также инвалидирует cache;
+  obsolete same-feed reset отменяется, предыдущая видимая выдача сохраняется при transient
+  reset failure, а невидимый Catalog warmup удалён. Прямой вход в Каталог сохранён.
+- Protective tests:
+  `HtmlCatalogRepositoryXSortTest.ambiguousPostTimeoutRestartsWholeXSortTransaction` и
+  `HtmlCatalogRepositoryXSortTest.repeatedPostTimeoutStopsAfterOneWholeTransactionRetry`.
+- Runtime verification: C-005 на KIVI загрузил без ошибки все семь sort values на Главной и
+  в Каталоге; rating ASC/DESC дал различную выдачу. Финальный logcat не содержит catalog
+  error, fatal exception или ANR.
+- Fix commit: application source commit `15efacc`.
+- Pre-fix bisect point: C-004 / source `6f5fd7a` (известно affected; не использовать как
+  функциональный откат сортировок). Подтверждённый playback rollback остаётся B-001 /
+  `baseline-0.3.3-dev`.
 
 ## Шаблон новой записи
 

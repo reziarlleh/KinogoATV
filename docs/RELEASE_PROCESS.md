@@ -8,16 +8,18 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-004 / `0.4.2-dev` собран как stable-signed **debug APK**, а не release variant.
+Текущий C-005 / `0.4.3-dev` собран как stable-signed **debug APK**, а не release variant.
 Статус verified baseline определяется только после полного release checklist и фиксируется
 в `PROJECT_STATE.md`; один versionName этого не доказывает.
 
-Текущий проверенный dev artifact: `dist/KinogoTV-0.4.2-dev.apk`, versionCode 12,
+Текущий проверенный dev artifact: `dist/KinogoTV-0.4.3-dev.apk`, versionCode 13,
 minSdk 28, targetSdk 37, SHA-256
-`1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`. Для application
-source commit `6f5fd7a` пройдены 68 suites / 307 tests, lint без errors, assemble, zipalign и
-v2 verification. `install -r` и focused Home/Catalog/D-pad smoke пройдены на KIVI, но полный
-playback checklist ниже не закрыт.
+`5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`. Для application
+source commit `15efacc` пройдены 68 suites / 309 tests, lint: 0 errors / 7 warnings /
+2 hints, assemble, zipalign и v2 verification; digest сертификата линии обновлений
+не изменился. `adb install -r` на KIVI сохранил данные и `firstInstallTime`, cold launch
+занял 2504 ms. Полный playback checklist для C-005 не повторялся; подтверждённой
+точкой отката для playback остаётся B-001.
 
 ## Signing identity
 
@@ -153,7 +155,8 @@ adb install -r <apk>
    возврат в details;
 10. удалить только созданные тестовые записи точечным store API.
 
-Для `0.4.2-dev` полная аппаратная проверка natural end последней серии остаётся pending,
+Для C-005 / `0.4.3-dev` полный playback checklist, включая аппаратную проверку natural end
+последней серии, остаётся pending; playback rollback baseline по-прежнему B-001,
 пока воспроизведение действительно не выдаст соответствующий естественный Media3 callback.
 Unit test completion policy, ручной Back и перемотка почти к концу не заменяют этот evidence.
 
@@ -181,20 +184,20 @@ KinogoTV-<version>.apk
 5. Прикрепить APK и `SHA256SUMS.txt` как Release assets.
 6. В release notes перечислить только фактические пользовательские изменения и validation.
 
-Пример baseline tag после полного подтверждения `0.4.2-dev`:
+Пример baseline tag после полного подтверждения `0.4.3-dev`:
 
 ```powershell
-git tag -a baseline-0.4.2-dev -m "Kinogo TV 0.4.2-dev known-good baseline"
-git push origin baseline-0.4.2-dev
+git tag -a baseline-0.4.3-dev -m "Kinogo TV 0.4.3-dev known-good baseline"
+git push origin baseline-0.4.3-dev
 ```
 
 Пример GitHub Release, только если этот dev milestone действительно решено публиковать:
 
 ```powershell
-gh release create v0.4.2-dev `
-  dist/KinogoTV-0.4.2-dev.apk `
+gh release create v0.4.3-dev `
+  dist/KinogoTV-0.4.3-dev.apk `
   dist/SHA256SUMS.txt `
-  --title "Kinogo TV 0.4.2-dev" `
+  --title "Kinogo TV 0.4.3-dev" `
   --notes-file <release-notes.md>
 ```
 

@@ -38,8 +38,8 @@
 Live HTML не должен быть единственным тестом parser. Сначала redacted fixture, затем
 необязательная read-only live-проверка.
 
-Последний unit run для `0.4.2-dev` от 1 августа 2026 года: **68 suites,
-307 unit tests**, 0 failures/errors/skipped. Полный canonical lint/build указан в
+Последний unit run для `0.4.3-dev` от 1 августа 2026 года: **68 suites,
+309 unit tests**, 0 failures/errors/skipped. Полный canonical lint/build указан в
 `PROJECT_STATE.md` после завершения сборки кандидата.
 
 ## Lint и сборка
@@ -50,7 +50,7 @@ Live HTML не должен быть единственным тестом parse
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
 
-Текущий C-004: lint 0 errors, 7 warnings и 2 hints; debug APK успешно создан. APK прошёл
+Текущий C-005: lint 0 errors, 7 warnings и 2 hints; debug APK успешно создан. APK прошёл
 zipalign и v2 verification с ожидаемым certificate SHA-256; точный artifact hash указан в
 `PROJECT_STATE.md`.
 
@@ -113,8 +113,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | --- | --- |
 | Cold launch | Плитка открывает native first frame и Compose; app остаётся focused |
 | Rail | Все разделы достижимы D-pad, текущий раздел подсвечен |
-| Главная | Нет истории/заголовка; xSort; стартовый резерв 18 unique; ранний append без focus jump |
-| Каталог | Default «Новинки»; 28 категорий; xSort/direction; direct-entry load и append |
+| Главная | Нет истории/заголовка; все 7 sorts; стартовый резерв 18 unique; ранний append без focus jump |
+| Каталог | Default «Новинки»; 28 категорий; все 7 sorts/direction; direct-entry load и append |
 | Поиск | Text/voice query; keyboard hide; retry и append того же encoded query |
 | Details | Полное описание, status/favorite actions, Play |
 | Mirrors | Check, details action, manual HTTPS input, selection |
@@ -147,7 +147,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
   отключённом auto-next возвращает в details;
 - exit/player error writes checkpoint without transient URL.
 
-### Catalog/focus regression matrix 0.4.2-dev
+### Catalog/focus regression matrix 0.4.3-dev
 
 - повторный выбор sort option не меняет направление; отдельная `↑`/`↓` меняет;
 - category dropdown группирует фильмы/сериалы и восстанавливает focus trigger после
@@ -160,6 +160,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - cookie-session epoch требует повторного apply после login/reconnect, а postcondition не
   допускает append при неприменённом сервером фильтре; конкурентная смена epoch проходит
   bounded automatic retry;
+- timeout после mutating xSort POST не повторяет отдельную toggle-команду: applied cache
+  сбрасывается, и один retry начинает полную транзакцию заново с `clearallfields`;
+- второй timeout завершает запрос без бесконечного retry; cancellation также инвалидирует
+  applied cache;
 - общая сетка инициирует один preload для данного query-aware boundary, когда ниже фокуса
   остаётся меньше двух загруженных строк;
 - append не запрашивает первый focus повторно и не отменяет in-flight move к оставшейся
@@ -168,23 +172,19 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - ошибка search page имеет retry и не теряет уже загруженные карточки.
 - начальная Главная последовательно получает страницы до 18 уникальных карточек либо
   terminal/non-advancing pager;
-- невидимый Catalog начинает warmup только после заполнения резерва Главной, а прямой вход в
-  Catalog запускает его загрузку независимо от warmup.
+- невидимый Catalog warmup отсутствует; прямой вход в Catalog запускает его загрузку.
 
-Pure guards присутствуют в `TvPosterGridTest` и `KinogoAppRootPreloadTest`. На KIVI C-004
-после `install -r` сохранил `firstInstallTime` `2026-07-26 16:42:18`; финальный cold launch
-занял 2616 ms. Главная показала 12 видимых реальных названий без loading state, а два
-`Down` и пять `Right` достигли шестой карточки третьего ряда. Прямой вход в Каталог показал
-20+ карточек в default-категории `Новинки`. В финальных проверках нет fatal exception, ANR
-либо Home/Catalog errors. Полный перебор фильтров и длинный Search append требуют
-дальнейшего TV smoke.
-
-Единичная mirror-health ошибка перед smoke исчезла после явной повторной проверки адресов.
-Она зафиксирована как transient network/health result и не считается application regression.
+Pure guards присутствуют в `TvPosterGridTest`, `KinogoAppRootPreloadTest` и
+`HtmlCatalogRepositoryXSortTest`. На KIVI C-005 после `install -r` сохранил
+`firstInstallTime` `2026-07-26 16:42:18`; финальный cold launch занял 2504 ms. Все семь
+server sorts — дата, рейтинг, топ за 3 дня, просмотры, комментарии, год и рейтинг
+Кинопоиска — загрузились без ошибки на Главной и в Каталоге. Rating ASC/DESC изменил
+выдачу. В финальном logcat нет catalog error, fatal exception или ANR. Combinations
+подборки/года/страны и длинная Home/Catalog/Search-пагинация требуют дальнейшего TV smoke.
 
 ### Evidence для границы сезона и natural end
 
-| Сценарий | Unit/contract evidence | Текущий C-004 |
+| Сценарий | Unit/contract evidence | Текущий C-005 |
 | --- | --- | --- |
 | Previous через границу сезона | `PlaybackMediaPlanTest` | Pending |
 | Next через границу сезона | `PlaybackMediaPlanTest` | Pending |

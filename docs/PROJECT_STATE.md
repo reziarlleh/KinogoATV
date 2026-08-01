@@ -4,27 +4,28 @@
 
 ## Краткий итог
 
-Версия `0.4.2-dev` развивает контракт Главной, Каталога и Поиска: общая D-pad-сетка начинает
-дозагрузку, когда ниже фокуса остаётся меньше двух загруженных строк. При старте Главная
-последовательно набирает минимум 18 уникальных карточек, затем прогревается невидимый
-Каталог; прямой вход в Каталог запускает его загрузку сразу. До выбора другой категории
-Каталог по-прежнему открывает `Новинки`.
+Версия `0.4.3-dev` исправляет сбои сортировки на Главной и в Каталоге. Stateful DLE/xSort
+сессия использует HTTP/1.1, а неоднозначная сетевая ошибка перезапускает один раз всю
+транзакцию `clear + apply`, не повторяя отдельную toggle-команду. Устаревшие reset-запросы
+той же ленты отменяются, текущие карточки сохраняются при transient reset failure, а
+невидимый прогрев Каталога удалён. Прямой вход в Каталог по-прежнему загружает `Новинки`.
 
 Stable-signed APK установлен поверх пользовательской установки на KIVI 4K Android TV 14
 через `adb install -r`; account/history/DataStore не очищались. Пройдены автоматическая
-проверка, запуск и точечный Home/Catalog/D-pad smoke. Полный перебор фильтров, длительный
-Search append и player regression не завершены, поэтому B-001 остаётся единственным
-полностью подтверждённым playback baseline, а новая сборка — validation candidate C-004.
+проверка, запуск и аппаратный прогон всех семи видов сортировки на Главной и в Каталоге.
+Комбинации подборки/года/страны, длительная пагинация и player regression не завершены,
+поэтому B-001 остаётся единственным полностью подтверждённым playback baseline, а новая
+сборка — validation candidate C-005.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-004 / 0.4.2-dev** |
-| Application source commit | `6f5fd7a` |
+| Candidate | **C-005 / 0.4.3-dev** |
+| Application source commit | `15efacc` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `12` |
-| Version name | `0.4.2-dev` |
+| Version code | `13` |
+| Version name | `0.4.3-dev` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
@@ -32,11 +33,11 @@ Search append и player regression не завершены, поэтому B-001
 | Подпись APK | стабильный локальный ключ, APK Signature Scheme v2 |
 | Baseline tag | не создавался: полный catalog/player runtime pass pending |
 
-Проверенный локальный APK: `dist/KinogoTV-0.4.2-dev.apk`. APK не коммитится в Git; в
+Проверенный локальный APK: `dist/KinogoTV-0.4.3-dev.apk`. APK не коммитится в Git; в
 `dist/SHA256SUMS.txt` хранится его контрольная сумма.
 
 SHA-256:
-`1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`.
+`5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`.
 
 Certificate SHA-256:
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
@@ -55,9 +56,9 @@ Certificate SHA-256:
 - Signature certificate SHA-256:
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Предыдущий C-003 / `0.4.1-dev` сохраняется как исторический catalog/xSort candidate с
-точечным Home/Catalog/D-pad smoke. C-002 / `0.4.0-dev` остаётся историческим UI/player
-candidate. Ни один из них не получил baseline tag из-за незакрытого полного player pass.
+Предыдущие C-004 / `0.4.2-dev` и C-003 / `0.4.1-dev` сохраняются как исторические
+catalog/xSort candidates. C-002 / `0.4.0-dev` остаётся историческим UI/player candidate. Ни
+один из них не получил baseline tag из-за незакрытого полного player pass.
 Подробные evidence и точки отката находятся в [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
 
 Rollback APK допустим только с совместимой подписью и разрешённым Android versionCode. Для
@@ -71,8 +72,8 @@ Rollback APK допустим только с совместимой подпи�
 | Запуск | Работает | Нативный first frame, Compose bootstrap, cold launch, crash/stall diagnostics |
 | Android TV launcher | Работает | LEANBACK launcher, фирменные TV banner и ATV icon |
 | Навигация | Работает | Постоянный rail, D-pad focus, подтверждение выхода |
-| Главная | Работает; focused TV smoke passed | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
-| Каталог | Работает; focused TV smoke passed | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
+| Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
+| Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | Работает; long append pending | Debounce 750 ms, immediate submit, keyboard hide, retry и paged query |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
 | Карточка | Работает | Крупный постер, полный текст, основные/status/favorite actions |
@@ -86,44 +87,43 @@ Rollback APK допустим только с совместимой подпи�
 | Web fallback | Работает | Явный provider-only WebView с origin boundary, TV HUD и виртуальным курсором |
 | Настройки | Работает | Компактные строки; значение меняется по OK, Left/Right навигируют |
 
-## Последняя проверка C-004
+## Последняя проверка C-005
 
-Автоматическая проверка application source commit `6f5fd7a`:
+Автоматическая проверка application source commit `15efacc`:
 
-- 68 test suites, **307 unit tests**, 0 failures, 0 errors, 0 skipped;
+- 68 test suites, **309 unit tests**, 0 failures, 0 errors, 0 skipped;
 - Android Lint: 0 errors, 7 warnings и 2 hints;
 - `assembleDebug`: успешно;
 - ZIP alignment: успешно;
 - v2 signature: успешно, certificate digest совпал;
-- metadata: `com.kinogo.atv`, version code 12, `0.4.2-dev`, minSdk 28, targetSdk 37,
+- metadata: `com.kinogo.atv`, version code 13, `0.4.3-dev`, minSdk 28, targetSdk 37,
   LEANBACK launcher/banner присутствуют;
 - APK SHA-256:
-  `1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`.
+  `5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`.
 
 Контролируемый smoke на KIVI 4K Android TV 14:
 
 - `adb install -r` завершён успешно; `firstInstallTime` сохранился
-  (`2026-07-26 16:42:18`), версия стала code 12 / `0.4.2-dev`;
-- финальный cold launch: `Status: ok`, `LaunchState: COLD`, `TotalTime: 2616 ms`;
-- Главная показала 12 видимых реальных названий без loading state; два `Down`, затем пять
-  `Right` достигли шестой карточки третьего ряда в соответствии с нажатиями;
-- прямой вход в Каталог запустил его feed и показал 20+ карточек; выбранной по умолчанию
-  осталась категория `Новинки`;
-- после финальных Home/Catalog-проверок нет fatal exception, ANR или ошибок этих экранов;
-- единичная ошибка mirror-health во время предварительного smoke исчезла после явной
-  повторной проверки зеркал. Это внешний transient health result, а не подтверждённая
-  регрессия application source.
+  (`2026-07-26 16:42:18`), версия стала code 13 / `0.4.3-dev`;
+- финальный cold launch: `Status: ok`, `LaunchState: COLD`, `TotalTime: 2504 ms`;
+- на Главной и в Каталоге без ошибки загрузились все семь server sort values: дата,
+  рейтинг, топ за 3 дня, просмотры, комментарии, год и рейтинг Кинопоиска;
+- для рейтинга отдельно проверены направления ASC и DESC: состав/порядок выдачи изменился;
+- после финального прогона в logcat нет catalog error, fatal exception или ANR.
 
-Автоматически подтверждены дополнительные инварианты: общая сетка запрашивает следующую
-страницу при остатке менее двух загруженных строк; Главная продолжает page chain до 18
-уникальных карточек или terminal pager; невидимый Catalog ждёт этот резерв, после чего
-прогревается, а прямой вход в Catalog не зависит от фонового прогрева.
+Автоматически подтверждены дополнительные инварианты: неоднозначный timeout после
+изменяющего POST перезапускает всю xSort-транзакцию от `clearallfields`, а повторный timeout
+останавливается после одной полной попытки восстановления. При cancel/error applied cache
+инвалидируется. Общая сетка сохраняет раннюю дозагрузку; Главная набирает минимум 18
+уникальных карточек или достигает terminal pager. Скрытого Catalog warmup больше нет —
+Каталог загружается при прямом входе.
 
 Не считать этот focused smoke полным доказательством всех сетевых и playback-сценариев.
-Для C-004 ещё pending:
+Для C-005 ещё pending:
 
-- все combinations сортировки/подборки/года/страны и пустые результаты на live mirror;
-- длинная пагинация поиска и смена cookie-сессии непосредственно во время live append;
+- combinations подборки/года/страны и пустые результаты на live mirror;
+- длинная Home/Catalog/Search-пагинация и смена cookie-сессии непосредственно во время
+  live append;
 - полный overscan/focus pass каждого раздела;
 - Previous/Next и auto-next через границу сезона;
 - natural end фильма/последней серии и возврат в details;
@@ -132,14 +132,17 @@ Rollback APK допустим только с совместимой подпи�
 ## Текущие технические границы
 
 - Каталог зависит от server-rendered DLE HTML и stateful xSort. POST может вернуть document
-  или fragment; динамические sort/collection/year/country берутся из ответа.
+  или fragment; динамические sort/collection/year/country берутся из ответа. Сессионный
+  DLE-транспорт закреплён на HTTP/1.1; playback использует отдельные клиенты.
 - Категории никогда не принимаются как arbitrary href. Непустой server subset сохраняется,
   а при отсутствии sidebar используется только точный fallback из 28
   `CatalogCategory.entries`.
 - xSort-сессия общая для лент и сериализована mutex. Числовой cookie-session epoch
   инвалидирует applied query после login/reconnect; ответ должен подтвердить явно выбранное
-  состояние до append. Конкурирующая смена epoch повторяет весь transaction ограниченное
-  число раз, не смешивая выдачи и не требуя ручного retry при обычном старте.
+  состояние до append. Конкурирующая смена epoch и одна сетевая ошибка повторяют весь
+  transaction ограниченное число раз. Отдельный xSort POST не повторяется, потому что та же
+  команда может переключить направление. Неоднозначная ошибка или cancel инвалидируют
+  applied query.
 - `CatalogItem` хранит stable ID и relative path без домена. Home/Catalog/Search имеют
   независимые generation/query/items/nextPage и не смешивают страницы разных выдач.
 - Нативные адаптеры разбирают browser-visible Cinemar/Collaps contracts. Неизвестный,
@@ -155,9 +158,10 @@ Rollback APK допустим только с совместимой подпи�
 
 ## Активный фокус
 
-Следующий шаг — продолжительное пользовательское тестирование C-004 / `0.4.2-dev`:
+Следующий шаг — продолжительное пользовательское тестирование C-005 / `0.4.3-dev`:
 
-- проверить все реальные category/xSort combinations и длинные Home/Catalog/Search ленты;
+- проверить category и combinations подборки/года/страны, а также длинные
+  Home/Catalog/Search ленты;
 - проверить overscan, плотность и возврат фокуса на всех разделах;
 - повторить полный native playback regression, включая cross-season, buffering и natural
   completion;
