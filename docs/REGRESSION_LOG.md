@@ -31,6 +31,33 @@
 
 ## Validation candidates
 
+### C-004 — 0.4.2-dev
+
+- Статус: automated + focused Home/Catalog/D-pad hardware smoke passed; extended
+  catalog/search и full player runtime pass pending
+- Application source commit: `6f5fd7a`
+- APK: `dist/KinogoTV-0.4.2-dev.apk`
+- SHA-256: `1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`
+- Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Metadata: version code 12, minSdk 28, targetSdk 37
+- Automated: 68 suites, 307 unit tests, lint 0 errors / 7 warnings / 2 hints,
+  assembleDebug, zipalign и v2 signature
+- Hardware: KIVI 4K Android TV 14; `install -r` сохранил `firstInstallTime`
+  `2026-07-26 16:42:18`; cold launch 2616 ms; Главная — 12 видимых реальных названий без
+  loading, два `Down` + пять `Right` достигли шестой карточки третьего ряда; прямой вход в
+  Каталог — 20+ карточек в default `Новинках`; финальные проверки без fatal/ANR и
+  Home/Catalog errors
+- External observation: единичная pre-smoke mirror-health ошибка исчезла после явной
+  повторной проверки и не классифицирована как application regression
+- Pending: полный перебор live xSort, длинный Search append, overscan каждого раздела и весь
+  player pass из C-003
+- Rollback point: B-001 / `baseline-0.3.3-dev`
+
+C-004 не заменяет B-001: startup paging и текущий D-pad путь проверены на устройстве, но
+полный playback regression для этого APK не выполнялся. C-003 остаётся отдельным
+историческим кандидатом ниже.
+
 ### C-003 — 0.4.1-dev
 
 - Статус: automated + focused Home/Catalog/D-pad hardware smoke passed; extended
@@ -253,6 +280,35 @@ C-002 нельзя переименовывать в B-002 и помечать b
   `KinogoAppRoot` error, fatal exception или ANR.
 - Rollback point: application source commit `071300c`; playback rollback по-прежнему B-001 /
   `baseline-0.3.3-dev`.
+
+### R-012 — Начальная лента могла не успевать за D-pad, пока прогревался невидимый Каталог
+
+- Статус: Resolved by guards + focused KIVI smoke in C-004 / `0.4.2-dev`; long-feed
+  verification pending
+- Обнаружено: 1 августа 2026 года при доводке ранней пагинации C-003.
+- Affected version: C-003 / `0.4.1-dev`; точный first-bad commit не устанавливался, потому
+  что ранний preload-контракт до C-004 не гарантировал резерв двух строк.
+- Last-known-good: для startup scheduling отсутствовал; playback baseline B-001 не доказывал
+  этот новый catalog contract.
+- Симптом: grid начинала append только у последней загруженной строки, а Главная и невидимый
+  Каталог могли стартовать параллельно. При быстром D-pad-переходе вниз пользователь мог
+  догнать незавершённую страницу вместо заранее подготовленных следующих рядов.
+- Причина: default `preloadRows = 1`, отсутствие минимального начального резерва Home и
+  отсутствие приоритета между видимым Home и фоновым Catalog warmup.
+- Исправление: общая grid запрашивает следующую страницу при остатке менее двух загруженных
+  строк. Home page chain набирает минимум 18 уникальных карточек или останавливается на
+  terminal/non-advancing pager, затем запускает Catalog warmup. Прямой переход в Catalog
+  инициирует его собственную загрузку; default category остаётся `Новинки`.
+- Protective tests: `TvPosterGridTest.default preload keeps two loaded rows below focus`,
+  `KinogoAppRootPreloadTest.home preloads until three poster rows are ready`, guards
+  terminal pager и deferred Catalog warmup.
+- Runtime verification: C-004 на KIVI после cold launch показал 12 видимых реальных названий
+  без loading; два `Down` и пять `Right` достигли шестой карточки третьего ряда. Прямой вход
+  в Каталог показал 20+ `Новинок`; final checks не содержали fatal/ANR/Home/Catalog errors.
+- External note: единичная ошибка mirror-health перед smoke исчезла после явной повторной
+  проверки. Она не воспроизвелась и не приписывается этому application fix.
+- Rollback point: C-003 / `071300c` возвращает предыдущий paging threshold; для playback
+  rollback остаётся B-001 / `baseline-0.3.3-dev`.
 
 ## Шаблон новой записи
 

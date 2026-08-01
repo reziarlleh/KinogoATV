@@ -6,14 +6,16 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: аппаратная приёмка и точечная доводка 0.4.1-dev
+## Сейчас: аппаратная приёмка и точечная доводка 0.4.2-dev
 
 Большая переработка интерфейса реализована: steel/cyan visual system, фиксированный rail,
 шестиколоночные сетки, новая главная, серверный xSort и paged search flow, компактные
-settings/details/source selection и уточнённый HUD. До дальнейшей графической полировки
-нужен полный TV regression pass; автоматическая сборка сама по себе не считается
-подтверждением focus/playback UX. Базовая установка, запуск и точечный catalog/D-pad smoke
-кандидата пройдены, но сборка остаётся validation candidate, а не новым playback baseline.
+settings/details/source selection и уточнённый HUD. В 0.4.2-dev добавлены ранняя дозагрузка
+общих сеток, начальный резерв Главной и приоритетная последовательность прогрева
+Home/Catalog. До дальнейшей графической полировки нужен полный TV regression pass;
+автоматическая сборка сама по себе не считается подтверждением focus/playback UX. Установка,
+запуск и точечный Home/Catalog/D-pad smoke кандидата пройдены, но сборка остаётся validation
+candidate, а не новым playback baseline.
 
 ### P0 — TV regression pass
 
@@ -23,8 +25,8 @@ settings/details/source selection и уточнённый HUD. До дальне
   обратно в content.
 - Проверить все category/xSort dropdown, возврат фокуса, search submit/keyboard hide и
   Settings OK-only обычным пультом.
-- Проверить на живом зеркале все xSort dropdown, отдельную кнопку направления,
-  смену категорий и непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
+- Проверить на живом зеркале все xSort dropdown, отдельную кнопку направления, смену
+  категорий и длинную непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
 - Проверить крупный poster/details, достижимость всех status actions и episode row на source
   selection.
 - Проверить timeline marker и buffering overlay в реальном воспроизведении.
@@ -107,6 +109,9 @@ settings/details/source selection и уточнённый HUD. До дальне
 - Сессионное xSort-состояние сериализовано и восстанавливается при переключении лент.
 - Независимые Home/Catalog/Search feed states, общая стабильная D-pad grid и динамическая
   подгрузка следующих страниц во всех трёх лентах.
+- Общая сетка начинает preload при остатке менее двух загруженных строк; Главная при старте
+  набирает минимум 18 уникальных карточек, затем прогревает Каталог. Прямой переход в
+  Каталог запускает его feed независимо от фонового прогрева.
 - Search debounce 750 ms, immediate submit с закрытием клавиатуры и graphical voice action.
 - Live catalog, top-level sections, text/voice search и early preload.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.

@@ -115,9 +115,30 @@ catalog transaction.
 origin и generation. Дозагрузка главной, каталога и поиска сохраняет identity и
 делает GET точного page-route в той же cookie-сессии. Общий `TvPosterGrid` задаёт
 одинаковую шестиколоночную раскладку, стабильные D-pad-переходы и ранний
-query-aware preload для всех трёх лент; focus coroutine отменяется при смене identity либо
-удалении её target, но не при обычном append, а offscreen-переход сдвигает viewport на одну
-строку. Production-пагинация по-прежнему координируется
+query-aware preload для всех трёх лент: следующая страница запрашивается, когда под строкой
+фокуса остаётся меньше двух загруженных строк. Focus coroutine отменяется при смене identity
+либо удалении её target, но не при обычном append, а offscreen-переход сдвигает viewport на
+одну строку.
+
+Начальная загрузка имеет явный приоритет. После первой страницы Home автоматически цепляет
+только строго возрастающие `nextPage`, пока `distinctBy(CatalogItem::id)` не даст минимум
+18 карточек (`3 × 6`) либо сервер не исчерпает страницы. Лишь затем запускается невидимый
+прогрев Catalog с неизменным default query
+`CatalogCategory.NEW_RELEASES` (`/novinki/`). Если пользователь сам входит в Catalog, его
+первая страница планируется немедленно и не ждёт достижения Home-порога; уже запущенный
+background preload не дублируется через `CatalogFeedState.loading`.
+
+Home chain, фоновый Catalog warm-up и прямой Catalog load создают отдельные coroutine
+requests, но не выполняют xSort параллельно. Каждый `loadPage` проходит через общий
+`HtmlCatalogRepository` mutex, потому что Home и Catalog меняют одну cookie-session. Поэтому
+прямой вход в Catalog может дождаться завершения уже выполняющегося Home transaction, но
+запрос ставится в работу сразу; фоновый warm-up намеренно не ставится до готовности Home
+reserve. После каждого переключения identity repository заново подтверждает активное
+xSort-состояние, а generation/origin/query guards не позволяют позднему ответу смешать
+ленты. Append и фоновые запросы не запрашивают Compose focus, поэтому не меняют текущую
+D-pad-позицию.
+
+Production-пагинация по-прежнему координируется
 вручную в `KinogoAppRoot`; `HtmlCatalogPagingSource` в этот flow не подключён.
 
 ### Авторизация и библиотека

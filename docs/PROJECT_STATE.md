@@ -4,26 +4,27 @@
 
 ## Краткий итог
 
-Версия `0.4.1-dev` реализует новый контракт Главной, Каталога и Поиска: реальные категории
-и xSort-фильтры сайта, отдельное направление сортировки, независимые ленты с непрерывной
-пагинацией и детерминированную D-pad-сетку. До выбора другой категории Каталог явно
-открывает `Новинки`.
+Версия `0.4.2-dev` развивает контракт Главной, Каталога и Поиска: общая D-pad-сетка начинает
+дозагрузку, когда ниже фокуса остаётся меньше двух загруженных строк. При старте Главная
+последовательно набирает минимум 18 уникальных карточек, затем прогревается невидимый
+Каталог; прямой вход в Каталог запускает его загрузку сразу. До выбора другой категории
+Каталог по-прежнему открывает `Новинки`.
 
 Stable-signed APK установлен поверх пользовательской установки на KIVI 4K Android TV 14
 через `adb install -r`; account/history/DataStore не очищались. Пройдены автоматическая
 проверка, запуск и точечный Home/Catalog/D-pad smoke. Полный перебор фильтров, длительный
 Search append и player regression не завершены, поэтому B-001 остаётся единственным
-полностью подтверждённым playback baseline, а новая сборка — validation candidate C-003.
+полностью подтверждённым playback baseline, а новая сборка — validation candidate C-004.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-003 / 0.4.1-dev** |
-| Application source commit | `071300c` |
+| Candidate | **C-004 / 0.4.2-dev** |
+| Application source commit | `6f5fd7a` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `11` |
-| Version name | `0.4.1-dev` |
+| Version code | `12` |
+| Version name | `0.4.2-dev` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
@@ -31,11 +32,11 @@ Search append и player regression не завершены, поэтому B-001
 | Подпись APK | стабильный локальный ключ, APK Signature Scheme v2 |
 | Baseline tag | не создавался: полный catalog/player runtime pass pending |
 
-Проверенный локальный APK: `dist/KinogoTV-0.4.1-dev.apk`. APK не коммитится в Git; в
+Проверенный локальный APK: `dist/KinogoTV-0.4.2-dev.apk`. APK не коммитится в Git; в
 `dist/SHA256SUMS.txt` хранится его контрольная сумма.
 
 SHA-256:
-`ECF7BEADF8606987D19F663E352D72FCB7E1D1D30A8D3FD7A4B1476CE7A1B56B`.
+`1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`.
 
 Certificate SHA-256:
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
@@ -54,9 +55,10 @@ Certificate SHA-256:
 - Signature certificate SHA-256:
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Предыдущий C-002 / `0.4.0-dev` сохраняется как исторический UI/player candidate, но не
-получил baseline tag из-за незакрытых cross-season/natural-end сценариев. Подробные evidence
-и точки отката находятся в [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
+Предыдущий C-003 / `0.4.1-dev` сохраняется как исторический catalog/xSort candidate с
+точечным Home/Catalog/D-pad smoke. C-002 / `0.4.0-dev` остаётся историческим UI/player
+candidate. Ни один из них не получил baseline tag из-за незакрытого полного player pass.
+Подробные evidence и точки отката находятся в [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
 
 Rollback APK допустим только с совместимой подписью и разрешённым Android versionCode. Для
 отката source использовать tag/commit, пересобрать тем же signing key и назначить новый
@@ -69,10 +71,10 @@ Rollback APK допустим только с совместимой подпи�
 | Запуск | Работает | Нативный first frame, Compose bootstrap, cold launch, crash/stall diagnostics |
 | Android TV launcher | Работает | LEANBACK launcher, фирменные TV banner и ATV icon |
 | Навигация | Работает | Постоянный rail, D-pad focus, подтверждение выхода |
-| Главная | Работает; extended TV pass pending | Без hero/history/title; live xSort controls, серверная сетка и ранний append |
-| Каталог | Работает; extended TV pass pending | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
+| Главная | Работает; focused TV smoke passed | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
+| Каталог | Работает; focused TV smoke passed | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | Работает; long append pending | Debounce 750 ms, immediate submit, keyboard hide, retry и paged query |
-| Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload из последней строки |
+| Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
 | Карточка | Работает | Крупный постер, полный текст, основные/status/favorite actions |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
 | Зеркала | Работает | Built-in/ручные кандидаты, fingerprint/redirect, TTL и active origin |
@@ -84,39 +86,41 @@ Rollback APK допустим только с совместимой подпи�
 | Web fallback | Работает | Явный provider-only WebView с origin boundary, TV HUD и виртуальным курсором |
 | Настройки | Работает | Компактные строки; значение меняется по OK, Left/Right навигируют |
 
-## Последняя проверка C-003
+## Последняя проверка C-004
 
-Автоматическая проверка application source commit `071300c`:
+Автоматическая проверка application source commit `6f5fd7a`:
 
-- 67 test suites, **304 unit tests**, 0 failures, 0 errors, 0 skipped;
+- 68 test suites, **307 unit tests**, 0 failures, 0 errors, 0 skipped;
 - Android Lint: 0 errors, 7 warnings и 2 hints;
 - `assembleDebug`: успешно;
 - ZIP alignment: успешно;
 - v2 signature: успешно, certificate digest совпал;
-- metadata: `com.kinogo.atv`, version code 11, `0.4.1-dev`, minSdk 28, targetSdk 37,
+- metadata: `com.kinogo.atv`, version code 12, `0.4.2-dev`, minSdk 28, targetSdk 37,
   LEANBACK launcher/banner присутствуют;
 - APK SHA-256:
-  `ECF7BEADF8606987D19F663E352D72FCB7E1D1D30A8D3FD7A4B1476CE7A1B56B`.
+  `1FFCD5C90F2BCC93268727ACB5D500E326A749FE6A336A8E60AE4698F595F741`.
 
 Контролируемый smoke на KIVI 4K Android TV 14:
 
 - `adb install -r` завершён успешно; `firstInstallTime` сохранился
-  (`2026-07-26 16:42:18`), версия стала code 11 / `0.4.1-dev`;
-- cold launch: `Status: ok`, `LaunchState: COLD`, `TotalTime: 2958 ms`;
-- `MainActivity` осталась `topResumedActivity`; после финального запуска нет fatal exception,
-  ANR или ошибки `KinogoAppRoot`;
-- Главная загрузила реальные карточки; вход в последнюю строку заранее добавил следующую
-  страницу, а Down перешёл к новой карточке без сброса фокуса;
-- повторный выбор текущей сортировки сохранил выбранное направление, отдельная кнопка
-  переключила `↓` на `↑`;
-- Каталог открылся на `Новинки`; category trigger был доступен даже после xSort fragment без
-  sidebar, popup открыл текущий пункт, Back вернул focus trigger, длинный D-pad scroll достиг
-  группы сериалов;
-- Right/Down перемещали фокус к точному соседу; обычный append не отменяет in-flight move
-  по отдельному regression guard.
+  (`2026-07-26 16:42:18`), версия стала code 12 / `0.4.2-dev`;
+- финальный cold launch: `Status: ok`, `LaunchState: COLD`, `TotalTime: 2616 ms`;
+- Главная показала 12 видимых реальных названий без loading state; два `Down`, затем пять
+  `Right` достигли шестой карточки третьего ряда в соответствии с нажатиями;
+- прямой вход в Каталог запустил его feed и показал 20+ карточек; выбранной по умолчанию
+  осталась категория `Новинки`;
+- после финальных Home/Catalog-проверок нет fatal exception, ANR или ошибок этих экранов;
+- единичная ошибка mirror-health во время предварительного smoke исчезла после явной
+  повторной проверки зеркал. Это внешний transient health result, а не подтверждённая
+  регрессия application source.
+
+Автоматически подтверждены дополнительные инварианты: общая сетка запрашивает следующую
+страницу при остатке менее двух загруженных строк; Главная продолжает page chain до 18
+уникальных карточек или terminal pager; невидимый Catalog ждёт этот резерв, после чего
+прогревается, а прямой вход в Catalog не зависит от фонового прогрева.
 
 Не считать этот focused smoke полным доказательством всех сетевых и playback-сценариев.
-Для C-003 ещё pending:
+Для C-004 ещё pending:
 
 - все combinations сортировки/подборки/года/страны и пустые результаты на live mirror;
 - длинная пагинация поиска и смена cookie-сессии непосредственно во время live append;
@@ -151,7 +155,7 @@ Rollback APK допустим только с совместимой подпи�
 
 ## Активный фокус
 
-Следующий шаг — продолжительное пользовательское тестирование C-003 / `0.4.1-dev`:
+Следующий шаг — продолжительное пользовательское тестирование C-004 / `0.4.2-dev`:
 
 - проверить все реальные category/xSort combinations и длинные Home/Catalog/Search ленты;
 - проверить overscan, плотность и возврат фокуса на всех разделах;
