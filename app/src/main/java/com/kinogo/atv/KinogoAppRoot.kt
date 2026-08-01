@@ -71,6 +71,10 @@ import com.kinogo.atv.domain.TvPreferences
 import com.kinogo.atv.player.ui.TvPlayerScreen
 import com.kinogo.atv.player.web.ProviderEmbedPlayerScreen
 import com.kinogo.atv.ui.KinogoTvApp
+import com.kinogo.atv.ui.components.PosterGridColumnCount
+import com.kinogo.atv.ui.mapper.toDetailsUiModel
+import com.kinogo.atv.ui.mapper.toPosterUiModel
+import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.HistoryUiModel
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.MirrorStatusUi
@@ -78,9 +82,7 @@ import com.kinogo.atv.ui.model.MirrorUiModel
 import com.kinogo.atv.ui.model.MirrorUiState
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
-import com.kinogo.atv.ui.model.BookmarkUiModel
-import com.kinogo.atv.ui.mapper.toDetailsUiModel
-import com.kinogo.atv.ui.mapper.toPosterUiModel
+import com.kinogo.atv.ui.model.TvDestination
 import com.kinogo.atv.ui.model.withPreferences
 import com.kinogo.atv.ui.screens.PlaybackPreparationScreen
 import com.kinogo.atv.ui.screens.PlaybackSourceSelectionModel
@@ -103,6 +105,36 @@ private const val DEVELOPMENT_FIXTURE_VOICE = "Демонстрационная 
 private const val DEVELOPMENT_FIXTURE_QUALITY = "320p"
 private const val APP_ROOT_LOG_TAG = "KinogoAppRoot"
 private const val PLAYBACK_DETAIL_RETRY_DELAY_MS = 350L
+private const val HOME_INITIAL_PRELOAD_ROWS = 3
+
+/**
+ * Home starts with the focused first row, so three rows keep two complete rows ready below it.
+ * A strictly advancing page guard prevents a malformed pager from creating a request loop.
+ */
+internal fun shouldContinueHomeInitialPreload(
+    itemCount: Int,
+    loadedPage: Int,
+    nextPage: Int?,
+    columns: Int = PosterGridColumnCount,
+): Boolean = columns > 0 &&
+    itemCount < columns * HOME_INITIAL_PRELOAD_ROWS &&
+    nextPage != null &&
+    nextPage > loadedPage
+
+/** Invisible catalog warm-up must never get ahead of the initial Home row reserve. */
+internal fun shouldStartDeferredCatalogPreload(
+    homeItemCount: Int,
+    loadedHomePage: Int,
+    nextHomePage: Int?,
+    catalogItemCount: Int,
+    catalogLoading: Boolean,
+    columns: Int = PosterGridColumnCount,
+): Boolean = !shouldContinueHomeInitialPreload(
+    itemCount = homeItemCount,
+    loadedPage = loadedHomePage,
+    nextPage = nextHomePage,
+    columns = columns,
+) && catalogItemCount == 0 && !catalogLoading
 
 private data class ActivePlaybackSession(
     val selection: PlaybackSelectionUiModel,
@@ -229,6 +261,7 @@ fun KinogoAppRoot() {
     }
     var playbackReturnDetailsId by remember { mutableStateOf<String?>(null) }
     var startupError by remember { mutableStateOf<String?>(null) }
+    var currentDestination by remember { mutableStateOf(TvDestination.Home) }
     var homeFeed by remember {
         mutableStateOf(CatalogFeedState(query = CatalogQuery()))
     }
@@ -379,21 +412,53 @@ fun KinogoAppRoot() {
                 } else {
                     identity
                 }
-                setFeed(
-                    kind,
-                    latest.copy(
-                        query = effectiveQuery,
-                        items = if (reset) {
-                            result.items
-                        } else {
-                            (latest.items + result.items).distinctBy(CatalogItem::id)
-                        },
-                        controls = controls,
-                        nextPage = result.nextPage,
-                        loading = false,
-                        error = null,
-                    ),
+                val updated = latest.copy(
+                    query = effectiveQuery,
+                    items = if (reset) {
+                        result.items
+                    } else {
+                        (latest.items + result.items).distinctBy(CatalogItem::id)
+                    },
+                    controls = controls,
+                    nextPage = result.nextPage,
+                    loading = false,
+                    error = null,
                 )
+                setFeed(kind, updated)
+                if (
+                    kind == CatalogFeedKind.HOME &&
+                    shouldContinueHomeInitialPreload(
+                        itemCount = updated.items.size,
+                        loadedPage = page,
+                        nextPage = updated.nextPage,
+                    )
+                ) {
+                    requestFeedPage(
+                        kind = kind,
+                        origin = origin,
+                        query = effectiveQuery,
+                        page = requireNotNull(updated.nextPage),
+                        reset = false,
+                    )
+                } else if (
+                    kind == CatalogFeedKind.HOME &&
+                    shouldStartDeferredCatalogPreload(
+                        homeItemCount = updated.items.size,
+                        loadedHomePage = page,
+                        nextHomePage = updated.nextPage,
+                        catalogItemCount = catalogFeed.items.size,
+                        catalogLoading = catalogFeed.loading,
+                    )
+                ) {
+                    requestFeedPage(
+                        kind = CatalogFeedKind.CATALOG,
+                        origin = origin,
+                        query = catalogFeed.query
+                            ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES),
+                        page = 1,
+                        reset = true,
+                    )
+                }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -533,6 +598,13 @@ fun KinogoAppRoot() {
             liveDetailsById = emptyMap()
             loadingDetailIds = emptySet()
             searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
+            catalogFeed = CatalogFeedState(
+                query = CatalogQuery(
+                    category = catalogFeed.query?.category ?: CatalogCategory.NEW_RELEASES,
+                ),
+                controls = CatalogControls(categories = catalogFeed.controls.categories),
+                generation = catalogFeed.generation + 1L,
+            )
         }
         if (selectedOrigin == null) {
             val message = "Нет доступного проверенного зеркала"
@@ -552,14 +624,6 @@ fun KinogoAppRoot() {
             } else {
                 homeFeed.query ?: CatalogQuery()
             }
-            val catalogQuery = if (mirrorChanged) {
-                CatalogQuery(
-                    category = catalogFeed.query?.category ?: CatalogCategory.NEW_RELEASES,
-                )
-            } else {
-                catalogFeed.query
-                    ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
-            }
             if (mirrorChanged || homeFeed.origin != selectedOrigin || homeFeed.items.isEmpty()) {
                 requestFeedPage(
                     CatalogFeedKind.HOME,
@@ -569,15 +633,12 @@ fun KinogoAppRoot() {
                     reset = true,
                 )
             }
-            if (
-                mirrorChanged ||
-                catalogFeed.origin != selectedOrigin ||
-                catalogFeed.items.isEmpty()
-            ) {
+            if (currentDestination == TvDestination.Catalog) {
                 requestFeedPage(
-                    CatalogFeedKind.CATALOG,
-                    selectedOrigin,
-                    catalogQuery,
+                    kind = CatalogFeedKind.CATALOG,
+                    origin = selectedOrigin,
+                    query = catalogFeed.query
+                        ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES),
                     page = 1,
                     reset = true,
                 )
@@ -1206,6 +1267,26 @@ fun KinogoAppRoot() {
                     }
                 }
             },
+            onDestinationChanged = { destination ->
+                currentDestination = destination
+                if (destination == TvDestination.Catalog) {
+                    val origin = activeMirrorOrigin
+                    if (
+                        origin != null &&
+                        !catalogFeed.loading &&
+                        (catalogFeed.origin != origin || catalogFeed.items.isEmpty())
+                    ) {
+                        requestFeedPage(
+                            kind = CatalogFeedKind.CATALOG,
+                            origin = origin,
+                            query = catalogFeed.query
+                                ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES),
+                            page = 1,
+                            reset = true,
+                        )
+                    }
+                }
+            },
             onDetailsRequested = ::requestDetails,
             onCatalogCategorySelected = { category ->
                 val current = catalogFeed.query
@@ -1279,6 +1360,16 @@ fun KinogoAppRoot() {
                         searchFeed = CatalogFeedState(
                             generation = searchFeed.generation + 1L,
                         )
+                        catalogFeed = CatalogFeedState(
+                            query = CatalogQuery(
+                                category = catalogFeed.query?.category
+                                    ?: CatalogCategory.NEW_RELEASES,
+                            ),
+                            controls = CatalogControls(
+                                categories = catalogFeed.controls.categories,
+                            ),
+                            generation = catalogFeed.generation + 1L,
+                        )
                     }
                     if (mirrorChanged || homeFeed.origin != entry.origin) {
                         requestFeedPage(
@@ -1291,7 +1382,10 @@ fun KinogoAppRoot() {
                             reset = true,
                         )
                     }
-                    if (mirrorChanged || catalogFeed.origin != entry.origin) {
+                    if (
+                        currentDestination == TvDestination.Catalog &&
+                        (mirrorChanged || catalogFeed.origin != entry.origin)
+                    ) {
                         requestFeedPage(
                             kind = CatalogFeedKind.CATALOG,
                             origin = entry.origin,

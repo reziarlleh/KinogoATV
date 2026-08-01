@@ -113,23 +113,25 @@ class TvPosterGridTest {
     }
 
     @Test
-    fun `preload starts upon entering final complete row`() {
-        assertFalse(shouldPreloadPosterGrid(11, itemCount = 18, columns = COLUMNS))
+    fun `default preload keeps two loaded rows below focus`() {
+        assertFalse(shouldPreloadPosterGrid(5, itemCount = 18, columns = COLUMNS))
+        assertTrue(shouldPreloadPosterGrid(6, itemCount = 18, columns = COLUMNS))
         assertTrue(shouldPreloadPosterGrid(12, itemCount = 18, columns = COLUMNS))
         assertTrue(shouldPreloadPosterGrid(17, itemCount = 18, columns = COLUMNS))
     }
 
     @Test
     fun `preload row math handles incomplete final row`() {
-        assertFalse(shouldPreloadPosterGrid(7, itemCount = 14, columns = COLUMNS))
+        assertFalse(shouldPreloadPosterGrid(5, itemCount = 14, columns = COLUMNS))
+        assertTrue(shouldPreloadPosterGrid(7, itemCount = 14, columns = COLUMNS))
         assertTrue(shouldPreloadPosterGrid(12, itemCount = 14, columns = COLUMNS))
         assertTrue(shouldPreloadPosterGrid(13, itemCount = 14, columns = COLUMNS))
-        assertTrue(
+        assertFalse(
             shouldPreloadPosterGrid(
                 focusedIndex = 6,
                 itemCount = 14,
                 columns = COLUMNS,
-                preloadRows = 2,
+                preloadRows = 1,
             ),
         )
     }

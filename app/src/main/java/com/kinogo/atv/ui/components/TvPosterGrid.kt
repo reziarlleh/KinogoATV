@@ -92,12 +92,12 @@ internal fun posterGridNavigationDecision(
     }
 }
 
-/** True when focus has entered one of the final [preloadRows] loaded rows. */
+/** True when fewer than [preloadRows] fully loaded rows remain below the focused row. */
 internal fun shouldPreloadPosterGrid(
     focusedIndex: Int,
     itemCount: Int,
     columns: Int,
-    preloadRows: Int = 1,
+    preloadRows: Int = 2,
 ): Boolean {
     if (
         columns <= 0 ||
@@ -167,7 +167,7 @@ fun TvPosterGrid(
     modifier: Modifier = Modifier,
     firstFocus: FocusRequester? = null,
     columns: Int = PosterGridColumnCount,
-    preloadRows: Int = 1,
+    preloadRows: Int = 2,
     pagingKey: Any? = null,
 ) {
     require(columns > 0) { "Poster grid column count must be positive" }

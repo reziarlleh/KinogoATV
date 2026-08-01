@@ -134,6 +134,7 @@ fun KinogoTvApp(
     onHomeRetry: () -> Unit = {},
     onHomeLoadMore: () -> Unit = {},
     onHomeFiltersChanged: (CatalogBrowseFilters) -> Unit = {},
+    onDestinationChanged: (TvDestination) -> Unit = {},
     onDetailsRequested: (String) -> Unit = {},
     onCatalogCategorySelected: (CatalogCategory) -> Unit = {},
     onCatalogFiltersChanged: (CatalogBrowseFilters) -> Unit = {},
@@ -165,6 +166,9 @@ fun KinogoTvApp(
     var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
     val destination = remember(destinationName, initialDestination) {
         restoredTvDestination(destinationName, initialDestination)
+    }
+    LaunchedEffect(destination) {
+        onDestinationChanged(destination)
     }
     val allCatalogPosters = remember(homeCatalog, catalog) {
         (homeCatalog + catalog).distinctBy(PosterUiModel::id)
