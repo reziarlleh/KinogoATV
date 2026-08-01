@@ -1,11 +1,24 @@
 package com.kinogo.atv.data.catalog
 
 import java.net.URI
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class KinogoSessionHttpClientTest {
+    @Test
+    fun statefulCatalogClientUsesHttp11Only() {
+        val transport = KinogoSessionHttpClient()
+        val clientField = KinogoSessionHttpClient::class.java.declaredFields
+            .single { field -> OkHttpClient::class.java.isAssignableFrom(field.type) }
+            .apply { isAccessible = true }
+        val configuredClient = clientField.get(transport) as OkHttpClient
+
+        assertEquals(listOf(Protocol.HTTP_1_1), configuredClient.protocols)
+    }
+
     @Test
     fun sessionRouteAllowsQueryButRejectsCrossOriginAndTraversal() {
         assertEquals(

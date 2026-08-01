@@ -20,6 +20,7 @@ import okhttp3.Callback
 import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
@@ -48,6 +49,11 @@ class KinogoSessionHttpClient(
     private val cookieStore = OriginCookieStore()
     private val client = OkHttpClient.Builder()
         .dns(dns)
+        // DLE/xSort is a stateful sequence of mutating requests. Some Android TV network stacks
+        // leave the service's HTTP/2 stream waiting for response headers until our call timeout,
+        // while the same endpoint responds reliably over HTTP/1.1. Keep this isolated catalog,
+        // auth and library session on HTTP/1.1; playback uses separate clients.
+        .protocols(listOf(Protocol.HTTP_1_1))
         .followRedirects(false)
         .followSslRedirects(false)
         .connectTimeout(connectTimeoutMs.toLong(), TimeUnit.MILLISECONDS)

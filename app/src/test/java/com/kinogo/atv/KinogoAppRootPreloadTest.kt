@@ -27,44 +27,4 @@ class KinogoAppRootPreloadTest {
             ),
         )
     }
-
-    @Test
-    fun `catalog warmup waits until the home row reserve is complete`() {
-        assertFalse(
-            shouldStartDeferredCatalogPreload(
-                homeItemCount = 10,
-                loadedHomePage = 1,
-                nextHomePage = 2,
-                catalogItemCount = 0,
-                catalogLoading = false,
-            ),
-        )
-        assertTrue(
-            shouldStartDeferredCatalogPreload(
-                homeItemCount = 18,
-                loadedHomePage = 2,
-                nextHomePage = 3,
-                catalogItemCount = 0,
-                catalogLoading = false,
-            ),
-        )
-        assertFalse(
-            shouldStartDeferredCatalogPreload(
-                homeItemCount = 18,
-                loadedHomePage = 2,
-                nextHomePage = 3,
-                catalogItemCount = 1,
-                catalogLoading = false,
-            ),
-        )
-        assertFalse(
-            shouldStartDeferredCatalogPreload(
-                homeItemCount = 18,
-                loadedHomePage = 2,
-                nextHomePage = 3,
-                catalogItemCount = 0,
-                catalogLoading = true,
-            ),
-        )
-    }
 }

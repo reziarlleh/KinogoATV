@@ -29,19 +29,36 @@ class HtmlCatalogRepository(
 
     override suspend fun loadPage(origin: String, query: CatalogQuery): ParsedCatalogPage =
         browseMutex.withLock {
-            var lastSessionError: CatalogSessionChangedException? = null
-            repeat(MAX_SESSION_CHANGE_RETRIES + 1) { sessionRetry ->
+            var sessionRetries = 0
+            var networkRetries = 0
+            while (true) {
                 try {
                     return@withLock loadPageInStableSession(origin, query)
+                } catch (cancelled: CancellationException) {
+                    // A cancelled POST may already have changed the server-side xSort session.
+                    appliedQuery = null
+                    throw cancelled
                 } catch (changed: CatalogSessionChangedException) {
                     appliedQuery = null
-                    lastSessionError = changed
-                    if (sessionRetry < MAX_SESSION_CHANGE_RETRIES) {
-                        delay(SESSION_CHANGE_RETRY_DELAY_MS * (sessionRetry + 1L))
-                    }
+                    if (sessionRetries >= MAX_SESSION_CHANGE_RETRIES) throw changed
+                    sessionRetries++
+                    delay(SESSION_CHANGE_RETRY_DELAY_MS * sessionRetries)
+                } catch (network: CatalogNetworkException) {
+                    // Never retry one xSort POST: repeating the same command toggles direction.
+                    // Forget the ambiguous session and replay the complete clear/apply transaction.
+                    appliedQuery = null
+                    if (networkRetries >= MAX_NETWORK_RETRIES) throw network
+                    networkRetries++
+                    delay(NETWORK_RETRY_DELAY_MS * networkRetries)
+                } catch (error: Exception) {
+                    // Parsing and HTTP errors can also happen after a mutating POST. The next user
+                    // action must re-establish the complete selection instead of trusting the cache.
+                    appliedQuery = null
+                    throw error
                 }
             }
-            throw checkNotNull(lastSessionError)
+            @Suppress("UNREACHABLE_CODE")
+            error("Unreachable")
         }
 
     private suspend fun loadPageInStableSession(
@@ -254,6 +271,8 @@ class HtmlCatalogRepository(
         const val XSORT_COUNTRY_FIELD = "country"
         const val MAX_SESSION_CHANGE_RETRIES = 3
         const val SESSION_CHANGE_RETRY_DELAY_MS = 100L
+        const val MAX_NETWORK_RETRIES = 1
+        const val NETWORK_RETRY_DELAY_MS = 250L
 
         val CLEAR_XSORT_FORM = linkedMapOf(
             "xsort" to "1",

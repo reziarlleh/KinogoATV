@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.jsoup.Jsoup
+import java.net.SocketTimeoutException
 
 class HtmlCatalogRepositoryXSortTest {
     @Test
@@ -179,6 +180,64 @@ class HtmlCatalogRepositoryXSortTest {
     }
 
     @Test
+    fun ambiguousPostTimeoutRestartsWholeXSortTransaction() = runTest {
+        val transport = RecordingCatalogTransport(fixture("catalog_controls.html")).apply {
+            postFailuresAfterMutation["defaultsort"] = 1
+        }
+        val repository = HtmlCatalogRepository(transport, KinogoHtmlParser())
+        val query = CatalogQuery(
+            category = CatalogCategory.ALL_MOVIES,
+            filters = CatalogBrowseFilters(
+                defaultSort = CatalogDefaultSort.RATING,
+                sortDirection = CatalogSortDirection.DESC,
+            ),
+        )
+
+        val result = repository.loadPage(ORIGIN, query)
+
+        assertEquals(
+            listOf(
+                PostCall("/filmy/", form("clearallfields")),
+                PostCall("/filmy/", form("defaultsort", "rating")),
+                PostCall("/filmy/", form("clearallfields")),
+                PostCall("/filmy/", form("defaultsort", "rating")),
+            ),
+            transport.calls,
+        )
+        assertEquals(CatalogDefaultSort.RATING, result.controls.activeFilters.defaultSort)
+        assertEquals(CatalogSortDirection.DESC, result.controls.activeFilters.sortDirection)
+    }
+
+    @Test
+    fun repeatedPostTimeoutStopsAfterOneWholeTransactionRetry() = runTest {
+        val transport = RecordingCatalogTransport(fixture("catalog_controls.html")).apply {
+            postFailuresAfterMutation["defaultsort"] = Int.MAX_VALUE
+        }
+        val repository = HtmlCatalogRepository(transport, KinogoHtmlParser())
+        val query = CatalogQuery(
+            category = CatalogCategory.ALL_MOVIES,
+            filters = CatalogBrowseFilters(
+                defaultSort = CatalogDefaultSort.RATING,
+                sortDirection = CatalogSortDirection.DESC,
+            ),
+        )
+
+        val error = runCatching { repository.loadPage(ORIGIN, query) }.exceptionOrNull()
+
+        assertTrue(error is CatalogNetworkException)
+        assertTrue(error?.cause is SocketTimeoutException)
+        assertEquals(
+            listOf(
+                PostCall("/filmy/", form("clearallfields")),
+                PostCall("/filmy/", form("defaultsort", "rating")),
+                PostCall("/filmy/", form("clearallfields")),
+                PostCall("/filmy/", form("defaultsort", "rating")),
+            ),
+            transport.calls,
+        )
+    }
+
+    @Test
     fun appendIsRejectedWhenServerLosesActiveFiltersInsideSameSession() = runTest {
         val transport = RecordingCatalogTransport(fixture("catalog_controls.html"))
         val repository = HtmlCatalogRepository(transport, KinogoHtmlParser())
@@ -324,6 +383,7 @@ private class RecordingCatalogTransport(
 ) : CatalogFilterHtmlTransport {
     val calls = mutableListOf<CatalogTransportCall>()
     val emptyGetPaths = mutableSetOf<String>()
+    val postFailuresAfterMutation = mutableMapOf<String, Int>()
     var emptyAllResponses: Boolean = false
     var honorXSortCommands: Boolean = true
     var changeSessionOnNextGet: Boolean = false
@@ -362,6 +422,12 @@ private class RecordingCatalogTransport(
     ): HtmlResponse {
         calls += PostCall(rawRelativePath, LinkedHashMap(form))
         if (honorXSortCommands) applyXSort(rawRelativePath, form)
+        val field = form["xs_field"]
+        val failuresRemaining = field?.let(postFailuresAfterMutation::get) ?: 0
+        if (field != null && failuresRemaining > 0) {
+            postFailuresAfterMutation[field] = failuresRemaining - 1
+            throw CatalogNetworkException(SocketTimeoutException("timeout after POST mutation"))
+        }
         return response(rawOrigin, rawRelativePath, empty = emptyAllResponses)
     }
 

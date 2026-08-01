@@ -121,21 +121,6 @@ internal fun shouldContinueHomeInitialPreload(
     nextPage != null &&
     nextPage > loadedPage
 
-/** Invisible catalog warm-up must never get ahead of the initial Home row reserve. */
-internal fun shouldStartDeferredCatalogPreload(
-    homeItemCount: Int,
-    loadedHomePage: Int,
-    nextHomePage: Int?,
-    catalogItemCount: Int,
-    catalogLoading: Boolean,
-    columns: Int = PosterGridColumnCount,
-): Boolean = !shouldContinueHomeInitialPreload(
-    itemCount = homeItemCount,
-    loadedPage = loadedHomePage,
-    nextPage = nextHomePage,
-    columns = columns,
-) && catalogItemCount == 0 && !catalogLoading
-
 private data class ActivePlaybackSession(
     val selection: PlaybackSelectionUiModel,
     val mediaPlan: PlaybackMediaPlan,
@@ -271,6 +256,7 @@ fun KinogoAppRoot() {
         )
     }
     var searchFeed by remember { mutableStateOf(CatalogFeedState()) }
+    val feedJobs = remember { mutableMapOf<CatalogFeedKind, Job>() }
     var contentGeneration by remember { mutableLongStateOf(0L) }
     var liveDetailsById by remember {
         mutableStateOf(emptyMap<String, com.kinogo.atv.ui.model.DetailsUiModel>())
@@ -361,12 +347,15 @@ fun KinogoAppRoot() {
         val identity = query.identity
         val previous = currentFeed(kind)
         if (!reset && (previous.loading || previous.query?.identity != identity)) return
+        if (reset) feedJobs.remove(kind)?.cancel()
         val generation = if (reset) previous.generation + 1L else previous.generation
         val started = if (reset) {
+            val retainVisibleSnapshot = kind != CatalogFeedKind.SEARCH &&
+                previous.origin == origin
             previous.copy(
                 query = identity,
-                items = emptyList(),
-                controls = CatalogControls(categories = previous.controls.categories),
+                items = if (retainVisibleSnapshot) previous.items else emptyList(),
+                controls = if (retainVisibleSnapshot) previous.controls else CatalogControls(),
                 nextPage = null,
                 loading = true,
                 error = null,
@@ -378,7 +367,7 @@ fun KinogoAppRoot() {
         }
         setFeed(kind, started)
 
-        scope.launch {
+        val job = scope.launch {
             try {
                 val result = catalogRepository.loadPage(
                     origin = origin,
@@ -440,24 +429,6 @@ fun KinogoAppRoot() {
                         page = requireNotNull(updated.nextPage),
                         reset = false,
                     )
-                } else if (
-                    kind == CatalogFeedKind.HOME &&
-                    shouldStartDeferredCatalogPreload(
-                        homeItemCount = updated.items.size,
-                        loadedHomePage = page,
-                        nextHomePage = updated.nextPage,
-                        catalogItemCount = catalogFeed.items.size,
-                        catalogLoading = catalogFeed.loading,
-                    )
-                ) {
-                    requestFeedPage(
-                        kind = CatalogFeedKind.CATALOG,
-                        origin = origin,
-                        query = catalogFeed.query
-                            ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES),
-                        page = 1,
-                        reset = true,
-                    )
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -478,8 +449,13 @@ fun KinogoAppRoot() {
                         latest.copy(loading = false, error = catalogErrorLabel(error)),
                     )
                 }
+            } finally {
+                if (feedJobs[kind] === coroutineContext[Job]) {
+                    feedJobs.remove(kind)
+                }
             }
         }
+        feedJobs[kind] = job
     }
 
     fun requestSearch(rawQuery: String) {
@@ -1213,7 +1189,7 @@ fun KinogoAppRoot() {
                 activeMirrorOrigin?.let { origin ->
                     val query = catalogFeed.query
                         ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
-                    val reset = catalogFeed.items.isEmpty()
+                    val reset = catalogFeed.nextPage == null
                     requestFeedPage(
                         kind = CatalogFeedKind.CATALOG,
                         origin = origin,
@@ -1229,7 +1205,7 @@ fun KinogoAppRoot() {
                     requestMirrorRefresh()
                 } else {
                     val query = homeFeed.query ?: CatalogQuery()
-                    val reset = homeFeed.items.isEmpty()
+                    val reset = homeFeed.nextPage == null
                     requestFeedPage(
                         kind = CatalogFeedKind.HOME,
                         origin = origin,
