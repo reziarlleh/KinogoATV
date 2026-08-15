@@ -116,8 +116,9 @@ git ls-files --others --exclude-standard
 source изменится.
 
 `.github/workflows/android.yml` повторяет canonical unit/lint/assembleDebug на push в
-`main` и pull request. Перед release сохранить URL/result run для exact source commit.
-Workflow не содержит stable signing key и не заменяет локальную проверку release APK.
+`main` и pull request. Official Actions закреплены полными commit SHA актуальных Node 24
+релизов. Перед release сохранить URL/result run для exact source commit. Workflow не содержит
+stable signing key и не заменяет локальную проверку release APK.
 
 ## 4. Сборка
 

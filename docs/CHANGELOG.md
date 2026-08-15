@@ -72,7 +72,8 @@
 - README подготовлен для публичного репозитория: явно указаны неофициальный статус,
   отсутствие аффилиации и отсутствие hosting видео.
 - Добавлен GitHub Actions workflow для JDK 17 / SDK 37 и canonical
-  `testDebugUnitTest lintDebug assembleDebug` clean-clone проверки.
+  `testDebugUnitTest lintDebug assembleDebug` clean-clone проверки. Official Actions
+  закреплены полными commit SHA актуальных Node 24-релизов.
 
 ### Validation status
 

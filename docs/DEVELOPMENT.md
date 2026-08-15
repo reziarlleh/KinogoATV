@@ -113,8 +113,9 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 ```
 
 Тот же canonical набор выполняет `.github/workflows/android.yml` на push в `main` и pull
-request с JDK 17 / SDK 37. CI использует обычную debug signature и не собирает
-распространяемый stable-signed APK.
+request с JDK 17 / SDK 37. Official Actions закреплены полными commit SHA и используют
+Node 24. CI использует обычную debug signature и не собирает распространяемый stable-signed
+APK.
 
 Debug APK:
 

@@ -93,7 +93,7 @@ Rollback APK допустим только с совместимой подпи�
 | Настройки | C-006 debug TV smoke passed | Switch и D-pad dropdown проверены; focus return работает |
 | Обновления | Artifact policy verified; live updater pending | Exact stable GitHub Release contract; APK metadata/hash/signer verified вручную, installer flow не проверен |
 | About | C-006 debug TV smoke passed | D-pad reachability, QR/dialog; Donate.Stream/GitHub открылись в Yandex TV browser |
-| CI | Workflow добавлен; first remote run pending | GitHub Actions: JDK 17, SDK 37, unit/lint/assembleDebug |
+| CI | Workflow добавлен; first Node 24 rerun pending | GitHub Actions: pinned official Actions, JDK 17, SDK 37, unit/lint/assembleDebug |
 
 ## Проверка C-006 и final artifact
 
