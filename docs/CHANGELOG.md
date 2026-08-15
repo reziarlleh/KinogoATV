@@ -76,8 +76,7 @@
 
 ### Validation status
 
-- Source version: code 14 / `0.5.0`, minSdk 28, targetSdk 37. Final source commit ещё не
-  зафиксирован.
+- Source version: application commit `6567088`, code 14 / `0.5.0`, minSdk 28, targetSdk 37.
 - Добавлены/обновлены protective tests для resume, source refresh, completion, registration,
   mirror bootstrap, updater, preferences, initial rail focus и Settings D-pad contract.
 - Локальные `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
@@ -98,7 +97,7 @@
   Home rail получил initial focus, каталог/постеры загрузились, FATAL/ANR нет.
 - Final hardware `RegistrationDialogDpadTest` — `OK (1)`: rules scroll boundary возвращает
   focus на безопасное `Не принимаю`; test package удалён.
-- Final source commit, first GitHub Actions run и публичный GitHub Release **pending**. Live
+- First GitHub Actions run и публичный GitHub Release **pending**. Live
   registration submit, реальный expired-source refresh, natural cross-season end и
   newer-version installer **pending**. B-001 остаётся playback rollback baseline.
 

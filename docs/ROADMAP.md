@@ -13,13 +13,14 @@ disclaimer, initial rail focus, новые Settings controls, единый resum
 source refresh. Local 75-suite/348-test pass и debug+androidTest+release assembly зелёные.
 Final stable-signed APK проверен и установлен через `adb install -r` на X96Max Plus Ultra с
 сохранением данных; cold launch/catalog smoke пройден. KIVI debug ранее подтвердил Settings,
-About и короткий playback/resume-return. Final source commit/CI/public release и расширенные
-live/player сценарии ещё не закреплены. B-001 остаётся playback rollback baseline.
+About и короткий playback/resume-return. Application source зафиксирован как `6567088`;
+CI/public release и расширенные live/player сценарии ещё не закреплены. B-001 остаётся
+playback rollback baseline.
 
 ### P0 — TV regression pass
 
-- Зафиксировать final source commit, первый GitHub Actions result и опубликовать уже
-  проверенный artifact как exact GitHub Release asset.
+- Получить первый GitHub Actions result и опубликовать проверенный artifact из application
+  commit `6567088` как exact GitHub Release asset.
 - Расширить cold focus smoke: Right/Left и отсутствие focus steal каждого раздела, затем
   проверить category/filter/search focus flows.
 - Проверить на живом зеркале combinations подборки/года/страны, смену категорий и длинную

@@ -33,9 +33,9 @@
 
 ### C-006 — 0.5.0 validation
 
-- Статус: local automated + final Release artifact/device smoke passed; final
-  commit/CI/public release and extended live/player evidence pending
-- Application source commit: **PENDING**; working tree основан на `f02fdca`
+- Статус: local automated + final Release artifact/device smoke passed; CI/public release
+  and extended live/player evidence pending
+- Application source commit: `6567088`
 - Metadata in source: version code 14, version `0.5.0`, minSdk 28, targetSdk 37
 - APK: `dist/KinogoATV-0.5.0-code14.apk`, 38 140 638 bytes
 - SHA-256: `3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`
@@ -59,8 +59,8 @@
 - Rollback: для catalog — C-005 / `15efacc`; для полного playback — B-001 /
   `baseline-0.3.3-dev`
 
-C-006 нельзя назначать полным playback baseline по green build и focused smoke. Нужны final
-source commit/public release и ещё не закрытые live/player evidence на той же ревизии.
+C-006 нельзя назначать полным playback baseline по green build и focused smoke. Нужны public
+release и ещё не закрытые live/player evidence на той же ревизии.
 
 ### C-005 — 0.4.3-dev
 

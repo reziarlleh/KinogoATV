@@ -14,15 +14,16 @@ playback source, исправление перехода через границ
 unit/lint/build pass завершён, финальный stable-signed Release APK проверен и установлен
 поверх существующей установки на X96Max Plus Ultra Android TV 14 с сохранением данных.
 Debug-smoke на KIVI ранее подтвердил focus/settings/About и короткий playback/resume-return.
-Final source commit, GitHub Actions/публичный Release/updater-live и расширенный playback
-pass ещё не зафиксированы. B-001 остаётся последним полным playback baseline.
+Application source зафиксирован commit `6567088`; GitHub Actions/публичный Release,
+updater-live и расширенный playback pass ещё не зафиксированы. B-001 остаётся последним
+полным playback baseline.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
 | Candidate | **C-006 / 0.5.0 validation** |
-| Application source commit | **PENDING: final commit после интеграции; working tree основан на `f02fdca`** |
+| Application source commit | `6567088` (`Prepare KinogoATV 0.5.0`) |
 | Application ID | `com.kinogo.atv` |
 | Version code | `14` |
 | Version name | `0.5.0` |
@@ -42,8 +43,8 @@ Certificate SHA-256:
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
 Metadata: `com.kinogo.atv`, code 14 / `0.5.0`, minSdk 28, targetSdk 37, label
-`KinogoATV`, LEANBACK launcher/banner. Zipalign успешно, v2 signature true. Exact source
-commit и GitHub Release/CI всё ещё PENDING.
+`KinogoATV`, LEANBACK launcher/banner. Zipalign успешно, v2 signature true. Application
+source — `6567088`; GitHub Release/CI всё ещё PENDING.
 
 ## Known-good baseline и откат
 
@@ -105,9 +106,8 @@ Rollback APK допустим только с совместимой подпи�
 - `assembleRelease`.
 
 Результат: **75 suites / 348 unit tests**, 0 failures, 0 errors, 0 skipped; Android Lint —
-0 errors, 19 warnings и 2 hints. Это доказывает текущий source/build/test contract, но до
-final commit не является commit-addressable evidence. Debug, AndroidTest и Release APK
-успешно собраны.
+0 errors, 19 warnings и 2 hints. Application source и этот локальный evidence зафиксированы
+commit `6567088`; Debug, AndroidTest и Release APK успешно собраны.
 
 Финальный Release artifact прошёл metadata/size/hash/zipalign/v2/certificate verification:
 `dist/KinogoATV-0.5.0-code14.apk`, 38 140 638 bytes,

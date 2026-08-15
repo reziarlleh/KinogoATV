@@ -13,8 +13,9 @@ Local `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assemb
 pass завершён: 75 suites / 348 unit tests без failures/errors/skips, lint 0 errors /
 19 warnings / 2 hints. Stable-signed `dist/KinogoATV-0.5.0-code14.apk` проверен и установлен
 через `adb install -r` на X96Max Plus Ultra с сохранением firstInstallTime; cold launch
-успешен. Final source commit, GitHub Actions run, public GitHub Release и updater-live
-**PENDING**. Короткий smoke не превращает кандидата в полный playback baseline.
+успешен. Application source зафиксирован commit `6567088`; GitHub Actions run, public GitHub
+Release и updater-live **PENDING**. Короткий smoke не превращает кандидата в полный playback
+baseline.
 
 Artifact: 38 140 638 bytes; SHA-256
 `3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`; zipalign OK, v2 true;
@@ -111,7 +112,8 @@ git ls-files --others --exclude-standard
 
 Последний local integration pass C-006: 75 suites / 348 unit tests, 0 failures, 0 errors,
 0 skipped; lint 0 errors / 19 warnings / 2 hints; debug, AndroidTest APK и release assembly
-успешны. Повторить команду после final commit, если source изменится.
+успешны и относятся к application commit `6567088`. Повторить команду, если application
+source изменится.
 
 `.github/workflows/android.yml` повторяет canonical unit/lint/assembleDebug на push в
 `main` и pull request. Перед release сохранить URL/result run для exact source commit.
