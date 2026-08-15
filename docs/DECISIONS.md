@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -259,3 +259,92 @@ controls во время замены и при transient failure. Search и cro
 Следствие: нельзя возвращать hidden warm-up, raw retry одиночного xSort POST, параллельные
 xSort-команды одной cookie-сессии либо переносить HTTP/1.1-ограничение на playback без
 отдельного аппаратного доказательства.
+
+## D-019 — Первый фокус принадлежит navigation rail
+
+- Дата: 15 августа 2026 года
+- Статус: принято; C-006 debug TV smoke passed
+
+При cold start selected rail item получает первый focus. Разделы не запрашивают свой
+initial focus до явной активации контента. Focused и selected-unfocused состояния визуально
+различаются; enum Settings открываются dropdown, boolean — Switch, Left/Right остаются
+навигацией.
+
+Следствие: нельзя возвращать конкурирующие initial requests экранов либо скрытые циклические
+значения Settings без явного D-pad popup/focus-return контракта.
+
+## D-020 — Resume выбирает newest unfinished, source refresh ограничен unit key
+
+- Дата: 15 августа 2026 года
+- Статус: принято; basic resume-return passed, source-recovery runtime pending
+
+History/Catalog/Search выбирают newest unfinished eligible checkpoint content ID, а Details
+показывает S/E/position. Playback error допускает одну полную fresh details/provider
+preparation на `content/season/episode`; attempted set переживает replacement player.
+Автоматическое восстановление position запускается только если normalized fresh selection
+совпадает с исходной exact unit; иначе пользователь возвращается в selector с нулевой
+позицией, чтобы другая серия не стартовала незаметно.
+
+Следствие: нельзя предпочитать completed default episode более новому unfinished либо
+повторять один transient URL/сбрасывать retry guard при remap source/quality.
+
+## D-021 — Updater проверяет GitHub Release, но установку подтверждает Android
+
+- Дата: 15 августа 2026 года
+- Статус: принято; Release/TV evidence pending
+
+Updater принимает только stable Release этого repository с exact tag/asset/digest,
+проверяет package/version/code и полное совпадение signer с installed app. APK передаётся
+non-exported FileProvider системному Package Installer.
+
+Следствие: silent install, произвольный download URL, signer mismatch и автоматическое
+нажатие системного подтверждения запрещены. Unknown-sources permission и финальная установка
+остаются явными действиями пользователя.
+
+## D-022 — Регистрация повторяет same-origin форму и не обходит CAPTCHA
+
+- Дата: 15 августа 2026 года
+- Статус: принято; rules D-pad instrumentation passed, live submit pending
+
+Flow разделяет DLE rules page и account form. Rules POST выполняется только после явного OK,
+а безопасный default focus — `Не принимаю`. Поля/hidden state/image CAPTCHA берутся из
+browser-visible same-origin form и живут в памяти; sensitive UI input использует
+`remember`, не `rememberSaveable`. CAPTCHA решает пользователь; refresh получает форму
+заново. Wire-size и bitmap dimensions/pixels/decode bounded. Generation+origin guard
+отбрасывает late response. Интерактивные reCAPTCHA/hCaptcha/Turnstile явно unsupported.
+
+Следствие: нельзя подключать распознавание CAPTCHA, переносить её third party либо ослаблять
+origin/cookie boundary ради регистрации.
+
+## D-023 — Unsigned remote manifest только обнаруживает кандидатов
+
+- Дата: 15 августа 2026 года
+- Статус: принято
+
+Bounded `config/mirrors.json` с exact GitHub raw path/schema/expiry получает provenance от
+repository/TLS, но не криптографическое trust. Любой origin входит только как
+`DISCOVERY + QUARANTINED` и проходит существующий health/fingerprint flow.
+Текущий snapshot содержит четыре кандидата, включая `kinogo.family`; состав manifest не
+является списком trusted/official mirrors.
+
+Следствие: адрес из manifest нельзя сразу делать active/official; если потребуется более
+сильная гарантия, вводится отдельная подпись/revocation, а не скрытое повышение trust.
+
+## D-024 — Публичность не означает аффилиацию и не выбирает лицензию автоматически
+
+- Дата: 15 августа 2026 года
+- Статус: принято по прямому требованию владельца
+
+Public README сообщает только релевантный пользователю unofficial/non-affiliation/no-hosting
+status; он не обязан публиковать внутренний license-status проекта. Выбор лицензии остаётся
+отдельным явным решением владельца. Пока такое решение не оформлено соответствующим файлом,
+агент не объявляет исходники open source и не предполагает предоставленные права.
+
+About открывает только exact GitHub и Donate.Stream allowlist. `donate_qr.png` предоставлен
+владельцем репозитория и добавлен без изменений (SHA-256
+`C8DCA7846A344DC83563BA338AB6691286C482A3E612C3083F0CB2D6D042BEEE`); donation
+не меняет функции продукта. На KIVI оба exact intent открылись во внешнем Yandex TV
+browser.
+
+Следствие: агент не выбирает лицензию без отдельного разрешения, не расширяет URL allowlist
+и не заменяет QR перерисованной/сжатой версией.

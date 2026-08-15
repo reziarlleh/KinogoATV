@@ -4,10 +4,25 @@ import java.net.URI
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class KinogoSessionHttpClientTest {
+    @Test
+    fun sessionResponseNeverPrintsHtmlOrQueryTokens() {
+        val response = SessionHttpResponse(
+            requestedOrigin = "https://kinogo.parts",
+            resolvedOrigin = "https://kinogo.parts",
+            relativePath = "/index.php?token=secret-query",
+            statusCode = 200,
+            body = "<input value='secret-hidden-token'>",
+        )
+
+        assertFalse(response.toString().contains("secret-query"))
+        assertFalse(response.toString().contains("secret-hidden-token"))
+    }
+
     @Test
     fun statefulCatalogClientUsesHttp11Only() {
         val transport = KinogoSessionHttpClient()

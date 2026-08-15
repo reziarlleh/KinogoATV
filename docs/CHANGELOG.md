@@ -7,6 +7,101 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [0.5.0] — 2026-08-15 (validation candidate)
+
+### TV-интерфейс и продолжение просмотра
+
+- Cold start теперь передаёт начальный фокус выбранному пункту постоянного rail; разделы не
+  перехватывают его до явной активации контента. Focused rail получил яркую бирюзовую
+  заливку и белый левый маркер, а active-unfocused остаётся различимым.
+- Усилен фокус общих action/chip/icon-кнопок и строк настроек; poster focus не менялся.
+- После открытия Details и возврата из плеера primary playback action получает ограниченный
+  пятикадровый focus retry.
+- Boolean-настройки показываются Switch, а качество, шаг перемотки и субтитры выбираются
+  D-pad dropdown с возвратом фокуса. Left/Right остаются навигацией; добавлен включённый по
+  умолчанию Switch автопроверки обновлений.
+- History, Catalog и Search используют одну policy: выбирается newest unfinished checkpoint
+  материала. Завершённая default-серия больше не маскирует более новую незавершённую, а
+  Details показывает `Продолжить SxxExx с mm:ss`.
+
+### Playback reliability
+
+- При Media3 error приложение может один раз на `content/season/episode` заново загрузить
+  details и provider plan, нормализовать выбор и восстановить позицию. Attempt set
+  переносится в replacement player, поэтому inter-screen retry loop невозможен; transient
+  URL не сохраняются. Автоматическое продолжение позиции разрешено только если свежий plan
+  сохранил точную исходную единицу content/season/episode; иначе открывается обычный selector
+  с позицией `0`, без незаметного запуска другой серии.
+- Consumed attempted-unit budget записывается в active session до закрытия failing Media3.
+  Если recovery останавливается до подготовки из-за Back, отсутствующей карточки или
+  проверенного зеркала, dead player не может воскреснуть: показывается явная ошибка, а Back
+  возвращает в Details. Добавлены три pure guards для budget persistence, early prerequisite
+  errors и exact same-unit position.
+- End-of-item pause при включённом auto-next больше не завершает flow до решения completion
+  policy. Первая совместимая серия следующего сезона явно запускается даже после сброса
+  `playWhenReady`; при отключённом auto-next возврат в Details сохранён.
+
+### Аккаунт, зеркала и обновления
+
+- Добавлена двухшаговая регистрация через browser-visible same-origin DLE flow. Если сервер
+  сначала показывает правила, безопасное действие по умолчанию — `Не принимаю`, а POST
+  `dle_rules_accept` выполняется только после явного выбора пользователя. Затем image CAPTCHA
+  загружается той же cookie-сессией с лимитом 512 KiB и проверкой типа; bitmap decode
+  ограничен 4096 px на сторону/8 млн pixels и downsample до 840×256. Sensitive input живёт
+  только в `remember`, а generation+origin guard отбрасывает устаревшие ответы после
+  retry/dismiss/смены зеркала. Код CAPTCHA вводит пользователь. Refresh перезагружает форму целиком, а
+  reCAPTCHA/hCaptcha/Turnstile явно unsupported и не обходятся.
+- Добавлен bounded remote bootstrap `config/mirrors.json`: exact-schema manifest с
+  operator-controlled GitHub raw path может только добавить `DISCOVERY + QUARANTINED`
+  origins. Текущий snapshot содержит `w.kinogo.solar`, `kinogo.parts`, `kinogo.online` и
+  `kinogo.family`. Manifest не подписан и не заменяет HTTPS/public-DNS/service-fingerprint
+  check.
+- Добавлен updater stable GitHub Release: exact asset name/digest/size, package/version и
+  signing certificate проверяются до передачи APK через non-exported FileProvider.
+  Разрешение unknown sources и финальная установка остаются системными экранами Android с
+  обязательным подтверждением пользователя; silent install отсутствует.
+
+### About, публикация и документация
+
+- Название приложения приведено к `KinogoATV`; в Настройки добавлен About dialog с версией,
+  non-affiliation/no-hosting disclaimer и exact allowlisted ссылками на GitHub и
+  [Donate.Stream](https://donate.stream/donate_6a60559cd9e35).
+- `donate_qr.png` предоставлен непосредственно владельцем репозитория и добавлен без
+  изменений; SHA-256:
+  `C8DCA7846A344DC83563BA338AB6691286C482A3E612C3083F0CB2D6D042BEEE`.
+- README подготовлен для публичного репозитория: явно указаны неофициальный статус,
+  отсутствие аффилиации и отсутствие hosting видео.
+- Добавлен GitHub Actions workflow для JDK 17 / SDK 37 и canonical
+  `testDebugUnitTest lintDebug assembleDebug` clean-clone проверки.
+
+### Validation status
+
+- Source version: code 14 / `0.5.0`, minSdk 28, targetSdk 37. Final source commit ещё не
+  зафиксирован.
+- Добавлены/обновлены protective tests для resume, source refresh, completion, registration,
+  mirror bootstrap, updater, preferences, initial rail focus и Settings D-pad contract.
+- Локальные `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+  assembleRelease` завершены успешно: **75 suites / 348 unit tests**,
+  0 failures/errors/skips; lint — 0 errors, 19 warnings и 2 hints.
+- На KIVI debug smoke подтвердил cold rail focus, Settings Switch/dropdown, About/QR и exact
+  links через Yandex TV browser, а также короткий native playback с возвратом в Details и
+  focused `Продолжить с 0:14`. D-pad instrumentation rules gate подтвердил default decline
+  и accept только явным OK.
+- Stable-signed `dist/KinogoATV-0.5.0-code14.apk` (38 140 638 bytes, SHA-256
+  `3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`) прошёл metadata,
+  zipalign, v2 и certificate verification. Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+  Metadata: `com.kinogo.atv`, code 14 / `0.5.0`, minSdk 28, targetSdk 37, label
+  `KinogoATV`, LEANBACK banner.
+- Final Release APK установлен через `adb install -r` на X96Max Plus Ultra Android TV 14;
+  `firstInstallTime` сохранён, installed base hash/size совпали, cold launch занял 1023 ms,
+  Home rail получил initial focus, каталог/постеры загрузились, FATAL/ANR нет.
+- Final hardware `RegistrationDialogDpadTest` — `OK (1)`: rules scroll boundary возвращает
+  focus на безопасное `Не принимаю`; test package удалён.
+- Final source commit, first GitHub Actions run и публичный GitHub Release **pending**. Live
+  registration submit, реальный expired-source refresh, natural cross-season end и
+  newer-version installer **pending**. B-001 остаётся playback rollback baseline.
+
 ## [0.4.3-dev] — 2026-08-01
 
 ### Надёжность сортировки

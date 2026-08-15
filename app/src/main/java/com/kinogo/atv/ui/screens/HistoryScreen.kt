@@ -21,11 +21,12 @@ fun HistoryScreen(
     history: List<HistoryUiModel>,
     onResume: (String) -> Unit,
     modifier: Modifier = Modifier,
+    requestInitialFocus: Boolean = true,
 ) {
     val firstFocus = remember { FocusRequester() }
     val posters = remember(history) { history.map(HistoryUiModel::toHistoryPoster) }
-    LaunchedEffect(posters.firstOrNull()?.id) {
-        if (posters.isNotEmpty()) firstFocus.requestFocus()
+    LaunchedEffect(posters.firstOrNull()?.id, requestInitialFocus) {
+        if (requestInitialFocus && posters.isNotEmpty()) firstFocus.requestFocus()
     }
 
     Column(

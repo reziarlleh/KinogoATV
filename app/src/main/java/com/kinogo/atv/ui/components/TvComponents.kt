@@ -224,13 +224,13 @@ fun TvActionButton(
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.025f else 1f,
+        targetValue = if (focused) 1.045f else 1f,
         label = "action-focus-scale",
     )
     val background = when {
         !enabled -> Color(0xFF293B44)
-        focused -> MaterialTheme.colorScheme.primary
-        primary -> MaterialTheme.colorScheme.primary.copy(alpha = 0.86f)
+        focused -> Color(0xFF72FFF8)
+        primary -> MaterialTheme.colorScheme.primary.copy(alpha = 0.72f)
         else -> Color(0xFF3C5966)
     }
     val foreground = when {
@@ -251,14 +251,14 @@ fun TvActionButton(
         shape = RoundedCornerShape(7.dp),
         color = background,
         border = BorderStroke(
-            if (focused) 2.dp else 1.dp,
+            if (focused) 3.dp else 1.dp,
             when {
                 !enabled -> Color(0xFF42545D)
-                focused -> MaterialTheme.colorScheme.primary
+                focused -> Color.White
                 else -> Color(0xFF587480)
             },
         ),
-        shadowElevation = if (focused) 7.dp else 0.dp,
+        shadowElevation = if (focused) 12.dp else 0.dp,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
@@ -293,14 +293,14 @@ fun TvChoiceChip(
         modifier = modifier.onFocusChanged { focused = it.isFocused },
         shape = RoundedCornerShape(7.dp),
         color = when {
-            focused -> Color(0xFF547482)
+            focused -> Color(0xFF72FFF8)
             selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.23f)
             else -> Color(0xFF314B57)
         },
         border = BorderStroke(
-            if (focused || selected) 2.dp else 1.dp,
+            if (focused) 3.dp else if (selected) 2.dp else 1.dp,
             when {
-                focused -> MaterialTheme.colorScheme.primary
+                focused -> Color.White
                 selected -> MaterialTheme.colorScheme.primary
                 else -> Color(0xFF57717C)
             },
@@ -309,7 +309,7 @@ fun TvChoiceChip(
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
-            color = Color.White,
+            color = if (focused) Color(0xFF10272D) else Color.White,
             fontWeight = if (selected || focused) FontWeight.Bold else FontWeight.Medium,
             fontSize = 12.sp,
             maxLines = 1,
@@ -333,11 +333,12 @@ fun TvIconButton(
             .onFocusChanged { focused = it.isFocused }
             .semantics { this.contentDescription = contentDescription },
         shape = RoundedCornerShape(7.dp),
-        color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF3C5966),
+        color = if (focused) Color(0xFF72FFF8) else Color(0xFF3C5966),
         border = BorderStroke(
-            width = 2.dp,
-            color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF587480),
+            width = if (focused) 3.dp else 1.dp,
+            color = if (focused) Color.White else Color(0xFF587480),
         ),
+        shadowElevation = if (focused) 12.dp else 0.dp,
     ) {
         Box(contentAlignment = Alignment.Center) {
             content(foreground)

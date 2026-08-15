@@ -3,6 +3,8 @@ package com.kinogo.atv.data.catalog
 import com.kinogo.atv.data.mirror.MirrorUrlNormalizer
 import com.kinogo.atv.data.mirror.NetworkDestinationValidator
 import com.kinogo.atv.data.network.ResilientPublicDns
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
@@ -31,7 +33,29 @@ data class SessionHttpResponse(
     val relativePath: String,
     val statusCode: Int,
     val body: String,
-)
+) {
+    override fun toString(): String =
+        "SessionHttpResponse(requestedOrigin=$requestedOrigin, resolvedOrigin=$resolvedOrigin, " +
+            "relativePath=${relativePath.redactQuery()}, statusCode=$statusCode, " +
+            "body=<${body.length} chars>)"
+}
+
+data class SessionBinaryResponse(
+    val requestedOrigin: String,
+    val resolvedOrigin: String,
+    val relativePath: String,
+    val statusCode: Int,
+    val contentType: String?,
+    val body: ByteArray,
+) {
+    override fun toString(): String =
+        "SessionBinaryResponse(requestedOrigin=$requestedOrigin, " +
+            "resolvedOrigin=$resolvedOrigin, relativePath=${relativePath.redactQuery()}, " +
+            "statusCode=$statusCode, contentType=$contentType, body=<${body.size} bytes>)"
+}
+
+private fun String.redactQuery(): String =
+    substringBefore('?') + if ('?' in this) "?<redacted>" else ""
 
 /**
  * Stateful HTTPS transport for the server-rendered Kinogo/DLE protocol.
@@ -91,6 +115,22 @@ class KinogoSessionHttpClient(
     suspend fun getRaw(rawOrigin: String, rawRelativePath: String): SessionHttpResponse =
         request(rawOrigin, rawRelativePath, "GET", emptyMap())
 
+    /**
+     * Fetches a small same-origin binary resource in the same cookie session.
+     *
+     * This is intentionally narrower than a general downloader and currently exists for the
+     * image CAPTCHA on the DLE registration page. Redirects, DNS and origin boundaries are the
+     * same as for HTML requests, while the caller supplies a strict response-size ceiling.
+     */
+    suspend fun getBinaryRaw(
+        rawOrigin: String,
+        rawRelativePath: String,
+        maxBytes: Int = DEFAULT_BINARY_BODY_BYTES,
+    ): SessionBinaryResponse {
+        require(maxBytes in 1..maxBodyBytes) { "Invalid binary response limit" }
+        return requestBody(rawOrigin, rawRelativePath, "GET", emptyMap(), maxBytes)
+    }
+
     suspend fun postForm(
         rawOrigin: String,
         rawRelativePath: String,
@@ -131,7 +171,29 @@ class KinogoSessionHttpClient(
         rawRelativePath: String,
         method: String,
         form: Map<String, String>,
-    ): SessionHttpResponse = withContext(Dispatchers.IO) {
+    ): SessionHttpResponse {
+        val response = requestBody(rawOrigin, rawRelativePath, method, form, maxBodyBytes)
+        val body = CatalogHtmlBodyDecoder(maxBodyBytes).read(
+            input = ByteArrayInputStream(response.body),
+            contentType = response.contentType,
+            declaredLength = response.body.size.toLong(),
+        )
+        return SessionHttpResponse(
+            requestedOrigin = response.requestedOrigin,
+            resolvedOrigin = response.resolvedOrigin,
+            relativePath = response.relativePath,
+            statusCode = response.statusCode,
+            body = body,
+        )
+    }
+
+    private suspend fun requestBody(
+        rawOrigin: String,
+        rawRelativePath: String,
+        method: String,
+        form: Map<String, String>,
+        responseLimitBytes: Int,
+    ): SessionBinaryResponse = withContext(Dispatchers.IO) {
         val origin = MirrorUrlNormalizer.normalize(rawOrigin)
         val relativePath = SessionRouteNormalizer.normalize(rawRelativePath)
         var currentUri = URI.create(origin).resolve(relativePath)
@@ -190,16 +252,29 @@ class KinogoSessionHttpClient(
                     }
 
                     val responseBody = response.body
-                    val body = CatalogHtmlBodyDecoder(maxBodyBytes).read(
-                        input = responseBody?.byteStream(),
-                        contentType = responseBody?.contentType()?.toString(),
-                        declaredLength = responseBody?.contentLength() ?: -1L,
-                    )
-                    return@withContext SessionHttpResponse(
+                    val declaredLength = responseBody?.contentLength() ?: -1L
+                    require(declaredLength < 0L || declaredLength <= responseLimitBytes) {
+                        "Session response is too large"
+                    }
+                    val body = responseBody?.byteStream()?.use { input ->
+                        val output = ByteArrayOutputStream(minOf(responseLimitBytes, 32 * 1_024))
+                        val buffer = ByteArray(8 * 1_024)
+                        var total = 0
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read <= 0) break
+                            total += read
+                            require(total <= responseLimitBytes) { "Session response is too large" }
+                            output.write(buffer, 0, read)
+                        }
+                        output.toByteArray()
+                    } ?: ByteArray(0)
+                    return@withContext SessionBinaryResponse(
                         requestedOrigin = origin,
                         resolvedOrigin = originOf(currentUri),
                         relativePath = finalSessionRelativePath(currentUri),
                         statusCode = statusCode,
+                        contentType = responseBody?.contentType()?.toString(),
                         body = body,
                     )
                 } finally {
@@ -246,7 +321,8 @@ class KinogoSessionHttpClient(
     }
 
     private companion object {
-        const val USER_AGENT = "KinogoTV/0.2 (Android TV; native HTML client)"
+        const val DEFAULT_BINARY_BODY_BYTES = 512 * 1_024
+        const val USER_AGENT = "KinogoATV/0.5 (Android TV; native HTML client)"
         val FORM_MEDIA_TYPE = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
 
         fun encodeForm(form: Map<String, String>): String = form.entries.joinToString("&") { entry ->

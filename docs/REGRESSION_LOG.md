@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,37 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-006 — 0.5.0 validation
+
+- Статус: local automated + final Release artifact/device smoke passed; final
+  commit/CI/public release and extended live/player evidence pending
+- Application source commit: **PENDING**; working tree основан на `f02fdca`
+- Metadata in source: version code 14, version `0.5.0`, minSdk 28, targetSdk 37
+- APK: `dist/KinogoATV-0.5.0-code14.apk`, 38 140 638 bytes
+- SHA-256: `3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`
+- Certificate SHA-256:
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`;
+  zipalign OK, v2 true
+- Automated: `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+  assembleRelease` SUCCESS; 75 suites / 348 unit tests, 0 failures/errors/skips;
+  lint 0 errors / 19 warnings / 2 hints.
+  First GitHub Actions run на final commit PENDING.
+- Runtime: KIVI debug smoke подтвердил cold rail focus, Settings Switch/dropdown,
+  About/QR/exact links и ~14-second native playback с Back → focused
+  `Продолжить с 0:14`. Registration rules D-pad instrumentation подтвердил default decline
+  и explicit accept.
+- Final artifact runtime: X96Max Plus Ultra Android TV 14; `adb install -r` сохранил
+  `firstInstallTime` `2026-08-14 08:34:38`; installed base hash/size совпали; cold launch
+  1023 ms, initial Home rail focus, catalog/posters loaded, no FATAL/ANR. Final rules test
+  `OK (1)`, scroll boundary → safe decline, test package removed.
+- Pending runtime: live account submit, actual expired-source refresh, natural
+  cross-season end и newer-version updater/installer.
+- Rollback: для catalog — C-005 / `15efacc`; для полного playback — B-001 /
+  `baseline-0.3.3-dev`
+
+C-006 нельзя назначать полным playback baseline по green build и focused smoke. Нужны final
+source commit/public release и ещё не закрытые live/player evidence на той же ревизии.
 
 ### C-005 — 0.4.3-dev
 
@@ -366,6 +397,121 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Pre-fix bisect point: C-004 / source `6f5fd7a` (известно affected; не использовать как
   функциональный откат сортировок). Подтверждённый playback rollback остаётся B-001 /
   `baseline-0.3.3-dev`.
+
+### R-014 — При cold start фокус уходил с rail в содержимое
+
+- Статус: Resolved; C-006 debug TV smoke passed.
+- Обнаружено: 15 августа 2026 года при ревизии TV focus contract.
+- Affected: C-005 / `0.4.3-dev`; first-bad commit неизвестен.
+- Last-known-good: отсутствует для требования initial rail focus; старые smoke проверяли
+  доступность сетки, а не ownership первого фокуса.
+- Причина: экраны Home/Catalog/Search/History/Settings независимо запрашивали initial focus
+  при первой composition и могли опередить выбранный пункт navigation rail.
+- Исправление: shell первым запрашивает selected rail item; content screen suppresses свой
+  initial request до активации раздела пользователем.
+- Protective tests: `KinogoTvInitialFocusTest`, `KinogoNavigationRailTest` и compile guard
+  экранов.
+- Runtime verification: cold launch C-006 на KIVI оставил видимый focus на выбранном rail
+  item; расширенный обход каждого раздела остаётся в общей матрице.
+- Rollback point: C-005 для catalog либо B-001 для полного playback.
+
+### R-015 — Настройки не показывали тип выбора и могли удерживать D-pad
+
+- Статус: Resolved; C-006 debug TV smoke passed.
+- Обнаружено: 15 августа 2026 года при ревизии Settings/focus UX.
+- Affected: C-005 / `0.4.3-dev`; historical related incident R-003.
+- Причина: единый cycle-row скрывал множество вариантов за повторными OK и не давал
+  отдельного TV-контракта возврата фокуса; слабый visual focus осложнял навигацию.
+- Исправление: boolean values стали Switch, enum values — D-pad dropdown со stable option
+  IDs и возвратом фокуса на trigger; Left/Right не меняют значение. Общий button/row focus
+  усилен белой рамкой `3 dp` и тенью.
+- Protective tests: `SettingsScreenDpadTest`, `TvPreferencesTest`,
+  `TvPreferencesStoreTest`, `TvPreferencesUiMapperTest`.
+- Runtime verification: Settings Switch и D-pad dropdown проверены на KIVI; расширенный
+  полный обход всех значений остаётся release-smoke пунктом.
+- Rollback point: C-005; не использовать откат как исправление R-003 без повторного smoke.
+
+### R-016 — Завершённая default-серия маскировала более новую незавершённую
+
+- Статус: source fix in C-006; real-series verification pending.
+- Обнаружено: 15 августа 2026 года при characterization resume-selection.
+- Affected/first-bad: точный first-bad неизвестен; affected прежняя exact/default lookup
+  через History/Catalog/Search.
+- Last-known-good: B-001 доказывает exact checkpoint resume, но не выбор между несколькими
+  эпизодами одного сериала.
+- Причина: entrypoint сначала искал checkpoint default episode и мог получить completed
+  запись раньше нового unfinished episode.
+- Исправление: единая `preferredResumeProgress` выбирает newest unfinished eligible
+  checkpoint content ID; Details показывает season/episode/time.
+- Protective test: `KinogoAppRootResumeTest` и существующие `WatchProgressTest`.
+- Runtime verification: basic same-unit checkpoint подтверждён на KIVI: после ~14 секунд
+  native playback Back вернул Details с focused `Продолжить с 0:14`. Выбор между несколькими
+  эпизодами реального сериала после restart остаётся **PENDING**.
+- Rollback point: B-001 для базового playback; C-005 для catalog.
+
+### R-017 — Переход в следующий сезон мог остановиться после конца серии
+
+- Статус: source fix in C-006; TV verification pending; уточняет R-009.
+- Обнаружено: 15 августа 2026 года при разборе end-of-item state transition.
+- Affected/first-bad: C-002–C-005 completion flow; exact first-bad неизвестен, потому что
+  cross-season natural end не был аппаратно закрыт.
+- Причина: pause/end signal мог завершить flow до cross-season completion policy, а
+  replacement items наследовали `playWhenReady=false` завершившейся серии.
+- Исправление: при включённом auto-next end pause передаётся completion policy; переход на
+  первую совместимую серию следующего сезона создаётся с явным force-play. При отключённом
+  auto-next возврат в Details сохранён.
+- Protective test: `PlaybackCompletionPolicyTest`.
+- Runtime verification: **PENDING** — natural end последней серии сезона и фактический
+  старт следующего сезона обычным пультом.
+- Rollback point: B-001 / `baseline-0.3.3-dev`.
+
+### R-018 — Истёкший media URL оставлял playback в тупике
+
+- Статус: source recovery in C-006; live expiry verification pending.
+- Обнаружено: 15 августа 2026 года как повторяющийся failure mode transient providers.
+- Affected: C-005 и более ранние native flows требовали ручного возврата в Details.
+- Last-known-good: отсутствует для автоматического fresh-source recovery.
+- Причина: Media3 retry повторял уже подготовленный ephemeral URL; отсутствовал bounded
+  запрос полной fresh details/provider preparation.
+- Исправление: один automatic refresh на stable `content/season/episode` unit с сохранением
+  checkpoint, нормализацией выбора и переносом attempted set в replacement player.
+  Consumed attempted-unit budget записывается в active session **до** запуска загрузки и
+  disposal failing player. Recovery launch помечается `discardActivePlaybackOnExit`, поэтому
+  Back, missing content или отсутствие active verified mirror очищают dead player и
+  показывают явную ошибку; Back из неё возвращает в Details и не resurrect-ит старую
+  Media3 session.
+  Позиция применяется автоматически только при exact same-unit recovery; если свежий plan
+  нормализовал другую серию, приложение возвращает selector с позицией 0. После одной
+  ошибки остаётся user-visible manual retry; inter-screen loop запрещён.
+- Protective tests: `PlaybackSourceRefreshTest` и три pure safety guards в
+  `KinogoAppRootResumeTest`: consumed attempts + discard, ordinary-launch budget unchanged,
+  explicit errors для missing content/mirror. Отдельный guard запрещает применять position
+  к другой серии.
+- Runtime verification: **PENDING** на реальном истёкшем/404 source; URL в evidence не
+  записывать.
+- Rollback point: B-001 / `baseline-0.3.3-dev`.
+
+### R-019 — DLE rules gate мог быть неявно принят, а focus — застрять в rules scroll
+
+- Статус: Resolved in C-006; live registration submit pending.
+- Обнаружено: 15 августа 2026 года при проверке реального двухшагового DLE flow.
+- Affected/last-known-good: registration до C-006 отсутствовала; baseline для этого flow нет.
+- Причина: сервер может сначала вернуть отдельную страницу правил, и её нельзя трактовать
+  как обычную account form либо автоматически POST-ить hidden `dle_rules_accept`. Без
+  explicit lower D-pad boundary focus мог остаться внутри scrollable rules surface.
+- Исправление: parser выделяет `RegistrationDocument.Rules`; dialog показывает текст правил
+  отдельным шагом, по умолчанию фокусирует `Не принимаю`, а accept POST выполняется только
+  после явного OK. Login/e-mail/password/CAPTCHA хранятся в Compose `remember`, не
+  `rememberSaveable`; bounded bitmap decode ограничивает 4096 px/8 млн pixels и downsample.
+  Generation+origin guard отбрасывает late rules/form/submit responses после dismiss/retry
+  или смены зеркала. Rules scroll имеет явный нижний D-pad boundary: Down возвращает focus
+  на безопасное `Не принимаю`, а не оставляет его в scroll trap.
+- Protective tests: `RegistrationHtmlParserTest`, `KinogoRegistrationApiTest`,
+  `RegistrationDialogDpadTest.rulesGateStartsOnDeclineAndAcceptsOnlyExplicitCenterPress`.
+- Runtime verification: final hardware instrumentation — `OK (1)`; default decline,
+  explicit accept и scroll-boundary возврат на `Не принимаю` подтверждены, test package
+  удалён. Live creation/login новой учётной записи **PENDING**.
+- Rollback point: C-005 исключает registration целиком; для остальных подсистем B-001/C-005.
 
 ## Шаблон новой записи
 

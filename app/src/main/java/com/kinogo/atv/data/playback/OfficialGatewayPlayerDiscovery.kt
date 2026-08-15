@@ -330,7 +330,7 @@ internal class OfficialGatewayHttpClient(
 
     private companion object {
         const val MAX_BODY_BYTES = 512 * 1_024
-        const val USER_AGENT = "KinogoTV/0.2 (Android TV; optional player discovery)"
+        const val USER_AGENT = "KinogoATV/0.5 (Android TV; optional player discovery)"
     }
 }
 

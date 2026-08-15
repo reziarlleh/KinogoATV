@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 ## Требования
 
@@ -35,7 +35,8 @@ git clone https://github.com/reziarlleh/KinogoATV.git
 Set-Location KinogoATV
 ```
 
-Private repository потребует авторизацию GitHub.
+До фактической смены visibility repository может требовать авторизацию GitHub. Public-readiness
+документация сама по себе не доказывает, что visibility уже изменена.
 
 Укажите JDK и Android SDK:
 
@@ -111,6 +112,10 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
 
+Тот же canonical набор выполняет `.github/workflows/android.yml` на push в `main` и pull
+request с JDK 17 / SDK 37. CI использует обычную debug signature и не собирает
+распространяемый stable-signed APK.
+
 Debug APK:
 
 ```text
@@ -134,7 +139,7 @@ Touchscreen объявлен необязательным, leanback — обяз
 
 ```text
 app/src/main/java/com/kinogo/atv/
-  data/auth/          credentials, HTML login, cookie session
+  data/auth/          credentials, HTML login/registration/CAPTCHA, cookie session
   data/catalog/       safe HTML transport, routes, parsers, repository
   data/history/       progress codec/store and legacy recovery
   data/library/       server statuses/favorite and local outbox
@@ -142,6 +147,7 @@ app/src/main/java/com/kinogo/atv/
   data/network/       resilient public DNS
   data/playback/      discovery, provider documents, adapters, mapping
   data/settings/      TV preferences
+  data/update/        GitHub Release check/download and APK verification
   diagnostics/        startup crash/stall reporting
   domain/             host-independent models and invariants
   player/             reducer, key mapping, Media3 and Web fallback
@@ -157,6 +163,7 @@ app/src/main/java/com/kinogo/atv/
 - Не использовать fixture video в production live-flow.
 - Не добавлять absolute mirror host в persisted content identity.
 - Не логировать transient URLs и account state.
+- Не логировать registration hidden fields/CAPTCHA и update download redirects.
 - D-pad focus — часть функционального контракта, а не косметика.
 - Любая пользовательская строка должна помещаться в TV safe area и оставаться читаемой на
   расстоянии.

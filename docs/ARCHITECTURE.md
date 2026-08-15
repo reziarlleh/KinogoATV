@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 ## Цели архитектуры
 
@@ -23,6 +23,7 @@ flowchart TD
     D --> E["KinogoAppRoot: composition root"]
     E --> F["KinogoTvApp: TV navigation"]
     E --> G["Playback preparation"]
+    E --> U["Registration / update orchestration"]
     G --> H["TvPlayerScreen: Media3"]
     G --> I["ProviderEmbedPlayerScreen: explicit Web fallback"]
 ```
@@ -60,7 +61,7 @@ flowchart TD
 | UI | `ui/`, `player/ui/`, `player/web/` | Compose screens, TV focus, HUD, provider WebView |
 | Orchestration | `KinogoAppRoot.kt` | Связывает repositories, storage, session и fullscreen flows |
 | Domain | `domain/` | Host-independent модели и инварианты |
-| Data | `data/*` | HTML/JSON parsers, repositories, DataStore, DNS, mirrors, adapters |
+| Data | `data/*` | HTML/JSON parsers, repositories, DataStore, DNS, mirrors, adapters, update verifier |
 | Player core | `player/` | Reducer, key mapping, Media3 controller и safe data sources |
 
 Зависимости должны идти к domain-моделям, а UI не должен разбирать HTML, provider JavaScript
@@ -165,6 +166,15 @@ flowchart LR
 Credentials постоянны, cookie memory-only. Статус и independent favorite имеют отдельные
 coalescing mutations, чтобы последняя команда переживала временную недоступность сервера.
 
+Registration использует тот же `KinogoSessionHttpClient`, но отдельный
+`KinogoRegistrationApi`/`RegistrationHtmlParser`: отдельный DLE rules document и только
+после explicit accept — same-origin account form, ephemeral hidden fields и image CAPTCHA
+до 512 KiB. UI sensitive fields используют `remember`, не `rememberSaveable`; bitmap decode
+ограничен dimensions/pixels/downsample. Root держит registration generation+origin guard,
+поэтому late response не применяется после retry/dismiss/origin switch. После successful
+submit root передаёт credentials в уже существующий encrypted `saveAndLogin`; нового
+password store нет.
+
 ### Воспроизведение
 
 ```mermaid
@@ -197,6 +207,22 @@ Previous/Next сортируют реально существующие вар�
 fullscreen flow. Корневой callback этого flow возвращает пользователя в открытую карточку
 материала.
 
+При Media3 error `TvPlayerScreen` может передать root хост-независимый
+`PlaybackSourceRefreshRequest`: selection, checkpoint position и набор уже attempted
+`contentId/season/episode` units. Root повторяет всю fresh preparation, нормализует
+выбор по новому plan и создаёт replacement player. Attempt set переносится в
+новую сессию, поэтому automatic refresh ограничен одним разом на playback unit и
+не циклится между экранами. Position/automatic start сохраняются только если свежая
+normalization оставила exact тот же content/season/episode; remap на другую единицу
+возвращает пользователя в selector с position 0.
+
+`PlaybackLaunchSafety` вычисляется до early prerequisites. При recovery consumed attempt
+сразу записывается в current active session, а launch получает discard-on-exit. Missing
+content, missing active mirror, Back или preparation failure очищают dead active/embed/
+pending session и оставляют explicit error → Details route. `playbackLaunchGeneration`
+блокирует late coroutine result, поэтому закрытый failing player не может воскреснуть с
+утраченным attempt budget.
+
 ### История
 
 `PlaybackProgressStore` хранит `WatchProgress` по ключу:
@@ -210,6 +236,22 @@ contentId + seasonId? + episodeId?
 перезаписывая более новый checkpoint. `LegacyHistoryDetailsResolver` восстанавливает старые
 numeric-only записи через строго ограниченные относительные пути.
 
+`preferredResumeProgress` одинаково обслуживает History, Catalog и Search: для content ID
+выбирается newest unfinished eligible checkpoint, а не exact/default episode. Details получает
+из него явный resume label с season/episode/position.
+
+### Обновления и remote bootstrap
+
+`AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
+`GitHubReleaseUpdateClient` принимает только canonical stable Release/asset, а
+`ApkUpdateVerifier` до installer сверяет package/version/signing identity. APK живёт в app cache;
+финальная установка всегда требует системного confirmation.
+
+`MirrorBootstrapClient` читает bounded exact-schema `config/mirrors.json` с operator-controlled
+GitHub raw path. Manifest не подписан и потому только добавляет quarantined discovery
+candidates в `MirrorRegistry`; принятие origin остаётся за existing health checker. Snapshot
+2026-08-15 содержит четыре origin, включая `kinogo.family`, без повышения trust.
+
 ## Владение состоянием
 
 | Данные | Где живут | Срок |
@@ -217,8 +259,10 @@ numeric-only записи через строго ограниченные от�
 | Credentials | DataStore `kinogo_auth`, AES/GCM + Keystore | До явного удаления пользователем |
 | История, библиотека, зеркала, TV-настройки | DataStore `kinogo_tv_state` | Между запусками |
 | Cookies | `KinogoSessionHttpClient`, раздельно по origin | Текущий процесс/сессия |
+| Registration rules/form/CAPTCHA/input | Память `KinogoRegistrationApi`/Compose `remember` | До accept/submit/refresh/dismiss |
 | Каталог, details, UI selection | Compose state в `KinogoAppRoot` | Текущая composition |
 | Prepared media/embed URLs | Redacted in-memory session | Только до закрытия/refresh плеера |
+| Verified update APK | App-private cache `updates/` | До замены/очистки app cache |
 | Серверные статусы/избранное | HTML-сервис + локальный outbox | Синхронизируемые |
 
 Auth DataStore исключён из Android backup и device transfer, потому что Keystore key
@@ -239,6 +283,16 @@ device-bound.
 - `WatchStatus? = null` — отсутствие статусной закладки, а не коллекция всех непросмотренных.
 - `favorite` не зависит от status.
 - Пользовательский manual mirror не становится trusted до fingerprint/health проверки.
+- Remote bootstrap origin тоже всегда начинает как `DISCOVERY + QUARANTINED`; unsigned
+  manifest не меняет trust state.
+- Automatic source refresh допускается один раз на `content/season/episode` и переносит
+  attempted set в replacement flow; checkpoint применяется только к exact той же unit.
+- Recovery early return обязан discard-ить dead player и показать explicit error; ordinary
+  preparation не наследует это поведение.
+- Registration rules никогда не принимаются автоматически; late async result обязан
+  совпасть с текущими generation и origin.
+- Update APK до Package Installer обязан пройти release digest/package/version/signer
+  verification; установка остаётся системным user-confirmed действием.
 
 ## Точки расширения
 
@@ -272,7 +326,8 @@ device-bound.
 - xSort session-wide и потому требует общей сериализации даже при независимых UI feed
   states; разделение cookie sessions на browse/search пока не вводилось.
 - `reduceMotion` применяется только к части Settings UI.
-- Нет CI, dependency verification и автоматического clean-clone smoke test.
+- GitHub Actions clean-clone workflow добавлен, но первый remote green run ещё pending;
+  dependency verification и API 28 emulator/device smoke отсутствуют.
 
 Рефакторинг этих пунктов не должен одновременно менять сетевой контракт или playback UX.
 Сначала добавляется characterization test, затем переносится один поток, после чего

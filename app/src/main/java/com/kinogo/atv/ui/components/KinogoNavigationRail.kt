@@ -17,10 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -45,6 +47,7 @@ fun KinogoNavigationRail(
     selected: TvDestination,
     onSelected: (TvDestination) -> Unit,
     modifier: Modifier = Modifier,
+    requestInitialFocus: Boolean = false,
 ) {
     val destinations = TvDestination.entries
     val itemFocusRequesters = remember(destinations.size) {
@@ -52,6 +55,17 @@ fun KinogoNavigationRail(
     }
     val selectedFocusRequester =
         itemFocusRequesters[preferredRailFocusIndex(selected, destinations)]
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            repeat(5) {
+                withFrameNanos { }
+                if (runCatching { selectedFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+            }
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -132,13 +146,13 @@ private fun NavigationRailItem(
 ) {
     var focused by remember { mutableStateOf(false) }
     val background = when {
-        selected -> MaterialTheme.colorScheme.primary
-        focused -> Color(0xFF34525E)
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
         else -> Color.Transparent
     }
     val foreground = when {
-        selected -> Color(0xFF10272D)
-        focused -> MaterialTheme.colorScheme.primary
+        focused -> Color(0xFF10272D)
+        selected -> Color.White
         else -> Color.White
     }
 
@@ -157,10 +171,24 @@ private fun NavigationRailItem(
         color = background,
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = 7.dp),
+            modifier = Modifier.padding(start = 5.dp, end = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(28.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (focused) {
+                    Surface(
+                        modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                        color = Color.White,
+                    ) {}
+                }
+            }
             Box(
                 modifier = Modifier.size(22.dp),
                 contentAlignment = Alignment.Center,

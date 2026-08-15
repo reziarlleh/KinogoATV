@@ -38,6 +38,15 @@ class TvPreferencesStore(
             )
         }
     }
+
+    suspend fun set(settingId: String, optionId: String) {
+        dataStore.edit { stored ->
+            TvPreferencesCodec.encode(
+                stored = stored,
+                value = TvPreferencesCodec.decode(stored).withSetting(settingId, optionId),
+            )
+        }
+    }
 }
 
 internal object TvPreferencesCodec {
@@ -47,6 +56,7 @@ internal object TvPreferencesCodec {
     private val highContrastKey = booleanPreferencesKey("setting_high_contrast_v1")
     private val reduceMotionKey = booleanPreferencesKey("setting_reduce_motion_v1")
     private val subtitlesKey = stringPreferencesKey("setting_subtitles_v1")
+    private val autoCheckUpdatesKey = booleanPreferencesKey("setting_auto_check_updates_v1")
 
     fun decode(stored: Preferences): TvPreferences = TvPreferences(
         defaultQuality = VideoQualityPreference.fromStorage(stored[qualityKey]),
@@ -55,6 +65,7 @@ internal object TvPreferencesCodec {
         highContrast = stored[highContrastKey] ?: false,
         reduceMotion = stored[reduceMotionKey] ?: false,
         subtitles = SubtitlePreference.fromStorage(stored[subtitlesKey]),
+        autoCheckUpdates = stored[autoCheckUpdatesKey] ?: true,
     ).normalized()
 
     fun encode(stored: androidx.datastore.preferences.core.MutablePreferences, value: TvPreferences) {
@@ -65,5 +76,6 @@ internal object TvPreferencesCodec {
         stored[highContrastKey] = normalized.highContrast
         stored[reduceMotionKey] = normalized.reduceMotion
         stored[subtitlesKey] = normalized.subtitles.storageValue
+        stored[autoCheckUpdatesKey] = normalized.autoCheckUpdates
     }
 }

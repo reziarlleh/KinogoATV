@@ -65,6 +65,7 @@ fun SearchScreen(
     onQueryChanged: (String) -> Unit = {},
     hasMore: Boolean = false,
     onLoadMore: () -> Unit = {},
+    requestInitialFocus: Boolean = true,
 ) {
     var query by remember { mutableStateOf("") }
     var submittedQuery by remember { mutableStateOf<String?>(null) }
@@ -99,7 +100,9 @@ fun SearchScreen(
         }
     }
 
-    LaunchedEffect(Unit) { inputFocus.requestFocus() }
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) inputFocus.requestFocus()
+    }
     LaunchedEffect(query, useRemoteResults, submittedQuery) {
         val normalized = query.trim()
         if (useRemoteResults && normalized != submittedQuery) {

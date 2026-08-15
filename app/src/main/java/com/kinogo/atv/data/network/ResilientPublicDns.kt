@@ -97,7 +97,7 @@ internal object CloudflareDnsOverHttps {
             connection.readTimeout = 2_500
             connection.requestMethod = "GET"
             connection.setRequestProperty("Accept", "application/dns-json")
-            connection.setRequestProperty("User-Agent", "KinogoTV/0.2 DNS")
+            connection.setRequestProperty("User-Agent", "KinogoATV/0.5 DNS")
             if (connection.responseCode !in 200..299) return emptyList()
             val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use(::readLimited)
             answerObject.findAll(body)

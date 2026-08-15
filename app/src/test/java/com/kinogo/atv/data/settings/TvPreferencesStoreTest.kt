@@ -28,6 +28,7 @@ class TvPreferencesStoreTest {
         firstProcess.cycle(TvSettingIds.AUTO_NEXT_EPISODE, SettingCycleDirection.NEXT)
         firstProcess.cycle(TvSettingIds.HIGH_CONTRAST, SettingCycleDirection.NEXT)
         firstProcess.cycle(TvSettingIds.REDUCE_MOTION, SettingCycleDirection.NEXT)
+        firstProcess.set(TvSettingIds.AUTO_CHECK_UPDATES, "false")
 
         // Recreating the repository models Activity/process recreation: there is no Compose
         // state involved, and values are decoded only from the shared DataStore snapshot.
@@ -39,6 +40,7 @@ class TvPreferencesStoreTest {
         assertFalse(afterRestart.autoNextEpisode)
         assertEquals(true, afterRestart.highContrast)
         assertEquals(true, afterRestart.reduceMotion)
+        assertFalse(afterRestart.autoCheckUpdates)
     }
 
     private class InMemoryPreferencesDataStore : DataStore<Preferences> {

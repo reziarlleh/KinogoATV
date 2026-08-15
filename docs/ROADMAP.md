@@ -1,37 +1,48 @@
 # Roadmap
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: аппаратная приёмка и точечная доводка 0.4.3-dev
+## Сейчас: финализация и аппаратная приёмка 0.5.0
 
-Большая переработка интерфейса реализована: steel/cyan visual system, фиксированный rail,
-шестиколоночные сетки, новая главная, серверный xSort и paged search flow, компактные
-settings/details/source selection и уточнённый HUD. В 0.4.3-dev DLE/xSort-сессия защищена
-HTTP/1.1 и безопасным полным transaction retry, а невидимый Catalog warmup удалён. Все семь
-видов сортировки аппаратно проверены на Главной и в Каталоге, включая оба направления
-рейтинга. До дальнейшей графической полировки нужен полный TV regression pass;
-автоматическая сборка сама по себе не считается подтверждением focus/playback UX. Кандидат
-остаётся validation candidate, а не новым playback baseline.
+C-006 объединяет регистрацию, remote mirror bootstrap, проверяемый updater, About/public
+disclaimer, initial rail focus, новые Settings controls, единый resume и bounded playback
+source refresh. Local 75-suite/348-test pass и debug+androidTest+release assembly зелёные.
+Final stable-signed APK проверен и установлен через `adb install -r` на X96Max Plus Ultra с
+сохранением данных; cold launch/catalog smoke пройден. KIVI debug ранее подтвердил Settings,
+About и короткий playback/resume-return. Final source commit/CI/public release и расширенные
+live/player сценарии ещё не закреплены. B-001 остаётся playback rollback baseline.
 
 ### P0 — TV regression pass
 
-- Проверить overscan, читаемость, плотность шести колонок и полный focus graph на 1080p/4K
-  с реального расстояния.
-- Проверить переход Left из каждого первого столбца/управляющей строки в rail и Right
-  обратно в content.
-- Проверить category и filter dropdown, возврат фокуса, search submit/keyboard hide и
-  Settings OK-only обычным пультом.
+- Зафиксировать final source commit, первый GitHub Actions result и опубликовать уже
+  проверенный artifact как exact GitHub Release asset.
+- Расширить cold focus smoke: Right/Left и отсутствие focus steal каждого раздела, затем
+  проверить category/filter/search focus flows.
 - Проверить на живом зеркале combinations подборки/года/страны, смену категорий и длинную
   непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
 - Проверить крупный poster/details, достижимость всех status actions и episode row на source
-  selection.
+  selection; при возврате из player primary action должен снова получить focus.
+- Проверить newest-unfinished resume на реальном многосерийном материале из
+  History/Catalog/Search после restart; basic `Продолжить с 0:14` уже подтверждён.
+- Проверить registration form/CAPTCHA refresh/rejection и live submit; rules
+  default-decline/explicit-accept уже подтверждён instrumentation.
+- Проверить remote bootstrap failure/expiry и то, что candidate не активируется без
+  fingerprint; live `w.kinogo.solar` не считать trusted по одному manifest.
+- Проверить updater check/download/verify и передачу системному Package Installer; не
+  подтверждать фактическую замену APK без отдельного решения, но зафиксировать обязательный
+  OS confirmation screen.
+- При необходимости повторить About/QR/external actions на final Release APK; debug-smoke
+  через Yandex TV browser уже пройден.
 - Проверить timeline marker и buffering overlay в реальном воспроизведении.
 - Проверить Previous/Next и auto-next на границе сезонов, а также возврат в details после
   естественного окончания последнего материала.
+- Вызвать один контролируемый playback source failure: должен быть ровно один fresh
+  reprepare без retry loop, затем понятная ручная ошибка/Back → Details. Pure guards уже
+  покрывают persistence budget и missing content/mirror early returns.
 
 ### P1 — дальнейшая визуальная доводка
 
@@ -61,8 +72,11 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 ### Зеркала
 
-- Подключить подписанный remote manifest с provenance, expiry и rollback.
-- Добавить контролируемое обновление bootstrap list без нового APK.
+- Если remote bootstrap станет release-critical, добавить отдельную криптографическую
+  подпись и rollback/revocation; текущий GitHub/TLS manifest намеренно unsigned и даёт
+  только quarantined candidates.
+- Добавить операторский процесс обновления `config/mirrors.json` с review, expiry и live
+  evidence; наличие origin в файле не делает его trusted.
 - Не превращать discovery в поиск/активацию случайных lookalike domains.
 
 ### История и синхронизация
@@ -77,7 +91,8 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 - Добавлять provider adapters только по наблюдаемым browser-visible contracts и реальным
   failing examples.
 - Реализовать визуальный countdown следующей серии с Cancel/Play now.
-- Улучшить bounded retry/failover и отображение причины unavailable source.
+- После TV evidence решить, нужен ли второй provider failover поверх реализованной одной
+  fresh-source попытки; не увеличивать лимит без loop guards.
 - Решить, какие validated Web player capabilities можно безопасно подключить к единому HUD.
 - Добавить subtitle style и playback speed только после стабилизации основного HUD.
 
@@ -85,7 +100,8 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 - Разделить `KinogoAppRoot` на state holders/use cases без одномоментной миграции всех flow.
 - Удалить дублирование ручной пагинации/PagingSource после выбора одного production пути.
-- Добавить CI для unit/lint/assembleDebug на clean clone.
+- Получить первый зелёный remote run добавленного GitHub Actions workflow и затем считать
+  clean-clone CI operational.
 - Добавить dependency verification metadata и SHA-256 Gradle distribution.
 - Добавить API 28 emulator/device smoke; текущая аппаратная проверка выполнялась на Android TV
   14.
@@ -93,13 +109,18 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 ### Выпуск
 
-- Перейти от локального `dist` к GitHub Release assets.
+- Выпустить первый stable GitHub Release с exact asset name
+  `KinogoATV-<version>-code<code>.apk`, GitHub SHA-256 digest и release notes.
 - Настроить protected release environment и безопасную передачу signing secrets в CI, если
   автоматический release действительно понадобится.
-- Перед возможной публичностью выбрать лицензию, проверить trademark/disclaimer и исключить
-  все private research/data.
+- Перед сменой visibility повторно проверить disclaimer/repository hygiene. Лицензию
+  выбрать только по явному решению владельца; пока `LICENSE` отсутствует, права не
+  предоставлены автоматически.
 
-## Выполненный baseline
+## Реализовано в source
+
+Пункты C-006 в этом списке не становятся verified runtime автоматически; актуальный уровень
+evidence указан в `PROJECT_STATE.md`.
 
 - Native Android TV shell и launcher tile.
 - Детерминированный TV branding с одобренной официальной иконкой, надписями
@@ -128,10 +149,27 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 - Compact HUD, bottom episode row и timeline focus after hidden seek.
 - White timeline focus marker, центральный buffering state, cross-season Previous/Next и
   возврат в details после естественного окончания Media3.
-- Compact details/source/settings: крупный постер, видимая серия до старта и OK-only settings.
+- Compact details/source/settings: крупный постер, видимая серия до старта, Switch и D-pad
+  dropdown settings.
 - Persistent TV settings and exit confirmation.
 - Startup crash/stall diagnostics.
 - API 28 minimum and stable update signing.
+- Two-step same-origin DLE registration: explicit rules acceptance, remember-only sensitive
+  input, bounded user-solved image CAPTCHA и явный отказ от обхода interactive challenges.
+- Unsigned bounded remote mirror bootstrap, который добавляет только quarantined discovery
+  candidates; текущий snapshot содержит четыре origin, включая `kinogo.family`.
+- Проверяемый GitHub Release updater с exact signer validation и обязательным Android OS
+  confirmation.
+- Initial rail focus, Switch/dropdown Settings и newest-unfinished resume policy.
+- One-shot fresh playback source recovery с cross-screen loop guard.
+- About dialog, unchanged owner-supplied donation QR, exact external URL allowlist и
+  public-repository disclaimer.
+- GitHub Actions clean-clone workflow (первый remote green run pending).
+- Local C-006 integration pass: 75 suites / 348 tests, lint 0 errors / 19 warnings / 2 hints,
+  debug/androidTest/release assembly; verified stable-signed artifact и X96 final release
+  install/cold smoke.
+- Recovery-loop guards: consumed budget до launch, discard dead player на early exit,
+  explicit missing content/mirror error и exact same-unit position.
 
 ## Осознанно не делаем
 

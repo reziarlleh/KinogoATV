@@ -23,7 +23,7 @@ object SafePlaybackDataSources {
 
     fun createFactory(): DataSource.Factory =
         OkHttpDataSource.Factory(client)
-            .setUserAgent("KinogoTV/0.2 (Android TV; native player)")
+            .setUserAgent("KinogoATV/0.5 (Android TV; native player)")
 
     internal fun buildClient(dns: Dns): OkHttpClient = OkHttpClient.Builder()
         .dns(dns)

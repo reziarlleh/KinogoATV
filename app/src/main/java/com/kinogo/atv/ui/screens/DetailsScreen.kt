@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -102,10 +103,11 @@ fun DetailsScreen(
     val playbackFocus = remember(details.id) { FocusRequester() }
 
     LaunchedEffect(details.id, details.playbackAvailable) {
-        when (detailsFocusTarget(details.playbackAvailable)) {
-            DetailsFocusTarget.BACK -> backFocus.requestFocus()
-            DetailsFocusTarget.PLAYBACK -> playbackFocus.requestFocus()
+        val requester = when (detailsFocusTarget(details.playbackAvailable)) {
+            DetailsFocusTarget.BACK -> backFocus
+            DetailsFocusTarget.PLAYBACK -> playbackFocus
         }
+        requestDetailsFocus(requester)
     }
 
     LazyColumn(
@@ -336,3 +338,12 @@ internal enum class DetailsFocusTarget {
 
 internal fun detailsFocusTarget(playbackAvailable: Boolean): DetailsFocusTarget =
     if (playbackAvailable) DetailsFocusTarget.PLAYBACK else DetailsFocusTarget.BACK
+
+/** LazyColumn can attach the primary action one frame after details enter composition. */
+private suspend fun requestDetailsFocus(requester: FocusRequester): Boolean {
+    repeat(5) {
+        withFrameNanos { }
+        if (runCatching { requester.requestFocus() }.getOrDefault(false)) return true
+    }
+    return false
+}

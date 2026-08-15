@@ -49,6 +49,7 @@ class TvPreferencesTest {
             .cycle(TvSettingIds.AUTO_NEXT_EPISODE)
             .cycle(TvSettingIds.HIGH_CONTRAST)
             .cycle(TvSettingIds.REDUCE_MOTION)
+            .cycle(TvSettingIds.AUTO_CHECK_UPDATES)
 
         assertEquals(VideoQualityPreference.AUTO, wrapped.defaultQuality)
         assertEquals(5, wrapped.seekStepSeconds)
@@ -56,6 +57,24 @@ class TvPreferencesTest {
         assertFalse(wrapped.autoNextEpisode)
         assertTrue(wrapped.highContrast)
         assertTrue(wrapped.reduceMotion)
+        assertFalse(wrapped.autoCheckUpdates)
+    }
+
+    @Test
+    fun `stable option ids set dropdowns and switches without cycling`() {
+        val selected = TvPreferences()
+            .withSetting(TvSettingIds.QUALITY, "1080p")
+            .withSetting(TvSettingIds.SEEK_STEP, "30")
+            .withSetting(TvSettingIds.SUBTITLES, "disabled")
+            .withSetting(TvSettingIds.AUTO_NEXT_EPISODE, "false")
+            .withSetting(TvSettingIds.AUTO_CHECK_UPDATES, "false")
+
+        assertEquals(VideoQualityPreference.FULL_HD, selected.defaultQuality)
+        assertEquals(30, selected.seekStepSeconds)
+        assertEquals(SubtitlePreference.DISABLED, selected.subtitles)
+        assertFalse(selected.autoNextEpisode)
+        assertFalse(selected.autoCheckUpdates)
+        assertEquals(selected, selected.withSetting(TvSettingIds.SEEK_STEP, "invalid"))
     }
 
     @Test

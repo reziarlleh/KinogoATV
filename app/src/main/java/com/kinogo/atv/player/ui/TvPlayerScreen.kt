@@ -98,6 +98,7 @@ import com.kinogo.atv.player.EpisodeNumberInput
 import com.kinogo.atv.player.Media3PlayerController
 import com.kinogo.atv.player.Media3PlayerHost
 import com.kinogo.atv.player.PlaybackCompletionDecision
+import com.kinogo.atv.player.PlaybackErrorRecoveryDecision
 import com.kinogo.atv.player.PlaybackItemTransitionCompletion
 import com.kinogo.atv.player.PlaybackPauseCompletion
 import com.kinogo.atv.player.PlayerDrawer
@@ -120,6 +121,7 @@ import com.kinogo.atv.player.playbackItemTransitionCompletion
 import com.kinogo.atv.player.playbackPauseCompletion
 import com.kinogo.atv.player.shouldDispatchVisibleHudKeyAtRoot
 import com.kinogo.atv.player.playbackCompletionDecision
+import com.kinogo.atv.player.playbackErrorRecoveryDecision
 import com.kinogo.atv.player.toPlayerReducerConfig
 import com.kinogo.atv.player.withSubtitlePreference
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
@@ -150,6 +152,8 @@ fun TvPlayerScreen(
     modifier: Modifier = Modifier,
     onWebFallbackRequested: ((PlaybackSelectionUiModel) -> Unit)? = null,
     onRefreshSourceRequested: ((PlaybackSelectionUiModel) -> Unit)? = null,
+    automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey> = emptySet(),
+    onAutomaticSourceRefreshRequested: ((PlaybackSourceRefreshRequest) -> Unit)? = null,
     title: String = selection.contentId,
     preferences: TvPreferences = TvPreferences(),
 ) {
@@ -214,6 +218,8 @@ fun TvPlayerScreen(
             initialPositionMs = initialPositionMs,
             checkpointCallback = onCheckpoint,
             exitCallback = onExit,
+            initialAutomaticSourceRefreshAttempts = automaticSourceRefreshAttempts,
+            automaticSourceRefreshCallback = onAutomaticSourceRefreshRequested,
             reducerConfig = reducerConfig,
             initialSubtitlesEnabled = textTracksEnabled,
             autoNextEpisode = preferences.autoNextEpisode,
@@ -228,6 +234,7 @@ fun TvPlayerScreen(
     SideEffect {
         runtime.checkpointCallback = onCheckpoint
         runtime.exitCallback = onExit
+        runtime.automaticSourceRefreshCallback = onAutomaticSourceRefreshRequested
     }
 
     DisposableEffect(runtime, mediaSession, lifecycleOwner) {
@@ -1187,6 +1194,8 @@ private class TvPlayerRuntime(
     initialPositionMs: Long,
     checkpointCallback: (PlaybackSelectionUiModel, Long, Long) -> Unit,
     exitCallback: () -> Unit,
+    initialAutomaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey>,
+    automaticSourceRefreshCallback: ((PlaybackSourceRefreshRequest) -> Unit)?,
     reducerConfig: PlayerReducerConfig,
     initialSubtitlesEnabled: Boolean,
     private val autoNextEpisode: Boolean,
@@ -1200,6 +1209,8 @@ private class TvPlayerRuntime(
     private var lastAppliedVideoSelectionKey: String? = null
     private var lastAppliedSubtitleSelectionKey: String? = null
     private var completionHandled = false
+    private val automaticSourceRefreshAttempts =
+        initialAutomaticSourceRefreshAttempts.toMutableSet()
     private var skipCloseCheckpoint = false
     private val hudRevealKeyReleaseGuard = PlayerKeyReleaseGuard()
 
@@ -1291,6 +1302,8 @@ private class TvPlayerRuntime(
 
     var checkpointCallback: (PlaybackSelectionUiModel, Long, Long) -> Unit = checkpointCallback
     var exitCallback: () -> Unit = exitCallback
+    var automaticSourceRefreshCallback: ((PlaybackSourceRefreshRequest) -> Unit)? =
+        automaticSourceRefreshCallback
 
     val voiceoverOptions: List<String>
         get() = mediaPlan.voiceoversFor(selectedSourceId)
@@ -1317,6 +1330,7 @@ private class TvPlayerRuntime(
                     playWhenReady = playWhenReady,
                     mediaItemEnded =
                         reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM,
+                    autoNextEpisode = autoNextEpisode,
                 )
             ) {
                 PlaybackPauseCompletion.IGNORE -> Unit
@@ -1390,9 +1404,32 @@ private class TvPlayerRuntime(
 
         override fun onPlayerError(error: PlaybackException) {
             isBuffering = false
-            errorMessage = userSafePlaybackError(error)
             checkpoint()
             dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+            val refreshSelection = currentSelection().copy(resume = true)
+            val refreshUnit = refreshSelection.sourceRefreshUnitKey()
+            when (
+                playbackErrorRecoveryDecision(
+                    refreshCallbackAvailable = automaticSourceRefreshCallback != null,
+                    refreshAlreadyRequested = refreshUnit in automaticSourceRefreshAttempts,
+                )
+            ) {
+                PlaybackErrorRecoveryDecision.REFRESH_SOURCES -> {
+                    automaticSourceRefreshAttempts += refreshUnit
+                    errorMessage = "Источник недоступен. Обновляем данные…"
+                    val request = PlaybackSourceRefreshRequest(
+                        selection = refreshSelection,
+                        positionMs = positionMs,
+                        attemptedUnits = automaticSourceRefreshAttempts.toSet(),
+                    )
+                    scope.launch {
+                        automaticSourceRefreshCallback?.invoke(request)
+                    }
+                }
+                PlaybackErrorRecoveryDecision.SHOW_ERROR -> {
+                    errorMessage = userSafePlaybackError(error)
+                }
+            }
         }
     }
 
@@ -1733,8 +1770,8 @@ private class TvPlayerRuntime(
                     retainPosition = false,
                     revealHud = false,
                     checkpointBeforeReplace = false,
+                    forcePlay = true,
                 )
-                player.play()
             }
             PlaybackCompletionDecision.Exit -> {
                 skipCloseCheckpoint = true
@@ -1788,6 +1825,7 @@ private class TvPlayerRuntime(
         retainPosition: Boolean,
         revealHud: Boolean = true,
         checkpointBeforeReplace: Boolean = true,
+        forcePlay: Boolean = false,
     ) {
         if (checkpointBeforeReplace) checkpoint()
         val currentPosition = if (retainPosition) {
@@ -1795,7 +1833,7 @@ private class TvPlayerRuntime(
         } else {
             0L
         }
-        val shouldPlay = player.playWhenReady
+        val shouldPlay = forcePlay || player.playWhenReady
         selectedSourceId = sourceId
         if (seasonNumber != null) season = seasonNumber
         if (episodeNumber != null) selectedEpisode = episodeNumber
@@ -1808,6 +1846,7 @@ private class TvPlayerRuntime(
         player.setMediaItems(mediaItems(), targetIndex.coerceAtLeast(0), currentPosition)
         player.prepare()
         player.playWhenReady = shouldPlay
+        if (forcePlay) player.play()
         errorMessage = null
         if (revealHud) dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
     }

@@ -1,48 +1,49 @@
 # Текущее состояние проекта
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 ## Краткий итог
 
-Версия `0.4.3-dev` исправляет сбои сортировки на Главной и в Каталоге. Stateful DLE/xSort
-сессия использует HTTP/1.1, а неоднозначная сетевая ошибка перезапускает один раз всю
-транзакцию `clear + apply`, не повторяя отдельную toggle-команду. Устаревшие reset-запросы
-той же ленты отменяются, текущие карточки сохраняются при transient reset failure, а
-невидимый прогрев Каталога удалён. Прямой вход в Каталог по-прежнему загружает `Новинки`.
+В рабочем дереве интегрируется `0.5.0`: регистрация через same-origin DLE-форму и image
+CAPTCHA без обхода, quarantined remote bootstrap зеркал, проверяемый GitHub Release updater
+с обязательным системным подтверждением, единая resume-policy, bounded refresh истёкшего
+playback source, исправление перехода через границу сезона и обновлённый TV focus/settings
+контракт. Добавлены About/disclaimer, exact GitHub/Donate.Stream actions и CI workflow.
 
-Stable-signed APK установлен поверх пользовательской установки на KIVI 4K Android TV 14
-через `adb install -r`; account/history/DataStore не очищались. Пройдены автоматическая
-проверка, запуск и аппаратный прогон всех семи видов сортировки на Главной и в Каталоге.
-Комбинации подборки/года/страны, длительная пагинация и player regression не завершены,
-поэтому B-001 остаётся единственным полностью подтверждённым playback baseline, а новая
-сборка — validation candidate C-005.
+Это **validation candidate C-006**, а не новый полный playback baseline. Полный локальный
+unit/lint/build pass завершён, финальный stable-signed Release APK проверен и установлен
+поверх существующей установки на X96Max Plus Ultra Android TV 14 с сохранением данных.
+Debug-smoke на KIVI ранее подтвердил focus/settings/About и короткий playback/resume-return.
+Final source commit, GitHub Actions/публичный Release/updater-live и расширенный playback
+pass ещё не зафиксированы. B-001 остаётся последним полным playback baseline.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-005 / 0.4.3-dev** |
-| Application source commit | `15efacc` |
+| Candidate | **C-006 / 0.5.0 validation** |
+| Application source commit | **PENDING: final commit после интеграции; working tree основан на `f02fdca`** |
 | Application ID | `com.kinogo.atv` |
-| Version code | `13` |
-| Version name | `0.4.3-dev` |
+| Version code | `14` |
+| Version name | `0.5.0` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
-| Подпись APK | стабильный локальный ключ, APK Signature Scheme v2 |
-| Baseline tag | не создавался: полный catalog/player runtime pass pending |
+| Подпись APK | стабильный локальный ключ; APK Signature Scheme v2 verified |
+| Baseline/release tag | не создавался; validation pending |
 
-Проверенный локальный APK: `dist/KinogoTV-0.4.3-dev.apk`. APK не коммитится в Git; в
-`dist/SHA256SUMS.txt` хранится его контрольная сумма.
+Проверенный финальный artifact: `dist/KinogoATV-0.5.0-code14.apk`, **38 140 638 bytes**.
 
 SHA-256:
-`5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`.
+`3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`.
 
 Certificate SHA-256:
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Документальный commit после application source commit не меняет APK.
+Metadata: `com.kinogo.atv`, code 14 / `0.5.0`, minSdk 28, targetSdk 37, label
+`KinogoATV`, LEANBACK launcher/banner. Zipalign успешно, v2 signature true. Exact source
+commit и GitHub Release/CI всё ещё PENDING.
 
 ## Known-good baseline и откат
 
@@ -56,7 +57,10 @@ Certificate SHA-256:
 - Signature certificate SHA-256:
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Предыдущие C-004 / `0.4.2-dev` и C-003 / `0.4.1-dev` сохраняются как исторические
+Последний аппаратно проверенный catalog candidate — **C-005 / `0.4.3-dev`**, source
+`15efacc`, artifact SHA-256
+`5A3EAAF4A23663AE73FE987CFDCEE6F311ED4AFD3A48B29833C44C5DAB5F67E9`. Предыдущие C-004 /
+`0.4.2-dev` и C-003 / `0.4.1-dev` сохраняются как исторические
 catalog/xSort candidates. C-002 / `0.4.0-dev` остаётся историческим UI/player candidate. Ни
 один из них не получил baseline tag из-за незакрытого полного player pass.
 Подробные evidence и точки отката находятся в [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
@@ -67,25 +71,75 @@ Rollback APK допустим только с совместимой подпи�
 
 ## Состояние подсистем
 
-| Подсистема | Статус | Подтверждённое поведение |
+| Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | Работает | Нативный first frame, Compose bootstrap, cold launch, crash/stall diagnostics |
-| Android TV launcher | Работает | LEANBACK launcher, фирменные TV banner и ATV icon |
-| Навигация | Работает | Постоянный rail, D-pad focus, подтверждение выхода |
+| Запуск | C-006 final Release TV smoke passed | X96 cold 1023 ms, initial Home rail focus, no FATAL/ANR |
+| Android TV launcher | Работает | Label `KinogoATV`, LEANBACK launcher/banner и ATV icon проверены в artifact |
+| Навигация | C-006 debug TV smoke passed | Cold start фокусирует rail; focused/selected состояния различимы; подтверждение выхода |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | Работает; long append pending | Debounce 750 ms, immediate submit, keyboard hide, retry и paged query |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
 | Карточка | Работает | Крупный постер, полный текст, основные/status/favorite actions |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
-| Зеркала | Работает | Built-in/ручные кандидаты, fingerprint/redirect, TTL и active origin |
-| Аккаунт | Работает | HTML-login, Keystore credentials, восстановление cookie-сессии |
+| Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
+| Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | Работает | Snapshot, постер, сезон, серия, позиция, resume и legacy ID recovery |
+| История | C-006 basic resume-return TV smoke passed | Newest unfinished checkpoint; после ~14 с Back вернул Details с focused `Продолжить с 0:14` |
 | Выбор источника | Работает | Source/voice/season/episode/quality sparse-матрица до запуска |
-| Нативный плеер | Работает; новый end flow pending TV | Media3, HUD, selectors, D-pad/media keys; cross-season/completion покрыты unit tests |
+| Нативный плеер | C-006 short TV smoke passed; recovery/cross-season pending | Home → Details → selector → ~14 с playback → Back/Details; bounded refresh и cross-season покрыты tests |
 | Web fallback | Работает | Явный provider-only WebView с origin boundary, TV HUD и виртуальным курсором |
-| Настройки | Работает | Компактные строки; значение меняется по OK, Left/Right навигируют |
+| Настройки | C-006 debug TV smoke passed | Switch и D-pad dropdown проверены; focus return работает |
+| Обновления | Artifact policy verified; live updater pending | Exact stable GitHub Release contract; APK metadata/hash/signer verified вручную, installer flow не проверен |
+| About | C-006 debug TV smoke passed | D-pad reachability, QR/dialog; Donate.Stream/GitHub открылись в Yandex TV browser |
+| CI | Workflow добавлен; first remote run pending | GitHub Actions: JDK 17, SDK 37, unit/lint/assembleDebug |
+
+## Проверка C-006 и final artifact
+
+Локально на текущем рабочем дереве успешно завершена команда с задачами:
+
+- `testDebugUnitTest`;
+- `lintDebug`;
+- `assembleDebug`;
+- `assembleDebugAndroidTest`;
+- `assembleRelease`.
+
+Результат: **75 suites / 348 unit tests**, 0 failures, 0 errors, 0 skipped; Android Lint —
+0 errors, 19 warnings и 2 hints. Это доказывает текущий source/build/test contract, но до
+final commit не является commit-addressable evidence. Debug, AndroidTest и Release APK
+успешно собраны.
+
+Финальный Release artifact прошёл metadata/size/hash/zipalign/v2/certificate verification:
+`dist/KinogoATV-0.5.0-code14.apk`, 38 140 638 bytes,
+SHA-256 `3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`.
+
+Контролируемый debug smoke на KIVI 4K Android TV 14 подтвердил:
+
+- cold launch оставляет focus на выбранном rail item;
+- Settings Switch и D-pad dropdown работают;
+- About полностью достижим D-pad, QR/dialog видимы, Donate.Stream и GitHub открываются в
+  Yandex TV browser;
+- путь Home → Details → source selector → native playback (~14 секунд) → Back вернул
+  Details с focused действием `Продолжить с 0:14`;
+- `RegistrationDialogDpadTest` на устройстве подтвердил безопасный первый фокус на
+  `Не принимаю`; rules POST возможен только после явного выбора `Принимаю и продолжить`.
+
+Не проверены: live submit новой учётной записи, реальная ошибка/expiry источника и
+automatic refresh, natural end с переходом через сезон, newer-version download/Android
+installer.
+
+Финальный Release APK установлен через `adb install -r` на
+X96Max Plus Ultra (`10.173.44.46`), Android TV 14:
+
+- `firstInstallTime` сохранился: `2026-08-14 08:34:38`;
+- installed base APK имеет точные artifact size/hash;
+- cold launch: `Status: ok`, `TotalTime: 1023 ms`;
+- первый focus — Home в rail; каталог и постеры загрузились;
+- в итоговом logcat нет FATAL/ANR.
+
+На этом устройстве final `RegistrationDialogDpadTest` прошёл: `OK (1)`. Кроме default
+decline/explicit accept он подтвердил, что Down на нижней границе rules scroll явно
+возвращает focus на безопасное `Не принимаю`. Test package после проверки удалён.
 
 ## Последняя проверка C-005
 
@@ -151,20 +205,32 @@ Rollback APK допустим только с совместимой подпи�
   молча.
 - Exact playback position хранится локально. С сайтом синхронизируются account bookmarks и
   statuses, но не Media3 checkpoint.
-- Runtime проверяет встроенные и ручные зеркала и может принять безопасную конечную цель
-  redirect. Интернет-wide поиск и подписанный remote manifest пока не подключены.
-- CI ещё не настроен. Clean-clone unit/lint/debug требует Android SDK и JDK 17; обновление
-  пользовательской установки дополнительно требует стабильный signing key вне Git.
+- Runtime проверяет встроенные/ручные зеркала и безопасные redirect targets. Remote
+  `config/mirrors.json` ограничен exact GitHub raw path/schema/size/count/expiry, но не
+  подписан и только добавляет четыре quarantined discovery candidates, включая
+  `kinogo.family`; internet-wide crawler нет.
+- Updater доверяет не одному URL: перед Android Package Installer проверяются release
+  metadata, SHA-256, package/version и signing identity. Silent install нет, системное
+  подтверждение обязательно.
+- GitHub Actions workflow настроен для clean-clone unit/lint/assembleDebug, но его первый
+  remote run для C-006 ещё не записан. CI не имеет stable signing key и не доказывает TV UX.
+- Registration отдельно показывает DLE rules gate с default decline; sensitive fields
+  remember-only, late responses защищены generation+origin, image CAPTCHA имеет bounded
+  transport/decode. Интерактивные reCAPTCHA/hCaptcha/Turnstile не обходятся и явно
+  помечаются unsupported.
 
 ## Активный фокус
 
-Следующий шаг — продолжительное пользовательское тестирование C-005 / `0.4.3-dev`:
+Следующий шаг — зафиксировать и проверить C-006 / `0.5.0`:
 
-- проверить category и combinations подборки/года/страны, а также длинные
-  Home/Catalog/Search ленты;
-- проверить overscan, плотность и возврат фокуса на всех разделах;
-- повторить полный native playback regression, включая cross-season, buffering и natural
-  completion;
-- после подтверждения назначить новый known-good baseline/tag.
+- завершить integration commit и получить первый GitHub Actions result на той же ревизии;
+- опубликовать проверенный artifact как exact GitHub Release asset и проверить updater
+  digest/API contract;
+- проверить live registration submit и безопасный update-to-OS-confirmation flow с реально
+  более новой версией;
+- проверить resume реального многосерийного материала, one-shot source refresh,
+  Previous/Next/auto-next через
+  границу сезона и natural completion;
+- только после полного evidence решить, становится ли C-006 новым baseline/release tag.
 
 Подробная очередь — в [`ROADMAP.md`](ROADMAP.md).

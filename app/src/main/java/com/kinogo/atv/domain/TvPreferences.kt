@@ -7,6 +7,7 @@ object TvSettingIds {
     const val HIGH_CONTRAST = "contrast"
     const val REDUCE_MOTION = "motion"
     const val SUBTITLES = "captions"
+    const val AUTO_CHECK_UPDATES = "auto_check_updates"
 }
 enum class SettingCycleDirection(val delta: Int) {
     PREVIOUS(-1),
@@ -68,6 +69,7 @@ data class TvPreferences(
     val highContrast: Boolean = false,
     val reduceMotion: Boolean = false,
     val subtitles: SubtitlePreference = SubtitlePreference.SYSTEM,
+    val autoCheckUpdates: Boolean = true,
 ) {
     val seekStepMs: Long get() = seekStepSeconds * 1_000L
 
@@ -87,6 +89,41 @@ data class TvPreferences(
         TvSettingIds.SUBTITLES -> copy(
             subtitles = SubtitlePreference.entries.cycle(subtitles, direction),
         )
+        TvSettingIds.AUTO_CHECK_UPDATES -> copy(autoCheckUpdates = !autoCheckUpdates)
+        else -> this
+    }
+
+    /**
+     * Applies the stable option id selected by a TV dropdown or switch.
+     *
+     * Invalid ids are ignored instead of resetting a stored preference. This keeps the UI and
+     * DataStore resilient when a stale dialog survives a configuration change.
+     */
+    fun withSetting(settingId: String, optionId: String): TvPreferences = when (settingId) {
+        TvSettingIds.QUALITY -> VideoQualityPreference.entries
+            .firstOrNull { it.storageValue == optionId }
+            ?.let { copy(defaultQuality = it) }
+            ?: this
+        TvSettingIds.AUTO_NEXT_EPISODE -> optionId.strictBooleanOrNull()
+            ?.let { copy(autoNextEpisode = it) }
+            ?: this
+        TvSettingIds.SEEK_STEP -> optionId.toIntOrNull()
+            ?.takeIf { it in SEEK_STEP_SECONDS }
+            ?.let { copy(seekStepSeconds = it) }
+            ?: this
+        TvSettingIds.HIGH_CONTRAST -> optionId.strictBooleanOrNull()
+            ?.let { copy(highContrast = it) }
+            ?: this
+        TvSettingIds.REDUCE_MOTION -> optionId.strictBooleanOrNull()
+            ?.let { copy(reduceMotion = it) }
+            ?: this
+        TvSettingIds.SUBTITLES -> SubtitlePreference.entries
+            .firstOrNull { it.storageValue == optionId }
+            ?.let { copy(subtitles = it) }
+            ?: this
+        TvSettingIds.AUTO_CHECK_UPDATES -> optionId.strictBooleanOrNull()
+            ?.let { copy(autoCheckUpdates = it) }
+            ?: this
         else -> this
     }
 
@@ -99,6 +136,12 @@ data class TvPreferences(
         const val DEFAULT_SEEK_STEP_SECONDS = 10
         val SEEK_STEP_SECONDS = listOf(5, 10, 15, 30, 60)
     }
+}
+
+private fun String.strictBooleanOrNull(): Boolean? = when (this) {
+    "true" -> true
+    "false" -> false
+    else -> null
 }
 
 private fun <T> List<T>.cycle(current: T, direction: SettingCycleDirection): T {

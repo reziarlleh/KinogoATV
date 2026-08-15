@@ -90,7 +90,7 @@ internal object StartupViews {
             setPadding(context.dp(54), context.dp(32), context.dp(54), context.dp(30))
         }
         root.addView(
-            text(context, "Kinogo TV не смог запуститься", 34f, Color.WHITE).apply {
+            text(context, "KinogoATV не смог запуститься", 34f, Color.WHITE).apply {
                 typeface = Typeface.DEFAULT_BOLD
             },
             linearMatchWrap(),

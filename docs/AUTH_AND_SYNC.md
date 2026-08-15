@@ -5,7 +5,11 @@
 > [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md) и
 > [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
-Состояние HTML-протокола проверено 16 июля 2026 года. Документированного публичного API у
+Состояние login/bookmark HTML-протокола проверено 16 июля 2026 года; нативный registration-клиент
+добавлен 15 августа 2026 года по browser-visible двухшаговому DLE flow. Final hardware
+instrumentation подтвердил rules gate и выход из scroll boundary к safe decline; live submit
+новой учётной записи ещё не выполнен.
+Документированного публичного API у
 сервиса нет: текущая реализация повторяет обычные HTTPS GET/POST сайта, хранит cookie только
 внутри origin проверенного зеркала и разбирает серверный HTML/ответы DLE.
 
@@ -28,6 +32,40 @@
   действием пользователя;
 - auth DataStore исключён из Android Backup, потому что device-bound Keystore-ключ на другом
   устройстве расшифровать его не сможет.
+
+## Регистрация
+
+`KinogoRegistrationApi` открывает `/index.php?do=register` тем же origin-scoped
+`KinogoSessionHttpClient`, что и login-flow. Структура формы и имена полей разбираются
+из текущего HTML; same-origin action и hidden server fields хранятся только в памяти этой
+формы и скрыты из `toString`/диагностики.
+
+Если первый ответ содержит DLE rules gate, parser возвращает отдельный
+`RegistrationRulesPage`. UI сначала показывает правила и фокусирует безопасное действие
+`Не принимаю`; POST с `dle_rules_accept=yes` возможен только после явного OK на
+`Принимаю и продолжить`. Лишь серверный ответ на этот POST открывает account form.
+
+Если DLE требует image CAPTCHA:
+
+- изображение загружается в той же cookie-сессии и только с same-origin relative path;
+- размер ограничен 512 KiB, а PNG/JPEG/GIF/WebP проверяются по magic bytes и
+  допустимому content type;
+- UI до bitmap allocation отклоняет размерность больше 4096×4096 или 8 млн pixels и
+  downsample-ит допустимое изображение к bounded 840×256 decode в RGB_565;
+- код вводит сам пользователь; приложение не обходит CAPTCHA и не отправляет её во внешний
+  recognition service;
+- refresh заново получает всю форму и картинку, чтобы не разорвать одноразовое DLE-состояние.
+
+reCAPTCHA, hCaptcha, Turnstile и иные интерактивные challenge встроенная форма не
+обходит: UI показывает, что этот тип не поддерживается. Server rejection возвращает
+сообщение и обновлённую форму/CAPTCHA. После успешного submit те же login/password
+передаются существующему `saveAndLogin`, то есть последующее хранение credentials не имеет
+отдельного plaintext-пути.
+
+Поля login/e-mail/password/confirmation/CAPTCHA используют только Compose `remember`, не
+`rememberSaveable`: dismiss/recreation не сериализует чувствительный ввод. Монотонная
+registration generation вместе с exact origin защищает UI и `saveAndLogin` от late response
+старого load/rules/submit после retry, dismiss или смены зеркала.
 
 ## Закладки
 

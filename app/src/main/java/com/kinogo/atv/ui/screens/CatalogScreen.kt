@@ -39,10 +39,11 @@ fun CatalogScreen(
     errorMessage: String? = null,
     statusLabel: String? = null,
     onRetry: () -> Unit = {},
+    requestInitialFocus: Boolean = true,
 ) {
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(items.firstOrNull()?.id) {
-        if (items.isNotEmpty()) firstFocus.requestFocus()
+    LaunchedEffect(items.firstOrNull()?.id, requestInitialFocus) {
+        if (requestInitialFocus && items.isNotEmpty()) firstFocus.requestFocus()
     }
 
     Column(

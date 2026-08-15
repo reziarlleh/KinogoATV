@@ -45,7 +45,7 @@ object SafePosterImageLoader {
             }
             chain.proceed(
                 request.newBuilder()
-                    .header("User-Agent", "KinogoTV/0.2 (Android TV; poster loader)")
+                    .header("User-Agent", "KinogoATV/0.5 (Android TV; poster loader)")
                     .build(),
             )
         }

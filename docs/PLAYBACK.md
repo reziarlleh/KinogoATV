@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **15 августа 2026 года**.
 
 ## Принцип
 
@@ -184,6 +184,12 @@ Resume начинает на 5 секунд раньше сохранённой 
 `WatchProgressRules`: учитывается минимальная просмотренная длительность, 90% и остаток до
 конца. История группируется по content ID, но хранит записи отдельных эпизодов.
 
+History, Catalog и Search используют одну `preferredResumeProgress` policy: среди записей
+того же content ID выбирается самая новая незавершённая единица с eligible resume position.
+Завершённый checkpoint первой серии не маскирует более новую незавершённую серию.
+Details показывает season/episode/position в действии, например
+`Продолжить S03E07 с 17:42`; если все checkpoints завершены, Continue action не показывается.
+
 Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта.
 
 ## Auto-next
@@ -200,9 +206,48 @@ Resume начинает на 5 секунд раньше сохранённой 
   `PlaybackCompletionPolicy`: он либо запускает первую реально доступную координату
   следующего совместимого сезона для текущих source/voiceover, либо возвращает в карточку.
 
+В `0.5.0` end-of-item pause не трактуется как exit, если `autoNextEpisode=true`: flow ждёт
+решения cross-season completion policy. Замена media items на первую серию следующего сезона
+явно возобновляет playback, даже если завершившийся item уже сбросил `playWhenReady`.
+При отключённом auto-next тот же сигнал по-прежнему сохраняет completion checkpoint и возвращает в
+details. Оба варианта покрыты unit policy, но новый runtime-flow ещё нужно подтвердить на TV.
+
 Тот же cross-season порядок используется ручными Previous/Next. Сейчас отдельного
 визуального обратного отсчёта следующей серии нет; countdown с Cancel/Play now остаётся в
 roadmap.
+
+## Обновление источника при playback error
+
+При Media3 playback error плеер сначала сохраняет checkpoint, затем может один раз
+запросить у composition root свежую details/provider preparation. Это не retry старого URL:
+новый `PlaybackMediaPlan` строится обычным защищённым discovery-flow, после чего выбор
+нормализуется по свежей sparse-матрице. Позиция и automatic restart восстанавливаются только
+если normalized selection сохранил exact исходные `contentId/season/episode`. Если unit
+изменилась либо исчезла, flow открывает обычный selector с позицией 0 и не запускает другую
+серию незаметно.
+
+Автоматический refresh ограничен одной попыткой на stable unit key
+`contentId + season? + episode?`. Набор attempted keys переносится в replacement player session,
+поэтому тот же failing provider не может создать inter-screen loop. Смена remapped source/quality
+не обнуляет лимит; другая серия получает свою одну попытку. После исчерпания лимита
+остаётся обычный user-safe error и ручное действие refresh. URL и attempted provider data не сохраняются.
+Этот recovery покрыт pure tests; реальный expiry/error на TV для `0.5.0` pending.
+
+Consumed attempted-unit budget объединяется с active session **до** открытия launch screen
+и disposal failing Media3. Recovery launch устанавливает discard-on-exit contract. Если до
+подготовки пользователь нажал Back, material исчез из известных карточек либо active
+verified mirror отсутствует, root очищает active/pending/embed sessions, увеличивает launch
+generation и показывает конкретную ошибку. Back из ошибки возвращает в Details; late job не
+может resurrect-ить dead player с пустым immutable attempt set.
+
+Три pure safety guards проверяют: persistence budget + discard, неизменность ordinary launch
+и explicit early errors для missing content/mirror. Отдельный exact-unit guard проверяет,
+что old position не применяется к другому episode.
+
+Basic C-006 runtime на KIVI подтвердил не error-recovery, а checkpoint/return contract:
+после ~14 секунд native playback Back вернул Details с focused
+`Продолжить с 0:14`. Actual expired/404 source, exact same-unit automatic recovery и natural
+cross-season end остаются отдельными pending сценариями.
 
 ## Сетевые ограничения плеера
 
