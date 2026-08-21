@@ -90,12 +90,14 @@
   сериями; `Продолжить` показал 10:48, Media3 воспроизвёл S2E5 с продвижением 11:01 → 11:39.
   `OK` показал HUD без паузы; Back вернул Player → Details → History.
 - Отдельно подтверждён non-first History focus: вторая карточка «История его служанки»
-  после source/details chain и двойного Back снова получила `focused=true`. Search non-first
-  focus ещё **PENDING**.
+  после source/details chain и двойного Back снова получила `focused=true`. В Search запрос
+  `Chris`, результаты и вторая карточка «Рождественская неделя» также восстановлены с
+  `focused=true` после physical Back.
 - Адресно восстановлено случайно изменённое состояние «Spider-Man»: кнопка снова
   `В избранное`, а после `Не смотрел` материал отсутствует в серверном разделе «Все» (10/10).
-- Final source commit, CI, GitHub Release и Pages/jsDelivr deployment — **PENDING**; local и
-  TV evidence не объявляют публикацию updater channel.
+- Application source commit: `8b0be72cf32d6807f0dc4ff5c5e21da95e847874`. CI, GitHub
+  Release и Pages/jsDelivr deployment — **PENDING**; local и TV evidence не объявляют
+  публикацию updater channel.
 - B-001 / `0.3.3-dev` остаётся последним полным playback rollback baseline; C-006 /
   `0.5.0` сохраняет свой ранее записанный build/device evidence.
 

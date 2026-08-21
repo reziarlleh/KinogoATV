@@ -10,7 +10,8 @@
 
 Текущий C-007 / `0.5.1` (code 15, minSdk 28, targetSdk 37) остаётся validation candidate.
 Final local canonical run, exact stable-signed APK/signed manifest и focused KIVI
-native/navigation runtime проверены. Ещё **PENDING**: final source commit, CI, GitHub
+native/navigation runtime проверены и application source зафиксирован как `8b0be72`.
+Ещё **PENDING**: CI, GitHub
 Release, Pages/jsDelivr deployment и расширенный TV/runtime pass.
 Числа, hash и device evidence C-006 не переносятся на C-007.
 
@@ -139,8 +140,8 @@ source изменится.
 
 Для C-007 final local canonical run: SUCCESS за 4 мин 27 с, 82 suites / 393 tests,
 0 failures, 0 errors, 0 skipped; lint 0 errors / 22 warnings / 2 hints; debug, AndroidTest
-и release assemblies успешны. Результат относится к текущему рабочему дереву; final source
-commit и CI ещё **PENDING**. При любом следующем production change полную команду нужно
+и release assemblies успешны. Результат привязан к application source `8b0be72`; remote
+CI ещё **PENDING**. При любом следующем production change полную команду нужно
 повторить.
 
 `.github/workflows/android.yml` повторяет canonical unit/lint/assembleDebug на push в
@@ -386,7 +387,8 @@ gh release create v0.5.1 `
 ## Release checklist
 
 - [ ] Version code увеличен.
-- [ ] Final source commit записан; GitHub Actions run на нём зелёный.
+- [x] Application source commit записан: `8b0be72`.
+- [ ] GitHub Actions run на final documentation/release commit зелёный.
 - [ ] Changelog/state/docs актуальны.
 - [ ] Unit tests зелёные.
 - [ ] Lint без errors.

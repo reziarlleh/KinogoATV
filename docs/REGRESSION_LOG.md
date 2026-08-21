@@ -34,8 +34,9 @@
 ### C-007 — 0.5.1 validation
 
 - Статус: local automated/artifact/manifest и focused KIVI native/navigation evidence passed;
-  source commit, CI, publication и extended TV evidence **PENDING**
-- Application source commit: **PENDING**; текущий кандидат ещё не является rollback point
+  CI, publication и extended TV evidence **PENDING**
+- Application source commit: `8b0be72cf32d6807f0dc4ff5c5e21da95e847874`; это
+  integration rollback point для `0.5.1`, но не новый полный playback baseline
 - Metadata in source: version code 15, version `0.5.1`, minSdk 28, targetSdk 37
 - APK: `dist/KinogoATV-0.5.1-code15.apk`, 38 304 478 bytes, SHA-256
   `3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`; package
@@ -55,7 +56,7 @@
 - Automated: final local canonical command `testDebugUnitTest lintDebug assembleDebug
   assembleDebugAndroidTest assembleRelease` — SUCCESS за 4 мин 27 с; 82 suites / 393 tests,
   0 failures, 0 errors, 0 skipped; lint 0 errors / 22 warnings / 2 hints. Exact source
-  commit и CI — **PENDING**.
+  Source commit — `8b0be72`; CI — **PENDING**.
 - Final local signed manifest: `update/manifest.json`, 1 273 bytes, SHA-256
   `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
   `0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`

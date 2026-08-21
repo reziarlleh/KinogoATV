@@ -4,7 +4,7 @@
 
 ## Краткий итог
 
-В рабочем дереве готовится `0.5.1` (code 15). Native Cinemar flow адаптирован к текущему
+В application source commit `8b0be72` зафиксирован `0.5.1` (code 15). Native Cinemar flow адаптирован к текущему
 authenticated contract: already discovered player document может находиться на exact-host
 runtime route вместо `/embed/...`, а конечный HLS лениво запрашивается только для выбранного
 leaf fixed same-origin POST-ом на `/api/playlist/load`. Добавлены истинный Back в исходный раздел, восстановление
@@ -19,10 +19,11 @@ best-effort `ghfast.top`, best-effort `ghproxy.net` и direct Release. Пока 
 release/deployment/live checks, ни один из них не считается подтверждённым. Operator-owned
 non-GitHub storage ещё нет.
 
-Это **validation candidate C-007**, а не rollback baseline. Для текущего рабочего дерева
+Это **validation candidate C-007** и зафиксированная точка отката для интеграционного состояния
+`0.5.1`, но не новый полный playback baseline. Для application source `8b0be72`
 завершены локальный canonical Gradle pass, проверка stable-signed APK/подписанного manifest
-и аппаратный native Cinemar/History pass на KIVI Android TV 14. Final source commit, CI,
-GitHub Release/Pages/jsDelivr publication и оставшиеся Search/Web/updater/player сценарии
+и аппаратный native Cinemar/History pass на KIVI Android TV 14. CI,
+GitHub Release/Pages/jsDelivr publication и оставшиеся Web/updater/player сценарии
 ещё **PENDING**. C-006 / `0.5.0` сохраняет ранее записанный build/device evidence; B-001
 остаётся последним полным playback baseline.
 
@@ -31,7 +32,7 @@ GitHub Release/Pages/jsDelivr publication и оставшиеся Search/Web/upd
 | Поле | Значение |
 | --- | --- |
 | Candidate | **C-007 / 0.5.1 validation** |
-| Application source commit | **PENDING**; рабочее дерево ещё не является rollback point |
+| Application source commit | `8b0be72cf32d6807f0dc4ff5c5e21da95e847874` |
 | Application ID | `com.kinogo.atv` |
 | Version code | `15` |
 | Version name | `0.5.1` |
@@ -40,7 +41,7 @@ GitHub Release/Pages/jsDelivr publication и оставшиеся Search/Web/upd
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | stable signing identity; локально v2 true, certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Baseline/release tag | не создавался; validation pending |
+| Baseline/release tag | release tag ещё не создан; application rollback point — `8b0be72` |
 
 Локально проверен exact release artifact `dist/KinogoATV-0.5.1-code15.apk`:
 **38 304 478 bytes**, SHA-256
@@ -48,8 +49,8 @@ GitHub Release/Pages/jsDelivr publication и оставшиеся Search/Web/upd
 Metadata: package `com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37,
 LEANBACK launcher/label `KinogoATV`; zipalign OK, v2 true, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
-Это финальное локальное artifact evidence для текущего дерева, но ещё не commit-bound,
-не CI/publication evidence и не installed-TV match. Не переносить в C-007 hash или runtime
+Это финальное artifact evidence для source commit `8b0be72` и exact installed-TV match;
+оно ещё не является CI/publication evidence. Не переносить в C-007 hash или runtime
 evidence артефакта `0.5.0`.
 
 Финальный локальный `update/manifest.json`: **1 273 bytes**, SHA-256
@@ -110,7 +111,7 @@ Rollback APK допустим только с совместимой подпи�
 
 ## Проверка C-007
 
-Для текущего рабочего дерева canonical команда
+Для application source `8b0be72` canonical команда
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
 завершена **SUCCESS за 4 мин 27 с**: **82 suites / 393 tests**, 0 failures, 0 errors,
 0 skipped; lint — **0 errors / 22 warnings / 2 hints**. Exact release APK и final signed
@@ -135,8 +136,8 @@ Broad clear/uninstall не выполнялись. Search `Chris`/results и в�
 «Рождественская неделя» после physical Back восстановлены с `focused=true`; recent-query row
 также подтверждена.
 
-Final source commit, CI, GitHub Release/Pages/jsDelivr publication и live updater остаются
-**PENDING**. До их закрытия не считать default Pages/jsDelivr URLs живыми каналами.
+CI, GitHub Release/Pages/jsDelivr publication и live updater остаются **PENDING**. До их
+закрытия не считать default Pages/jsDelivr URLs живыми каналами.
 
 ## Предыдущая проверка C-006 и final artifact
 

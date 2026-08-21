@@ -63,7 +63,8 @@ Final local canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` дал
 **SUCCESS за 4 мин 27 с**, **82 suites / 393 tests**, 0 failures, 0 errors, 0 skipped;
 lint — **0 errors / 22 warnings / 2 hints**.
-Результат относится к текущему рабочему дереву; final source commit и CI ещё **PENDING**.
+Результат привязан к application source commit
+`8b0be72cf32d6807f0dc4ff5c5e21da95e847874`; remote CI ещё **PENDING**.
 
 ## Lint и сборка
 
