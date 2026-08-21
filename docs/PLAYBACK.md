@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Принцип
 
@@ -33,6 +33,7 @@ flowchart TD
     J --> L
     L --> M["TvPlayerScreen / Media3"]
     L --> N["Explicit ProviderEmbedPlayerScreen"]
+    M --> O["Lazy Cinemar grant for selected local reference"]
 ```
 
 Перед каждым запуском details и provider documents запрашиваются заново. Page preparation
@@ -56,6 +57,28 @@ destination validation.
 - не выполняет provider JavaScript;
 - проверяет все media/subtitle destinations.
 
+Discovery нового Cinemar offer остаётся строгим: только exact HTTPS host `cinemar.cc`,
+стандартный порт и непустой `/embed/...` без query/fragment/userinfo. Однако актуальная
+authenticated Kinogo detail может уже вернуть player document на непрозрачном exact-host
+runtime route. Для этой второй, уже discovered стадии используется отдельный
+`validatedPlayerDocumentUri`: разрешён только non-root/non-`/api/` path того же exact host,
+по-прежнему без query/fragment/userinfo и нестандартного порта. Это не расширяет discovery
+на произвольные Cinemar routes.
+
+Live-контракт от 21 августа 2026 года добавляет deferred leaves: playlist по-прежнему
+декодируется из публичного `#2` envelope, но leaf может содержать opaque `data` и пустой
+placeholder `file`. Такой leaf попадает в `PlaybackMediaPlan` как случайная локальная ссылка.
+Токен и exact iframe остаются в session-owned `CinemarDeferredGrantRegistry`; только когда
+Media3 открывает выбранный вариант, registry выполняет один exact-origin JSON-string
+`POST /api/playlist/load`, принимает HLS grant и передаёт его безопасному data source.
+Grant endpoint не берётся из HTML: он конструируется отдельно на том же origin. Cookies,
+redirect и transport retry запрещены; один исход попытки memoize-ится в текущей сессии.
+
+Один registry принадлежит одному media plan и исчезает вместе с playback-сессией. Он
+ограничен parser node/document bounds, имеет TTL и single-flight memoization: повторный или
+параллельный `open` одной серии не создаёт несколько grant POST. Новый source refresh строит
+новый plan/registry и не повторяет старый transient URL.
+
 ### Collaps
 
 `data/playback/collaps/`:
@@ -77,7 +100,22 @@ Web fallback:
 - блокирует navigation за пределы admitted origin;
 - запрещает file/content access, mixed content, popup, download, geolocation и permissions;
 - отключает third-party cookies;
+- сохраняет обычное first-party cookie/DOM-storage состояние только внутри профиля WebView;
 - содержит TV HUD и виртуальный D-pad cursor.
+
+При выходе приложение отправляет PlayerJS `pause`, ждёт callback (не более 750 ms), затем
+вызывает `CookieManager.flush()` и только после этого уничтожает WebView. Flush сохраняет
+лишь внутреннее first-party cookie-состояние профиля WebView: cookies не копируются в
+OkHttp/native session и не логируются. `stop` больше не используется, поскольку он сбрасывает
+позицию. На
+проверенном Cinemar конфиг содержит стабильный `cuid`; штатный механизм PlayerJS может
+запоминать playlist item и time в том же browser profile независимо от iframe URL. Это
+web-to-web resume, а не экспорт cookies в OkHttp и не межустройственная синхронизация.
+
+На KIVI D-pad selector достиг `Оригинальный web-плеер` (`Смотреть онлайн · cinemar`),
+fullscreen WebView запустился и Back чисто вернул Details, затем History. Provider
+playlist/position не видны accessibility и безопасным логам; поэтому actual resume после
+повторного открытия **не подтверждён** и остаётся отдельным runtime-пунктом.
 
 `PlayerJsCapabilities` и расширенные JS-команды существуют как изолированный код, но полный
 унифицированный выбор web-quality/audio/subtitles ещё не подключён к production Web screen.
@@ -104,6 +142,8 @@ optional preferred audio track
 - tuple source/season/episode/voiceover/quality уникален;
 - у series есть совместимые season/episode coordinates;
 - UI получает только варианты, реально присутствующие в plan.
+- optional `PlaybackMediaUrlResolver` живёт только в активном plan, скрывает opaque provider
+  token и разрешает локальную ссылку непосредственно на Media3 loader thread.
 
 Список сезонов и серий зависит от выбранной озвучки. UI не строит декартово произведение
 несуществующих вариантов.
@@ -244,10 +284,12 @@ generation и показывает конкретную ошибку. Back из 
 и explicit early errors для missing content/mirror. Отдельный exact-unit guard проверяет,
 что old position не применяется к другому episode.
 
-Basic C-006 runtime на KIVI подтвердил не error-recovery, а checkpoint/return contract:
-после ~14 секунд native playback Back вернул Details с focused
-`Продолжить с 0:14`. Actual expired/404 source, exact same-unit automatic recovery и natural
-cross-season end остаются отдельными pending сценариями.
+Focused C-007 runtime на KIVI Android TV 14 подтвердил current exact-host Cinemar route:
+native selector «Далеко во Вселенной» показал озвучки, сезоны 1–4 и серии, resume — 10:48;
+Media3 S2E5 продвинулся 11:01 → 11:39. Скрытый HUD по `OK` открылся без паузы. Back вернул
+Player → Details → History. Отдельно подтверждены возврат/focus второй History card и
+второго Search result с сохранённым запросом/выдачей. Actual expired/404 source, exact
+same-unit automatic recovery и natural cross-season end остаются отдельными pending сценариями.
 
 ## Сетевые ограничения плеера
 
@@ -256,6 +298,12 @@ cross-season end остаются отдельными pending сценария�
 - При смене origin чувствительные headers удаляются.
 - Private/local/documentation networks запрещены.
 - Embed, media и subtitle URL не сохраняются и скрываются в `toString`.
+- Cinemar discovery принимает только `/embed/...`; already discovered runtime player document
+  проходит отдельную exact-host/non-root/non-`/api/` проверку без query/fragment/userinfo/
+  non-443 port.
+- Cinemar grant token не включается в MediaItem URI, storage, cookie jar или diagnostics;
+  fixed same-origin grant endpoint не получает cookies, не следует redirect, не повторяет
+  transport request и имеет bounded response.
 - Истёкший 401/403/404/410 URL требует fresh preparation, а не бесконечного retry того же
   location.
 - DRM, remote JavaScript playlist и неизвестный config нельзя обходить.

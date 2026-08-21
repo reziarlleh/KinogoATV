@@ -107,9 +107,7 @@ fun SettingsScreen(
     onRegistrationSubmit: (RegistrationSubmissionUiInput) -> Unit = {},
     appUpdate: AppUpdateUiModel = AppUpdateUiModel(currentVersion = "—"),
     onUpdateAction: () -> Unit = {},
-    appVersionName: String = "—",
-    onDonateOpen: () -> Unit = {},
-    onRepositoryOpen: () -> Unit = {},
+    onAboutOpen: () -> Unit = {},
     onSettingSelected: (String, String) -> Unit = { _, _ -> },
     reduceMotion: Boolean = false,
     requestInitialFocus: Boolean = true,
@@ -119,7 +117,6 @@ fun SettingsScreen(
     var mirrorDetailsId by rememberSaveable { mutableStateOf<String?>(null) }
     var showAccountDialog by rememberSaveable { mutableStateOf(false) }
     var showRemoveAccountDialog by rememberSaveable { mutableStateOf(false) }
-    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
     val regularSections = sections.filterNot { it.id == "sources" }
 
     LaunchedEffect(requestInitialFocus) {
@@ -141,6 +138,12 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(start = 2.dp, top = 2.dp, end = 10.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                item(key = "about-application") {
+                    AboutSettingsButton(
+                        onClick = onAboutOpen,
+                        modifier = Modifier.focusRequester(initialFocus),
+                    )
+                }
                 item(key = "account-heading") {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
@@ -170,7 +173,6 @@ fun SettingsScreen(
                         onReconnect = onAccountReconnect,
                         onSyncNow = onSyncNow,
                         onRemove = { showRemoveAccountDialog = true },
-                        initialFocus = initialFocus,
                     )
                 }
                 item(key = "mirror-heading") {
@@ -247,15 +249,6 @@ fun SettingsScreen(
                         onAction = onUpdateAction,
                     )
                 }
-                item(key = "about-application") {
-                    TvActionButton(
-                        text = "О приложении",
-                        onClick = { showAboutDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        leadingMark = "i",
-                    )
-                }
-
                 regularSections.forEach { section ->
                     item(key = "section-${section.id}") {
                         Text(
@@ -325,13 +318,62 @@ fun SettingsScreen(
                 onSubmit = onRegistrationSubmit,
             )
         }
-        if (showAboutDialog) {
-            AboutDialog(
-                versionName = appVersionName,
-                onDonate = onDonateOpen,
-                onRepository = onRepositoryOpen,
-                onDismiss = { showAboutDialog = false },
+    }
+}
+
+@Composable
+private fun AboutSettingsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.018f else 1f,
+        label = "about-settings-focus-scale",
+    )
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .onFocusChanged { focused = it.isFocused }
+            .testTag("settings-about"),
+        shape = RoundedCornerShape(10.dp),
+        color = if (focused) Color(0xFF72FFF8) else Color(0xFF294752),
+        border = BorderStroke(
+            if (focused) 3.dp else 1.dp,
+            if (focused) Color.White else Color(0xFF5A7A85),
+        ),
+        shadowElevation = if (focused) 12.dp else 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Text(
+                text = "i",
+                color = if (focused) Color(0xFF10272D) else MaterialTheme.colorScheme.primary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
             )
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = "О программе",
+                    color = if (focused) Color(0xFF10272D) else Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    text = "Версия, информация о проекте и поддержка автора",
+                    color = if (focused) Color(0xFF294752) else Color(0xFFB9CBD2),
+                    fontSize = 11.sp,
+                )
+            }
         }
     }
 }
@@ -346,7 +388,6 @@ private fun AccountCard(
     onReconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onRemove: () -> Unit,
-    initialFocus: FocusRequester,
 ) {
     val statusColor = when (state.phase) {
         AccountConnectionPhase.NO_CREDENTIALS -> Color(0xFF9EABC0)
@@ -444,7 +485,6 @@ private fun AccountCard(
                 TvActionButton(
                     text = if (state.credentialsSaved) "Сменить данные" else "Войти",
                     onClick = onLogin,
-                    modifier = Modifier.focusRequester(initialFocus),
                     primary = !state.credentialsSaved,
                     leadingMark = if (state.credentialsSaved) "✎" else "→",
                     enabled = state.phase != AccountConnectionPhase.CONNECTING,

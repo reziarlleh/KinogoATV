@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -291,7 +291,8 @@ preparation на `content/season/episode`; attempted set переживает re
 ## D-021 — Updater проверяет GitHub Release, но установку подтверждает Android
 
 - Дата: 15 августа 2026 года
-- Статус: принято; Release/TV evidence pending
+- Статус: частично superseded решением D-028; финальная проверка APK и
+  системное подтверждение остаются действующими
 
 Updater принимает только stable Release этого repository с exact tag/asset/digest,
 проверяет package/version/code и полное совпадение signer с installed app. APK передаётся
@@ -348,3 +349,121 @@ browser.
 
 Следствие: агент не выбирает лицензию без отдельного разрешения, не расширяет URL allowlist
 и не заменяет QR перерисованной/сжатой версией.
+
+## D-025 — Back возвращает в исходный раздел с его состоянием
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards и KIVI History/Search non-first evidence passed
+
+Details/player flow не сбрасывает shell в Home: исходный `TvDestination`
+поднимается в root и снова передаётся как `initialDestination`. Для поиска root
+дополнительно владеет строкой, выдачей и stable ID последнего сфокусированного
+постера. Stable focused ID также хранится отдельно для Home, Catalog, Bookmarks и History;
+смена identity/filter сбрасывает только соответствующий target. До десяти подтверждённых
+поисковых запросов хранятся локально в DataStore
+и показываются одной горизонтальной TV-строкой. Запись в history происходит только
+после явного commit: OK/Enter, принятого голосового результата или выбора recent-query
+chip. Промежуточные debounce-строки могут обновлять выдачу, но не history.
+
+Следствие: Back из Details не может выбрасывать в Home, а append/recomposition поиска не
+может подменять сохранённый focus первой карточкой. История запросов ограничена,
+дедуплицирована без учёта регистра и не содержит результатов/сетевых адресов.
+На KIVI подтверждены вторая History card и второй Search result после возврата; query/results
+Search сохранились, recent-query row доступна.
+
+## D-026 — Cinemar deferred grant разрешается только для выбранного leaf
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards и real KIVI native playback passed
+
+Текущий browser-visible Cinemar отдаёт leaf с `data`, а конечный HLS — только
+после same-origin JSON-string POST на exact `/api/playlist/load`. Parser сохраняет
+непрозрачный grant в redacted model, но не запрашивает все leaf заранее. Каждый playback
+plan владеет отдельным bounded registry: `MediaItem` видит только случайную
+`kinogo-cinemar://grant/...` ссылку, а `ResolvingDataSource` обменивает её на HTTPS HLS
+непосредственно при открытии. Повторные/конкурентные открытия одного leaf имеют
+один in-flight/result в рамках текущей сессии.
+
+Следствие: grant token, iframe и конечный media URL не попадают в логи, persistence и
+локальную MediaItem URI. Grant client не переносит cookies, не следует redirect,
+сохраняет HTTPS/public-DNS/exact-origin границы и fail-closed отклоняет не-HLS ответ.
+Текущий exact-host Cinemar runtime document подтверждён на KIVI: selector показал
+озвучки/сезоны 1–4/серии, Media3 S2E5 воспроизводился более 15 секунд.
+
+## D-027 — Web fallback сохраняет provider state только в своём WebView profile
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guard passed, provider/device verification pending
+
+Для выбранного explicit Cinemar Web fallback разрешены first-party cookies и DOM
+storage точного provider origin; third-party cookies запрещены. При выходе приложение
+сначала отправляет PlayerJS `pause`, ждёт callback, вызывает `CookieManager.flush()` для
+внутреннего WebView profile и только затем dispose; bounded grace
+не даёт зависшему renderer заблокировать Back. `stop` не используется, так как он
+сбрасывает provider checkpoint. Стабильный `cuid`/playlist item остаются механизмом самого
+PlayerJS.
+
+Следствие: это web-to-web resume внутри одного профиля приложения, а не синхронизация
+с сайтом/другим устройством и не перенос checkpoint между native Media3 и WebView. Cookies
+не экспортируются, не логируются и не копируются в HTML-сессию каталога.
+`flush()` закрепляет только internal profile state и не является cookie sync API.
+
+## D-028 — Updater использует signed multi-endpoint manifest, GitHub API — fallback
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards/manifest passed, Pages/jsDelivr deployment
+  и live updater pending
+
+Первичный update channel читает до четырёх HTTPS manifest endpoints параллельно. Exact
+UTF-8 payload в envelope подписан RSA/ECDSA ключом той же signing identity, что и
+установленный APK. Payload жёстко задаёт version/name/code, size, SHA-256, срок не более
+90 дней и до четырёх download URLs. Несогласованные manifest с одинаковым максимальным
+versionCode отклоняются. Default metadata endpoints — GitHub Pages и jsDelivr:
+`https://reziarlleh.github.io/KinogoATV/update/manifest.json` и
+`https://cdn.jsdelivr.net/gh/reziarlleh/KinogoATV@main/update/manifest.json`. Их deployment/
+live-доступность не считаются доказанной до проверки после release. jsDelivr — отдельный
+CDN-транспорт, но он по-прежнему берёт manifest из GitHub repository. Дополнительные зашитые в APK
+адреса задаются `KINOGO_UPDATE_MANIFEST_URLS`; при недоступности всех подписанных
+каналов сохранён strict GitHub Release API fallback.
+
+Следствие: TLS/host сам по себе не даёт update trust; manifest без валидной
+подписи installed identity отклоняется. Каждая загрузка по-прежнему проходит
+size/SHA/package/version/signer verification и только затем передаётся системному Android
+Package Installer. GitHub Pages может быть заменён другим HTTPS CDN без обновления
+клиентской trust model, если payload подписан тем же ключом.
+Включаемые в signed payload proxy URLs остаются недоверенным best-effort transport:
+криптографическую целостность даёт не прокси, а signed size/SHA-256 и final APK signer check.
+Operator-owned non-GitHub storage остаётся отдельной pending-задачей.
+
+## D-029 — Cinemar discovery и already discovered player document имеют разные policy
+
+- Дата: 21 августа 2026 года
+- Статус: принято; unit/contract и KIVI current-runtime evidence passed
+
+Новый Cinemar offer принимается только как exact HTTPS `cinemar.cc` `/embed/...` на
+стандартном порту. Authenticated Kinogo detail, однако, может уже содержать player document
+на непрозрачном runtime route того же exact host. Для этой второй стадии
+`validatedPlayerDocumentUri` допускает только non-root/non-`/api/` path без
+query/fragment/userinfo и нестандартного порта. Subdomains и arbitrary API routes не
+наследуют доверие. При безопасном same-origin redirect native config остаётся привязан к
+исходному уже проверенному offer, а explicit Web fallback использует validated resolved URL.
+
+Grant route не извлекается из runtime path: endpoint всегда отдельно конструируется как
+fixed same-origin `/api/playlist/load`. POST не получает cookies, не следует redirect и не
+повторяется после неоднозначного transport failure. Это исправляет
+`INVALID_EMBED_ADDRESS`, не превращая exact provider host в общий URL allowlist.
+
+Локальная evidence-граница C-007 для этих решений: canonical command SUCCESS за 4 мин 27 с,
+82 suites / 393 tests, 0 failures/errors/skips; lint — 0 errors / 22 warnings / 2 hints;
+все assemblies green. Exact release APK — 38 304 478 bytes, SHA-256
+`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`, package
+`com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK label verified,
+zipalign OK, v2 true,
+certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Exact local
+manifest — 1 273 bytes, SHA-256
+`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, issued
+`1787294465`, expires `1794984054` (18 ноября 2026 года, 06:40:54 UTC), четыре URLs.
+KIVI подтвердил current Cinemar native playback и History/Search non-first Back/focus.
+Final commit, CI, publication/Pages, Web fallback resume и extended TV evidence остаются
+**PENDING**.

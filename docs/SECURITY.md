@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Модель угроз
 
@@ -120,6 +120,8 @@ Provider WebView допускается только для отдельного
 - popup/multiple windows запрещены;
 - download, geolocation и runtime permissions запрещены;
 - third-party cookies выключены;
+- first-party cookies и DOM storage остаются только во внутреннем профиле WebView и не
+  экспортируются в DLE/OkHttp/native player;
 - external navigation блокируется;
 - JavaScript включён только потому, что он нужен самому provider player.
 
@@ -138,6 +140,23 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 
 `PreparedPlaybackSession`, resolved source и related models должны redacted-форматировать
 `toString`. Fixtures содержат только синтетические или очищенные значения.
+
+Cinemar deferred token дополнительно не помещается в media URI. Он хранится только в
+session-owned `PlaybackMediaUrlResolver`. Три адресные политики намеренно разделены:
+
+- discovery нового Cinemar offer — только exact HTTPS `cinemar.cc` `/embed/...`;
+- already discovered player document — exact host, non-root/non-`/api/`, без
+  query/fragment/userinfo и нестандартного порта;
+- grant — отдельно сконструированный fixed same-origin `/api/playlist/load`.
+
+Grant POST вызывается без cookies/redirect/retry, с лимитом 512 KiB и повторной
+HTTPS/public-DNS validation результата. Single-flight future кеширует один success/failure
+исход на leaf и исчезает вместе с media plan. Расширение player-document path не расширяет
+discovery, не допускает API paths и не наследует subdomains.
+
+Диагностика rejection может записать только provider id, тип исключения и bounded
+address shape (host, route-class, наличие query/fragment). Точный runtime path, query,
+token, iframe/media URL и cookies не логируются.
 
 ## Android backup
 
@@ -160,7 +179,21 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 
 ## Обновления APK
 
-Встроенный updater работает только с stable GitHub Release этого repository:
+Встроенный updater использует два независимых по доступности, но одну signing identity по
+доверию канала.
+
+Основной канал — signed manifest, загружаемый максимум с четырёх явно заданных HTTPS
+endpoints. В `0.5.1` по умолчанию используются GitHub Pages и jsDelivr для metadata;
+полностью независимый operator-owned endpoint остаётся отдельной инфраструктурной задачей:
+
+- envelope подписан RSA/ECDSA public key сертификата уже установленного APK;
+- подписанные поля фиксируют version/name/size/SHA-256, срок не более 90 дней и до четырёх
+  HTTPS download locations;
+- metadata endpoints опрашиваются параллельно с 20-second bound, redirect запрещён;
+- APK redirect ограничен четырьмя hops, каждый host проходит public-only DNS;
+- manifest replay после expiry и конфликт одинакового versionCode отклоняются.
+
+GitHub Release остаётся compatibility fallback:
 
 - metadata запрашивается по exact `api.github.com/repos/reziarlleh/KinogoATV/releases/latest`;
 - draft/prerelease отклоняются; tag, versionName, versionCode и имя
@@ -172,10 +205,18 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
   versionCode и полное совпадение signing certificate с установленным приложением;
 - APK передаётся системному Android Package Installer через non-exported `FileProvider`.
 
+Ни TLS/CDN, ни manifest сами по себе не заменяют финальную проверку APK: общий verifier
+сверяет length, SHA-256, package, version и точную signing certificate identity.
+
+Provider WebView при выходе выполняет PlayerJS `pause`, затем
+`CookieManager.flush()`. Это сохраняет состояние только во внутреннем профиле WebView;
+cookie-данные не экспортируются в native/OkHttp, updater или журналы.
+
 Updater не может установить APK тихо. Если permission unknown-sources не выдан, Android
 сначала открывает системные настройки. В любом случае финальная установка требует
-явного OS confirmation пользователя. Local unit/lint/build integration pass для `0.5.0`
-зелёный, но newer-version download и runtime-прогон Package Installer на TV ещё pending.
+явного OS confirmation пользователя. Final local canonical pass для `0.5.1` —
+82 suites / 393 tests, 0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
+Newer-version download и runtime-прогон Package Installer на TV ещё pending.
 
 ## Repository hygiene
 

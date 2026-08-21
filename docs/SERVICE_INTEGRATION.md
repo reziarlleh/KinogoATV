@@ -1,6 +1,6 @@
 # Интеграция с Kinogo
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Граница интеграции
 
@@ -112,6 +112,36 @@ media requests не входят в эту cookie-сессию и не насл�
 Cookie jar разделён по origin. Cookies и password POST нельзя переносить через cross-origin
 redirect. При смене зеркала `KinogoSessionManager` входит на новом origin сохранёнными
 credentials.
+
+Playback provider cookies не входят в эту DLE cookie-session. Provider WebView хранит только
+собственное first-party browser state; Cinemar native grant от 21.08.2026 подтверждён без
+cookies и выполняется отдельным no-cookie exact-origin клиентом.
+
+### Live playback snapshot 2026-08-21
+
+У Cinemar сохранились вызов `Cinemar({...})` и декодируемый `#2` playlist envelope, но leaf
+больше не обязан содержать готовый media URL. Новая browser-visible форма содержит
+placeholder `file` и opaque `data`. Один выбранный leaf обменивается JSON-string POST на
+same-origin `/api/playlist/load`; ответ содержит HLS grant. На проверенном сериале было 45
+таких leaves, поэтому приложение не выполняет eager hydration всего дерева.
+
+Authenticated detail текущего сервиса возвращает player document непосредственно на
+непрозрачном runtime route exact host `cinemar.cc`, а не обязательно на публичном
+`/embed/...`. Это уже discovered player document, не новый общий route allowlist. Discovery
+остаётся strict exact-host `/embed/...`; runtime document допускается отдельной проверкой
+только для exact HTTPS `cinemar.cc`, non-root/non-`/api/`, без query/fragment/userinfo и
+нестандартного порта. Старый общий validator отклонял этот flow как
+`INVALID_EMBED_ADDRESS`.
+
+`CinemarGrantClient` принимает только exact origin/path, не использует cookie jar, не следует
+redirect, не повторяет POST после transport failure, ограничивает JSON 512 KiB и повторно
+проверяет HTTPS/public-DNS для media/subtitle. Endpoint всегда строится как fixed same-origin
+`/api/playlist/load`, а не берётся из HTML. Opaque token принадлежит session-owned resolver
+и исчезает вместе с media plan.
+
+На KIVI Android TV 14 этот current contract подтвердил native selector Cinemar с
+озвучками, сезонами 1–4 и сериями для «Далеко во Вселенной», затем Media3 S2E5 с
+продвижением 11:01 → 11:39. Exact runtime path, token и media URL в evidence не записаны.
 
 ## Каталог, фильтры и поиск
 

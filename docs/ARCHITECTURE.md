@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Цели архитектуры
 
@@ -132,6 +132,13 @@ query-aware preload для всех трёх лент: следующая стр
 или Catalog на том же origin прежние карточки и controls остаются видимыми до успешной
 замены и при transient failure; Search и любая смена origin очищают старую выдачу.
 
+Root также владеет stable ID последней сфокусированной карточки отдельно для Home,
+Catalog, Search, Bookmarks и History. Общая сетка восстанавливает preferred ID только если
+он ещё присутствует в текущей identity; иначе применяется обычный first-item/input focus.
+Append не сбрасывает preferred target, а смена category/filter/query обнуляет только ID
+соответствующей ленты. Поэтому Details Back возвращает не только destination/state, но и
+точную non-first карточку.
+
 Начальная загрузка имеет явный приоритет. После первой страницы Home автоматически цепляет
 только строго возрастающие `nextPage`, пока `distinctBy(CatalogItem::id)` не даст минимум
 18 карточек (`3 × 6`) либо сервер не исчерпает страницы. Невидимого прогрева Catalog больше
@@ -180,8 +187,8 @@ password store нет.
 ```mermaid
 flowchart TD
     A["Play / Continue"] --> B["Fresh detail page"]
-    B --> C["Direct media + iframe candidates"]
-    C --> D["ProviderEmbedDocumentClient"]
+    B --> C["Direct media + discovered player offers"]
+    C --> D["ProviderEmbedDocumentClient + staged URL policy"]
     D --> E["Cinemar / Collaps native adapters"]
     E --> F["PlaybackMediaPlan"]
     C --> G["Validated web fallbacks"]
@@ -196,6 +203,22 @@ flowchart TD
 
 Все media/embed/subtitle URL живут только в памяти подготовленной сессии. История сохраняет
 стабильный выбор и позицию, но не URL.
+
+Cinemar разделяет URL policy по стадии. Новый offer проходит только exact-host
+`/embed/...` discovery. Уже найденный authenticated player document может использовать
+непрозрачный runtime path exact `cinemar.cc`; `validatedPlayerDocumentUri` допускает только
+non-root/non-`/api/` HTTPS path без query/fragment/userinfo и нестандартного порта. Fixed
+same-origin `/api/playlist/load` строится отдельно и не наследуется из runtime route. При
+same-origin redirect native config остаётся связан с исходным validated offer; explicit
+Web fallback использует validated resolved document.
+
+`PlaybackMediaPlan` может владеть optional `PlaybackMediaUrlResolver`. Cinemar использует
+его для session-owned opaque leaf: mapper кладёт в variant только случайную локальную URI,
+а Media3 `ResolvingDataSource` лениво получает HLS при первом open. Resolver memoize-ит одну
+попытку на leaf, не является global singleton и освобождается вместе с plan, поэтому token не
+попадает в persistent domain model и не переживает playback session. Grant client не
+переносит cookies, не следует redirect и не повторяет POST после неоднозначного transport
+failure; один success/failure memoize-ится внутри plan.
 
 `PlaybackMediaPlan` также владеет последовательностью эпизодических координат. Переходы
 Previous/Next сортируют реально существующие варианты по сезону и серии для текущих
@@ -243,9 +266,12 @@ numeric-only записи через строго ограниченные от�
 ### Обновления и remote bootstrap
 
 `AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
-`GitHubReleaseUpdateClient` принимает только canonical stable Release/asset, а
-`ApkUpdateVerifier` до installer сверяет package/version/signing identity. APK живёт в app cache;
-финальная установка всегда требует системного confirmation.
+`DefaultAppUpdateClientFactory` сначала проверяет до четырёх APK-signer-authenticated signed
+manifest endpoints, затем использует `GitHubReleaseUpdateClient` как fallback. Signed payload
+задаёт exact version/name/size/SHA/expiry и до четырёх HTTPS APK locations; публичный ключ
+берётся из сертификата установленного APK. `ApkUpdateVerifier` до installer повторно сверяет
+package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
+системного confirmation.
 
 `MirrorBootstrapClient` читает bounded exact-schema `config/mirrors.json` с operator-controlled
 GitHub raw path. Manifest не подписан и потому только добавляет quarantined discovery
@@ -260,8 +286,8 @@ candidates в `MirrorRegistry`; принятие origin остаётся за ex
 | История, библиотека, зеркала, TV-настройки | DataStore `kinogo_tv_state` | Между запусками |
 | Cookies | `KinogoSessionHttpClient`, раздельно по origin | Текущий процесс/сессия |
 | Registration rules/form/CAPTCHA/input | Память `KinogoRegistrationApi`/Compose `remember` | До accept/submit/refresh/dismiss |
-| Каталог, details, UI selection | Compose state в `KinogoAppRoot` | Текущая composition |
-| Prepared media/embed URLs | Redacted in-memory session | Только до закрытия/refresh плеера |
+| Каталог, details, UI selection и per-destination focused IDs | Compose state в `KinogoAppRoot` | Текущая composition |
+| Prepared media/embed URLs и Cinemar grant token | Redacted session-owned media plan | Только до закрытия/refresh плеера |
 | Verified update APK | App-private cache `updates/` | До замены/очистки app cache |
 | Серверные статусы/избранное | HTML-сервис + локальный outbox | Синхронизируемые |
 
@@ -271,6 +297,8 @@ device-bound.
 ## Domain-инварианты
 
 - `CatalogItem.id` стабилен в пределах адаптера; `relativePath` host-independent.
+- Preferred poster focus принадлежит конкретной destination/feed identity и сбрасывается при
+  смене её category/filter/query, но не при обычном append или Details round-trip.
 - Film и episodic variants не смешиваются в одном `PlaybackMediaPlan`.
 - Комбинация source/season/episode/voiceover/quality уникальна.
 - Для series сезон и серия либо присутствуют вместе, либо отсутствуют вместе.
@@ -293,6 +321,9 @@ device-bound.
   совпасть с текущими generation и origin.
 - Update APK до Package Installer обязан пройти release digest/package/version/signer
   verification; установка остаётся системным user-confirmed действием.
+- Cinemar discovery `/embed/...`, already discovered exact-host runtime document и fixed
+  `/api/playlist/load` — три разные policy; runtime validator нельзя использовать как общий
+  provider/API allowlist.
 
 ## Точки расширения
 

@@ -8,6 +8,46 @@ import org.junit.Test
 
 class TvPosterGridTest {
     @Test
+    fun `return restores the same poster by stable id`() {
+        assertEquals(
+            7,
+            restoredPosterGridFocusIndex(
+                preferredItemId = "selected",
+                itemIds = listOf("0", "1", "2", "3", "4", "5", "6", "selected", "8"),
+                requested = true,
+            ),
+        )
+        assertEquals(
+            null,
+            restoredPosterGridFocusIndex(
+                preferredItemId = "missing",
+                itemIds = listOf("0", "1"),
+                requested = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `recreated origin does not replace a non-first stable target with first poster`() {
+        val itemIds = listOf("first", "1", "2", "3", "4", "5", "6", "selected")
+
+        assertFalse(
+            shouldRequestFirstPosterFocus(
+                requestInitialFocus = true,
+                preferredItemId = "selected",
+                itemIds = itemIds,
+            ),
+        )
+        assertTrue(
+            shouldRequestFirstPosterFocus(
+                requestInitialFocus = true,
+                preferredItemId = "removed",
+                itemIds = itemIds,
+            ),
+        )
+    }
+
+    @Test
     fun `append keeps an in-flight focus move when target remains present`() {
         assertFalse(
             shouldCancelPosterGridFocusMove(

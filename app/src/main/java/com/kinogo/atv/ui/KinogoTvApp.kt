@@ -49,6 +49,7 @@ import com.kinogo.atv.ui.model.RegistrationUiModel
 import com.kinogo.atv.ui.model.SettingSectionUiModel
 import com.kinogo.atv.ui.model.TvDestination
 import com.kinogo.atv.ui.screens.CatalogScreen
+import com.kinogo.atv.ui.screens.AboutDialog
 import com.kinogo.atv.ui.screens.DetailsScreen
 import com.kinogo.atv.ui.screens.BookmarksScreen
 import com.kinogo.atv.ui.screens.HistoryScreen
@@ -59,6 +60,7 @@ import com.kinogo.atv.domain.CatalogBrowseFilters
 import com.kinogo.atv.domain.CatalogCategory
 import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.AccountConnectionState
+import com.kinogo.atv.domain.LibraryFilter
 import com.kinogo.atv.domain.VideoQualityPreference
 import com.kinogo.atv.domain.WatchStatus
 
@@ -129,6 +131,15 @@ fun KinogoTvApp(
     searchLoading: Boolean = false,
     searchError: String? = null,
     searchHasMore: Boolean = false,
+    searchQuery: String = "",
+    recentSearchQueries: List<String> = emptyList(),
+    searchFocusedItemId: String? = null,
+    searchResultsQuery: String? = null,
+    homeFocusedItemId: String? = null,
+    catalogFocusedItemId: String? = null,
+    bookmarksFocusedItemId: String? = null,
+    historyFocusedItemId: String? = null,
+    bookmarksFilter: LibraryFilter = LibraryFilter.ALL,
     useRemoteCatalog: Boolean = false,
     onPlayRequested: (PlaybackSelectionUiModel) -> Unit = {},
     onCatalogLoadMore: () -> Unit = {},
@@ -140,7 +151,15 @@ fun KinogoTvApp(
     onDetailsRequested: (String) -> Unit = {},
     onCatalogCategorySelected: (CatalogCategory) -> Unit = {},
     onCatalogFiltersChanged: (CatalogBrowseFilters) -> Unit = {},
+    onSearchInputChanged: (String) -> Unit = {},
     onSearchQueryChanged: (String) -> Unit = {},
+    onSearchCommitted: (String) -> Unit = {},
+    onSearchFocusedItemChanged: (String) -> Unit = {},
+    onHomeFocusedItemChanged: (String) -> Unit = {},
+    onCatalogFocusedItemChanged: (String) -> Unit = {},
+    onBookmarksFocusedItemChanged: (String) -> Unit = {},
+    onHistoryFocusedItemChanged: (String) -> Unit = {},
+    onBookmarksFilterSelected: (LibraryFilter) -> Unit = {},
     onSearchLoadMore: () -> Unit = {},
     onFavoriteToggle: (String) -> Unit = {},
     onWatchStatusChange: (String, WatchStatus?) -> Unit = { _, _ -> },
@@ -178,6 +197,7 @@ fun KinogoTvApp(
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     var selectedDetailsId by rememberSaveable { mutableStateOf(initialDetailsId) }
     var showExitConfirmation by rememberSaveable { mutableStateOf(false) }
+    var showAboutDialog by rememberSaveable { mutableStateOf(false) }
     var suppressInitialContentFocus by remember {
         mutableStateOf(initialDetailsId == null)
     }
@@ -230,6 +250,7 @@ fun KinogoTvApp(
             Row(modifier = Modifier.fillMaxSize()) {
                 KinogoNavigationRail(
                     selected = destination,
+                    onAboutRequested = { showAboutDialog = true },
                     onSelected = {
                         suppressInitialContentFocus = false
                         selectedDetailsId = null
@@ -273,6 +294,8 @@ fun KinogoTvApp(
                                 errorMessage = homeError,
                                 onRetry = onHomeRetry,
                                 requestInitialFocus = !suppressInitialContentFocus,
+                                lastFocusedItemId = homeFocusedItemId,
+                                onFocusedItemChanged = onHomeFocusedItemChanged,
                             )
 
                             TvDestination.Catalog -> CatalogScreen(
@@ -290,15 +313,24 @@ fun KinogoTvApp(
                                 onCategorySelected = onCatalogCategorySelected,
                                 onFiltersChanged = onCatalogFiltersChanged,
                                 requestInitialFocus = !suppressInitialContentFocus,
+                                lastFocusedItemId = catalogFocusedItemId,
+                                onFocusedItemChanged = onCatalogFocusedItemChanged,
                             )
 
                             TvDestination.Search -> SearchScreen(
                                 catalog = searchResults,
+                                query = searchQuery,
+                                recentQueries = recentSearchQueries,
+                                lastFocusedResultId = searchFocusedItemId,
+                                resultsQuery = searchResultsQuery,
                                 onOpenDetails = ::openDetails,
                                 useRemoteResults = useRemoteCatalog,
                                 isLoading = searchLoading,
                                 errorMessage = searchError,
+                                onInputChanged = onSearchInputChanged,
                                 onQueryChanged = onSearchQueryChanged,
+                                onQueryCommitted = onSearchCommitted,
+                                onFocusedResultChanged = onSearchFocusedItemChanged,
                                 hasMore = searchHasMore,
                                 onLoadMore = onSearchLoadMore,
                                 requestInitialFocus = !suppressInitialContentFocus,
@@ -307,6 +339,11 @@ fun KinogoTvApp(
                             TvDestination.Favorites -> BookmarksScreen(
                                 bookmarks = bookmarks,
                                 onOpenDetails = ::openDetails,
+                                selectedFilter = bookmarksFilter,
+                                onFilterSelected = onBookmarksFilterSelected,
+                                requestInitialFocus = !suppressInitialContentFocus,
+                                lastFocusedItemId = bookmarksFocusedItemId,
+                                onFocusedItemChanged = onBookmarksFocusedItemChanged,
                             )
 
                             TvDestination.History -> HistoryScreen(
@@ -316,6 +353,8 @@ fun KinogoTvApp(
                                         ?: run { selectedDetailsId = contentId }
                                 },
                                 requestInitialFocus = !suppressInitialContentFocus,
+                                lastFocusedItemId = historyFocusedItemId,
+                                onFocusedItemChanged = onHistoryFocusedItemChanged,
                             )
 
                             TvDestination.Settings -> SettingsScreen(
@@ -341,9 +380,7 @@ fun KinogoTvApp(
                                 onRegistrationSubmit = onRegistrationSubmit,
                                 appUpdate = appUpdate,
                                 onUpdateAction = onUpdateAction,
-                                appVersionName = appVersionName,
-                                onDonateOpen = onDonateOpen,
-                                onRepositoryOpen = onRepositoryOpen,
+                                onAboutOpen = { showAboutDialog = true },
                                 onSettingSelected = onSettingSelected,
                                 reduceMotion = reduceMotion,
                                 requestInitialFocus = !suppressInitialContentFocus,
@@ -357,6 +394,14 @@ fun KinogoTvApp(
                 ExitConfirmationDialog(
                     onStay = { showExitConfirmation = false },
                     onExit = onExitConfirmed,
+                )
+            }
+            if (showAboutDialog) {
+                AboutDialog(
+                    versionName = appVersionName,
+                    onDonate = onDonateOpen,
+                    onRepository = onRepositoryOpen,
+                    onDismiss = { showAboutDialog = false },
                 )
             }
         }

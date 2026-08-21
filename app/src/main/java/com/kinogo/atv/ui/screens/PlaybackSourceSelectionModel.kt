@@ -161,8 +161,8 @@ internal object PlaybackSourceSelectionModel {
         require(plan.sourceOptions.any { it.id == sourceId }) {
             "Unknown playback source"
         }
-        return PlaybackMediaPlan(
-            plan.variants.filter { it.sourceId == sourceId } +
+        return plan.copy(
+            variants = plan.variants.filter { it.sourceId == sourceId } +
                 plan.variants.filterNot { it.sourceId == sourceId },
         )
     }

@@ -1,50 +1,63 @@
 # Текущее состояние проекта
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Краткий итог
 
-В рабочем дереве интегрируется `0.5.0`: регистрация через same-origin DLE-форму и image
-CAPTCHA без обхода, quarantined remote bootstrap зеркал, проверяемый GitHub Release updater
-с обязательным системным подтверждением, единая resume-policy, bounded refresh истёкшего
-playback source, исправление перехода через границу сезона и обновлённый TV focus/settings
-контракт. Добавлены About/disclaimer, exact GitHub/Donate.Stream actions и CI workflow.
+В рабочем дереве готовится `0.5.1` (code 15). Native Cinemar flow адаптирован к текущему
+authenticated contract: already discovered player document может находиться на exact-host
+runtime route вместо `/embed/...`, а конечный HLS лениво запрашивается только для выбранного
+leaf fixed same-origin POST-ом на `/api/playlist/load`. Добавлены истинный Back в исходный раздел, восстановление
+Search query/results/focus, строка до 10 последних запросов, вход в About из
+первой карточки Settings и focusable rail logo, а также PlayerJS pause-before-dispose
+для same-profile Web resume.
 
-Это **validation candidate C-006**, а не новый полный playback baseline. Полный локальный
-unit/lint/build pass завершён, финальный stable-signed Release APK проверен и установлен
-поверх существующей установки на X96Max Plus Ultra Android TV 14 с сохранением данных.
-Debug-smoke на KIVI ранее подтвердил focus/settings/About и короткий playback/resume-return.
-Application source зафиксирован commit `6567088`; GitHub Actions/публичный Release,
-updater-live и расширенный playback pass ещё не зафиксированы. B-001 остаётся последним
-полным playback baseline.
+Updater переведён на первичный signed multi-endpoint manifest с проверкой публичным
+ключом installed APK signer; strict GitHub Release API остался fallback. Default
+metadata transports — GitHub Pages и jsDelivr; планируемые APK transports — Pages,
+best-effort `ghfast.top`, best-effort `ghproxy.net` и direct Release. Пока не завершены
+release/deployment/live checks, ни один из них не считается подтверждённым. Operator-owned
+non-GitHub storage ещё нет.
+
+Это **validation candidate C-007**, а не rollback baseline. Для текущего рабочего дерева
+завершены локальный canonical Gradle pass, проверка stable-signed APK/подписанного manifest
+и аппаратный native Cinemar/History pass на KIVI Android TV 14. Final source commit, CI,
+GitHub Release/Pages/jsDelivr publication и оставшиеся Search/Web/updater/player сценарии
+ещё **PENDING**. C-006 / `0.5.0` сохраняет ранее записанный build/device evidence; B-001
+остаётся последним полным playback baseline.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-006 / 0.5.0 validation** |
-| Application source commit | `6567088` (`Prepare KinogoATV 0.5.0`) |
+| Candidate | **C-007 / 0.5.1 validation** |
+| Application source commit | **PENDING**; рабочее дерево ещё не является rollback point |
 | Application ID | `com.kinogo.atv` |
-| Version code | `14` |
-| Version name | `0.5.0` |
+| Version code | `15` |
+| Version name | `0.5.1` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
-| Подпись APK | стабильный локальный ключ; APK Signature Scheme v2 verified |
+| Подпись APK | stable signing identity; локально v2 true, certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
 | Baseline/release tag | не создавался; validation pending |
 
-Проверенный финальный artifact: `dist/KinogoATV-0.5.0-code14.apk`, **38 140 638 bytes**.
-
-SHA-256:
-`3650C44B40A7AC066F98B597E0831BB800512CA5695EBD554DDD5620E15ED52B`.
-
-Certificate SHA-256:
+Локально проверен exact release artifact `dist/KinogoATV-0.5.1-code15.apk`:
+**38 304 478 bytes**, SHA-256
+`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`.
+Metadata: package `com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37,
+LEANBACK launcher/label `KinogoATV`; zipalign OK, v2 true, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+Это финальное локальное artifact evidence для текущего дерева, но ещё не commit-bound,
+не CI/publication evidence и не installed-TV match. Не переносить в C-007 hash или runtime
+evidence артефакта `0.5.0`.
 
-Metadata: `com.kinogo.atv`, code 14 / `0.5.0`, minSdk 28, targetSdk 37, label
-`KinogoATV`, LEANBACK launcher/banner. Zipalign успешно, v2 signature true. Application
-source — `6567088`; GitHub Release/CI всё ещё PENDING.
+Финальный локальный `update/manifest.json`: **1 273 bytes**, SHA-256
+`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`; payload code 15 /
+`0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
+(18 ноября 2026 года, 06:40:54 UTC), четыре download URLs и exact APK size/hash выше.
+Envelope/contents проверены локально; commit, Release asset и live Pages/jsDelivr deployment
+ещё **PENDING**.
 
 ## Known-good baseline и откат
 
@@ -74,30 +87,60 @@ Rollback APK допустим только с совместимой подпи�
 
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | C-006 final Release TV smoke passed | X96 cold 1023 ms, initial Home rail focus, no FATAL/ANR |
-| Android TV launcher | Работает | Label `KinogoATV`, LEANBACK launcher/banner и ATV icon проверены в artifact |
-| Навигация | C-006 debug TV smoke passed | Cold start фокусирует rail; focused/selected состояния различимы; подтверждение выхода |
+| Запуск | C-007 KIVI install/launch passed | `adb install -r` на Android TV 14 сохранил пользовательские данные и `firstInstallTime` |
+| Android TV launcher | C-007 artifact metadata verified; installed runtime passed | Package/code/name/min/target/LEANBACK label, zipalign/v2/certificate проверены |
+| Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
-| Поиск | Работает; long append pending | Debounce 750 ms, immediate submit, keyboard hide, retry и paged query |
+| Поиск | C-007 state/history + TV non-first verified | `Chris`, results и вторая карточка восстановлены после Details; recent-query row verified; long append pending |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
 | Карточка | Работает | Крупный постер, полный текст, основные/status/favorite actions |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-006 basic resume-return TV smoke passed | Newest unfinished checkpoint; после ~14 с Back вернул Details с focused `Продолжить с 0:14` |
+| История | C-007 true-Back/non-first focus verified | «Далеко во Вселенной» вернулся Player → Details → History; вторая «История его служанки» восстановила `focused=true` |
 | Выбор источника | Работает | Source/voice/season/episode/quality sparse-матрица до запуска |
-| Нативный плеер | C-006 short TV smoke passed; recovery/cross-season pending | Home → Details → selector → ~14 с playback → Back/Details; bounded refresh и cross-season покрыты tests |
-| Web fallback | Работает | Явный provider-only WebView с origin boundary, TV HUD и виртуальным курсором |
+| Нативный плеер | C-007 current Cinemar runtime verified on TV | Exact-host runtime player document → native selector → lazy selected-leaf `/api/playlist/load` → Media3 S2E5 >15 с; cross-season/natural-end ещё pending |
+| Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-006 debug TV smoke passed | Switch и D-pad dropdown проверены; focus return работает |
-| Обновления | Artifact policy verified; live updater pending | Exact stable GitHub Release contract; APK metadata/hash/signer verified вручную, installer flow не проверен |
-| About | C-006 debug TV smoke passed | D-pad reachability, QR/dialog; Donate.Stream/GitHub открылись в Yandex TV browser |
-| CI | Workflow добавлен; first Node 24 rerun pending | GitHub Actions: pinned official Actions, JDK 17, SDK 37, unit/lint/assembleDebug |
+| Обновления | C-007 signed manifest verified locally; live pending | Final local envelope содержит Pages + 2 best-effort proxies + direct Release downloads; installed-signer trust, GitHub API fallback; operator-owned host pending |
+| About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
+| CI | **PENDING** | Android workflow и Pages update workflow требуют remote evidence на финальном commit |
 
-## Проверка C-006 и final artifact
+## Проверка C-007
 
-Локально на текущем рабочем дереве успешно завершена команда с задачами:
+Для текущего рабочего дерева canonical команда
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
+завершена **SUCCESS за 4 мин 27 с**: **82 suites / 393 tests**, 0 failures, 0 errors,
+0 skipped; lint — **0 errors / 22 warnings / 2 hints**. Exact release APK и final signed
+manifest проверены локально с указанными выше size/hash/metadata/signature.
+
+Аппаратный C-007 pass выполнен на KIVI `192.168.1.112`, Android TV 14. `adb install -r`
+сохранил `firstInstallTime=2026-07-26 16:42:18`. Из Истории материал «Далеко во Вселенной»
+открыл native selector Cinemar с озвучками, сезонами 1–4 и сериями; resume был 10:48.
+Media3 запустил S2E5, позиция продвинулась 11:01 → 11:39, то есть воспроизведение шло
+более 15 секунд. `OK` показал HUD без немедленной паузы; Back вернул Player → Details →
+History. Отдельный non-first test вернул вторую карточку «История его служанки» с
+`focused=true` после source/details chain и двойного Back.
+
+Web fallback bounded smoke дошёл D-pad-пультом до `Оригинальный web-плеер`
+(`Смотреть онлайн · cinemar`), открыл fullscreen WebView и чисто вернулся Back → Details →
+History. Provider playlist/position недоступны accessibility и безопасным логам, поэтому
+фактический PlayerJS resume после повторного открытия остаётся **PENDING**.
+
+Случайно изменённое при проверке состояние «Spider-Man» восстановлено адресно: кнопка снова
+`В избранное`, а после `Не смотрел` материал отсутствует в серверном разделе «Все» (10/10).
+Broad clear/uninstall не выполнялись. Search `Chris`/results и второй result
+«Рождественская неделя» после physical Back восстановлены с `focused=true`; recent-query row
+также подтверждена.
+
+Final source commit, CI, GitHub Release/Pages/jsDelivr publication и live updater остаются
+**PENDING**. До их закрытия не считать default Pages/jsDelivr URLs живыми каналами.
+
+## Предыдущая проверка C-006 и final artifact
+
+На application source C-006 / commit `6567088` была успешно завершена команда с задачами:
 
 - `testDebugUnitTest`;
 - `lintDebug`;
@@ -199,21 +242,31 @@ decline/explicit accept он подтвердил, что Down на нижней
   applied query.
 - `CatalogItem` хранит stable ID и relative path без домена. Home/Catalog/Search имеют
   независимые generation/query/items/nextPage и не смешивают страницы разных выдач.
-- Нативные адаптеры разбирают browser-visible Cinemar/Collaps contracts. Неизвестный,
-  DRM- или JavaScript-only источник нельзя маскировать под Media3.
+- Нативные адаптеры разбирают browser-visible Cinemar/Collaps contracts. Cinemar discovery
+  остаётся strict exact-host `/embed/...`, но already discovered authenticated player
+  document может иметь non-root/non-`/api/` runtime path exact `cinemar.cc`; query, fragment,
+  userinfo, non-443 и subdomains запрещены. Текущий leaf может хранить только opaque `data`;
+  exact selected leaf лениво обменивается на HLS через отдельно построенный fixed same-origin
+  `/api/playlist/load` без cookies/redirect/retry. Session-owned registry не выносит token,
+  iframe и media URL в MediaItem/log/persistence. Неизвестный, DRM- или JavaScript-only
+  источник нельзя маскировать под Media3.
 - Web fallback остаётся явным выбором пользователя; приложение не переключается в него
-  молча.
+  молча. First-party PlayerJS state и cookies живут только в изолированном WebView profile;
+  это не серверная/межустройственная синхронизация и не native checkpoint.
 - Exact playback position хранится локально. С сайтом синхронизируются account bookmarks и
   statuses, но не Media3 checkpoint.
 - Runtime проверяет встроенные/ручные зеркала и безопасные redirect targets. Remote
   `config/mirrors.json` ограничен exact GitHub raw path/schema/size/count/expiry, но не
   подписан и только добавляет четыре quarantined discovery candidates, включая
   `kinogo.family`; internet-wide crawler нет.
-- Updater доверяет не одному URL: перед Android Package Installer проверяются release
-  metadata, SHA-256, package/version и signing identity. Silent install нет, системное
-  подтверждение обязательно.
-- GitHub Actions workflow настроен для clean-clone unit/lint/assembleDebug, но его первый
-  remote run для C-006 ещё не записан. CI не имеет stable signing key и не доказывает TV UX.
+- Updater доверяет не host, а signed payload, проверенному public key installed APK
+  signer. До четырёх manifest/download URLs дают transport redundancy; GitHub Release API —
+  fallback. Перед Android Package Installer повторно проверяются SHA-256, size,
+  package/version и signing identity. Silent install нет, системное подтверждение
+  обязательно. Pages/jsDelivr/proxy transports до live-проверки считаются pending;
+  ни один из них не даёт trust без signed size/SHA и final APK checks.
+- GitHub Actions workflow настроен для clean-clone unit/lint/assembleDebug, но exact
+  remote run для C-007 ещё не записан. CI не имеет stable signing key и не доказывает TV UX.
 - Registration отдельно показывает DLE rules gate с default decline; sensitive fields
   remember-only, late responses защищены generation+origin, image CAPTCHA имеет bounded
   transport/decode. Интерактивные reCAPTCHA/hCaptcha/Turnstile не обходятся и явно
@@ -221,16 +274,15 @@ decline/explicit accept он подтвердил, что Down на нижней
 
 ## Активный фокус
 
-Следующий шаг — зафиксировать и проверить C-006 / `0.5.0`:
+Следующий шаг — зафиксировать и проверить C-007 / `0.5.1`:
 
-- завершить integration commit и получить первый GitHub Actions result на той же ревизии;
-- опубликовать проверенный artifact как exact GitHub Release asset и проверить updater
-  digest/API contract;
-- проверить live registration submit и безопасный update-to-OS-confirmation flow с реально
-  более новой версией;
-- проверить resume реального многосерийного материала, one-shot source refresh,
-  Previous/Next/auto-next через
-  границу сезона и natural completion;
-- только после полного evidence решить, становится ли C-006 новым baseline/release tag.
+- связать локально подтверждённые canonical results, exact APK и signed manifest с final
+  source commit;
+- получить CI для exact commit, опубликовать exact Release asset, развернуть
+  Pages/jsDelivr и проверить metadata/APK URLs и update до OS confirmation;
+- на реальном TV завершить About и доказать actual web-to-web PlayerJS resume; запуск WebView
+  и чистый Back уже проверены, но playlist/position недоступны safe evidence;
+- не назначать C-007 baseline, пока не закрыты обычные playback/recovery/cross-season
+  регрессии и новые сценарии.
 
 Подробная очередь — в [`ROADMAP.md`](ROADMAP.md).

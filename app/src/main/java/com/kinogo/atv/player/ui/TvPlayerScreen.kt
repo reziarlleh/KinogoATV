@@ -179,8 +179,10 @@ fun TvPlayerScreen(
     val reducerConfig = remember(preferences.seekStepMs) {
         preferences.toPlayerReducerConfig()
     }
-    val mediaSourceFactory = remember {
-        DefaultMediaSourceFactory(SafePlaybackDataSources.createFactory())
+    val mediaSourceFactory = remember(mediaPlan.mediaUrlResolver) {
+        DefaultMediaSourceFactory(
+            SafePlaybackDataSources.createFactory(mediaPlan.mediaUrlResolver),
+        )
     }
 
     // Do not key by initialPositionMs: checkpoint persistence may update that value while this

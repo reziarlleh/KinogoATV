@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,52 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-007 — 0.5.1 validation
+
+- Статус: local automated/artifact/manifest и focused KIVI native/navigation evidence passed;
+  source commit, CI, publication и extended TV evidence **PENDING**
+- Application source commit: **PENDING**; текущий кандидат ещё не является rollback point
+- Metadata in source: version code 15, version `0.5.1`, minSdk 28, targetSdk 37
+- APK: `dist/KinogoATV-0.5.1-code15.apk`, 38 304 478 bytes, SHA-256
+  `3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`; package
+  `com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK launcher/label
+  `KinogoATV`, zipalign OK, v2 true,
+  certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Source scope: lazy Cinemar `/api/playlist/load` grant resolution; true Back и
+  Search query/results/focus restoration; до 10 локальных recent searches; About первым
+  в Settings и на focusable rail logo; first-party PlayerJS resume с pause-before-dispose;
+  signed multi-endpoint update manifest с GitHub Release API fallback.
+- Protective source evidence: `CinemarNativeSourceAdapterTest`, `CinemarGrantClientTest`,
+  `CinemarDeferredGrantRegistryTest`, `CinemarDeferredGrantPlaybackPlanTest`,
+  `SearchHistoryStoreTest`, `KinogoTvInitialFocusTest`, `KinogoNavigationRailTest`,
+  `SignedUpdateManifestParserTest`, `SignedManifestUpdateClientTest` и
+  `FallbackAppUpdateClientTest`.
+- Automated: final local canonical command `testDebugUnitTest lintDebug assembleDebug
+  assembleDebugAndroidTest assembleRelease` — SUCCESS за 4 мин 27 с; 82 suites / 393 tests,
+  0 failures, 0 errors, 0 skipped; lint 0 errors / 22 warnings / 2 hints. Exact source
+  commit и CI — **PENDING**.
+- Final local signed manifest: `update/manifest.json`, 1 273 bytes, SHA-256
+  `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
+  `0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
+  (18 ноября 2026 года, 06:40:54 UTC), четыре URLs и exact APK size/hash выше. Это
+  локальное evidence, не live release evidence.
+- Publication: signed manifest/Pages workflow подготовлены в source; Pages/jsDelivr
+  metadata, exact Release asset, best-effort proxy downloads и live update ещё не подтверждены.
+- Runtime: KIVI `192.168.1.112`, Android TV 14; `install -r` сохранил
+  `firstInstallTime=2026-07-26 16:42:18`. Current Cinemar runtime route дал native selector
+  с озвучками/сезонами 1–4/сериями, resume 10:48 и Media3 S2E5 11:01 → 11:39. `OK` открыл
+  HUD без паузы; Player → Details → History прошёл. Non-first History и Search cards
+  восстановили точный focus; Web resume и updater до Android OS confirmation ещё pending.
+- Device-data cleanup: случайно изменённый «Spider-Man» восстановлен адресно — кнопка
+  `В избранное`, а после `Не смотрел` материал отсутствует в серверном «Все» (10/10);
+  broad clear/uninstall не выполнялись.
+- Rollback: для интеграционного 0.5.x state — C-006 / `6567088`; для полного
+  playback — B-001 / `baseline-0.3.3-dev`.
+
+C-007 не заменяет C-006 или B-001 как точку отката, пока не зафиксированы final commit,
+publication и расширенный runtime pass.
 
 ### C-006 — 0.5.0 validation
 
@@ -512,6 +558,104 @@ C-002 нельзя переименовывать в B-002 и помечать b
   explicit accept и scroll-boundary возврат на `Не принимаю` подтверждены, test package
   удалён. Live creation/login новой учётной записи **PENDING**.
 - Rollback point: C-005 исключает registration целиком; для остальных подсистем B-001/C-005.
+
+### R-020 — Cinemar перестал давать native source и оставлял только Web fallback
+
+- Статус: Resolved in C-007; final local canonical pass + real KIVI native playback.
+- Обнаружено: 21 августа 2026 года по пользовательскому симптому «только
+  альтернативный web-плеер».
+- Affected: C-006 / `0.5.0` и прежний Cinemar parser; first-bad в коде нет — сломался
+  изменившийся provider contract.
+- Last-known-good: C-006 ранее запускал direct Cinemar media variants, но дата
+  provider switch неизвестна; полный playback rollback — B-001.
+- Воспроизведение: authenticated Kinogo detail возвращает exact `cinemar.cc` player
+  document на непрозрачном runtime route, а не обязательно публичный `/embed/...`. Его
+  browser-visible playlist содержит leaf `{id,title,title2,data,file}`; конечный HLS
+  появляется только после POST selected opaque `data` на `/api/playlist/load`.
+- Первопричина: старый parser/grant использовал один `/embed/...` validator и отклонял
+  текущий exact-host runtime document как `INVALID_EMBED_ADDRESS`. Предыдущая часть C-007
+  уже научилась deferred leaf, но без отдельной player-document policy реальный TV flow
+  всё ещё не мог открыть grant.
+- Исправление: discovery неизвестного предложения остаётся strict `/embed/...`, а уже
+  найденный Cinemar player document принимает отдельный `validatedPlayerDocumentUri` только
+  на exact HTTPS host `cinemar.cc`: non-root, non-`/api/`, без query/fragment/userinfo и
+  без нестандартного порта. Grant endpoint конструируется отдельно как фиксированный
+  same-origin `/api/playlist/load`; cookies, redirect и retry запрещены, non-HLS fail-closed.
+  Deferred token остаётся в session-owned registry, Media3 получает случайную local reference.
+- Protective tests: `CinemarEmbedResolverTest`, `KinogoPlaybackPreparationServiceTest`,
+  `CinemarNativeSourceAdapterTest`, `CinemarGrantClientTest`,
+  `CinemarDeferredGrantRegistryTest`, `CinemarDeferredGrantPlaybackPlanTest` и fixture
+  `movie_deferred_grant.html`.
+- Runtime verification: KIVI Android TV 14, «Далеко во Вселенной»: native Cinemar selector
+  показал озвучки, сезоны 1–4 и серии; resume 10:48, Media3 S2E5 продвинулся 11:01 → 11:39.
+  Opaque token, player path и media URL в evidence не записаны.
+- Rollback point: C-006 возвращает старый parser, но не исправляет изменившийся live
+  provider; для полного playback использовать B-001 только как source baseline.
+
+### R-021 — Back из карточки выбрасывал в Home и терял состояние Search
+
+- Статус: Resolved in C-007; final local canonical pass + History/Search non-first TV focus.
+- Обнаружено: 21 августа 2026 года по прямому замечанию пользователя.
+- Affected/last-known-good: C-006 и более ранние root recreation flows; полного
+  known-good для source-destination + exact Search focus не было.
+- Причина: после закрытия Details shell создавался с default Home, а query/results/focused
+  item частично жили внутри Search composition.
+- Исправление: root хранит `currentDestination`, query/results query, feed и focused
+  stable ID; `KinogoTvApp` получает фактический `initialDestination`. Добавлен bounded
+  `SearchHistoryStore` на 10 запросов. History пишется только по OK/Enter, голосу или
+  recent chip; dynamic debounce-строки в неё не попадают.
+- Protective tests: `SearchHistoryStoreTest`, `TvPosterGridTest`,
+  `KinogoTvInitialFocusTest` и source-level navigation guards.
+- Runtime verification: на KIVI вторая History card «История его служанки» после
+  source/details chain и Back → Details → Back → History снова имела `focused=true`.
+  В Search запрос `Chris`, его результаты и ровно вторая карточка «Рождественская неделя»
+  сохранились после Details → physical Back; эта карточка снова имела `focused=true`.
+  Горизонтальная recent-query row также подтверждена ранее.
+- Rollback point: C-006 / `6567088`; для playback — B-001.
+
+### R-022 — GitHub-only updater не имел доступного альтернативного канала
+
+- Статус: source fix в C-007; final local canonical pass; Pages/jsDelivr deployment и
+  live updater pending.
+- Обнаружено: 21 августа 2026 года; GitHub может быть недоступен в целевой сети.
+- Affected: C-006 / `0.5.0`; первый updater зависел от GitHub Release API/asset.
+- Last-known-good: нет для signed multi-transport update channel; C-006 сохранён как
+  GitHub fallback.
+- Причина: metadata и APK имели один transport/provider failure domain.
+- Исправление: primary signed multi-endpoint manifest с public key installed signer,
+  strict schema/expiry/agreement и несколькими signed download URLs; GitHub API остался
+  fallback. APK verification и Android OS confirmation не ослаблены.
+- Protective tests: `SignedUpdateManifestParserTest`, `SignedManifestUpdateClientTest`,
+  `FallbackAppUpdateClientTest`, `GitHubReleaseParserTest` и `ApkUpdatePolicyTest`.
+- Runtime verification: **PENDING** — Pages/jsDelivr metadata сейчас не считаются
+  развёрнутыми; нужны release asset, live signature/check, каждый заявленный
+  best-effort proxy download и передача Package Installer. Operator-owned non-GitHub host пока
+  отсутствует.
+- Rollback point: C-006 сохраняет GitHub-only updater; он не решает сетевую
+  недоступность и потому не является functional fix.
+
+### R-023 — Выход из Web fallback сбрасывал provider checkpoint
+
+- Статус: preventive source fix в C-007; final local canonical pass; bounded WebView
+  launch/Back smoke passed, actual provider resume pending.
+- Обнаружено: 21 августа 2026 года при разборе PlayerJS continuation contract.
+- Affected/last-known-good: C-006 Web fallback отправлял `stop`; аппаратно
+  подтверждённого web-resume baseline нет.
+- Причина: PlayerJS `stop` перематывает playback state, а не просто останавливает
+  renderer; немедленный dispose мог прервать асинхронную команду.
+- Исправление: exit command заменена на `pause`; WebView живёт до callback либо
+  bounded 750 ms grace, затем `CookieManager.flush()` фиксирует cookie state internal
+  WebView profile на диске. First-party cookies/DOM storage exact provider origin сохраняются
+  только в изолированном WebView profile; third-party cookies запрещены. Основной
+  resume остаётся штатным PlayerJS state по stable `cuid`/playlist item, а не cookie sync.
+- Protective test: `CinemarWebViewRecoveryStateTest` фиксирует `Pause` как exit command.
+- Runtime verification: D-pad selector достиг `Оригинальный web-плеер`
+  (`Смотреть онлайн · cinemar`), fullscreen WebView открылся, Back чисто вернул Details,
+  затем History. Provider playlist/position недоступны accessibility/safe logs, поэтому
+  выход/повторный вход с тем же playlist item и позицией остаётся **PENDING**.
+  Межустройственную/native-to-web синхронизацию smoke не доказывает.
+- Rollback point: C-006 возвращает affected `stop`; для native playback откатываться к
+  B-001.
 
 ## Шаблон новой записи
 

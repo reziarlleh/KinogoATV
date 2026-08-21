@@ -1,5 +1,7 @@
 package com.kinogo.atv.domain
 
+import java.io.IOException
+
 const val DEFAULT_PLAYBACK_SOURCE_ID = "primary"
 const val DEFAULT_PLAYBACK_SOURCE_LABEL = "Основной"
 
@@ -94,6 +96,17 @@ class PlaybackSubtitleTrack(
 }
 
 /**
+ * Optional session-owned resolver for local, opaque media references.
+ *
+ * Implementations must never persist or reveal provider tokens. Returning null means that the URI
+ * is an ordinary network address and should pass through unchanged.
+ */
+interface PlaybackMediaUrlResolver {
+    @Throws(IOException::class)
+    fun resolveOrNull(mediaUrl: String): String?
+}
+
+/**
  * Immutable media matrix handed to the player. Resolvers may build it from a documented provider
  * API; the player only consumes already resolved variants and never parses provider pages.
  *
@@ -102,6 +115,7 @@ class PlaybackSubtitleTrack(
  */
 data class PlaybackMediaPlan(
     val variants: List<PlaybackMediaVariant>,
+    val mediaUrlResolver: PlaybackMediaUrlResolver? = null,
 ) {
     init {
         require(variants.isNotEmpty()) { "Playback plan must contain at least one variant" }

@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
@@ -21,6 +24,7 @@ import com.kinogo.atv.ui.components.CatalogFilterBar
 import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.components.TvPosterGrid
 import com.kinogo.atv.ui.components.TvSectionTitle
+import com.kinogo.atv.ui.components.shouldRequestFirstPosterFocus
 import com.kinogo.atv.ui.model.PosterUiModel
 
 @Composable
@@ -40,10 +44,24 @@ fun CatalogScreen(
     statusLabel: String? = null,
     onRetry: () -> Unit = {},
     requestInitialFocus: Boolean = true,
+    lastFocusedItemId: String? = null,
+    onFocusedItemChanged: (String) -> Unit = {},
 ) {
     val firstFocus = remember { FocusRequester() }
-    LaunchedEffect(items.firstOrNull()?.id, requestInitialFocus) {
-        if (requestInitialFocus && items.isNotEmpty()) firstFocus.requestFocus()
+    var restorePreferredFocus by remember {
+        mutableStateOf(requestInitialFocus && lastFocusedItemId != null)
+    }
+    val itemIds = remember(items) { items.map(PosterUiModel::id) }
+    LaunchedEffect(itemIds, requestInitialFocus, lastFocusedItemId) {
+        if (
+            shouldRequestFirstPosterFocus(
+                requestInitialFocus = requestInitialFocus,
+                preferredItemId = lastFocusedItemId,
+                itemIds = itemIds,
+            ) && items.isNotEmpty()
+        ) {
+            firstFocus.requestFocus()
+        }
     }
 
     Column(
@@ -102,6 +120,12 @@ fun CatalogScreen(
             modifier = Modifier.fillMaxSize(),
             firstFocus = firstFocus,
             pagingKey = selectedCategory to filters,
+            preferredFocusItemId = lastFocusedItemId,
+            requestPreferredFocus = restorePreferredFocus,
+            onFocusedItemChanged = { contentId ->
+                restorePreferredFocus = false
+                onFocusedItemChanged(contentId)
+            },
         )
     }
 }

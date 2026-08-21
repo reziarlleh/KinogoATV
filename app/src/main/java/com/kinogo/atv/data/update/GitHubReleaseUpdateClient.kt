@@ -15,8 +15,10 @@ import okhttp3.Response
 internal class GitHubReleaseUpdateClient(
     private val client: OkHttpClient = defaultClient(),
     private val latestReleaseUrl: String = LATEST_RELEASE_URL,
-) {
-    suspend fun check(currentVersionCode: Long): AppUpdateCheckResult = withContext(Dispatchers.IO) {
+) : AppUpdateClient {
+    override val channel: AppUpdateReleaseChannel = AppUpdateReleaseChannel.GITHUB_RELEASE
+
+    override suspend fun check(currentVersionCode: Long): AppUpdateCheckResult = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(latestReleaseUrl)
             .header("Accept", "application/vnd.github+json")
@@ -33,10 +35,11 @@ internal class GitHubReleaseUpdateClient(
         }
     }
 
-    suspend fun download(
+    override suspend fun download(
         destinationDirectory: File,
         release: AppUpdateRelease,
     ): File = withContext(Dispatchers.IO) {
+        require(release.channel == channel) { "Wrong update channel" }
         require(destinationDirectory.mkdirs() || destinationDirectory.isDirectory) {
             "Update cache is unavailable"
         }

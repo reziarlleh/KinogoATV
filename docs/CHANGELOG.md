@@ -7,6 +7,98 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [0.5.1] — 2026-08-21 (validation candidate)
+
+### Native playback и Web fallback
+
+- Адаптер Cinemar обновлён под текущий browser-visible контракт: playlist leaf с
+  непрозрачным `data` лениво обменивается same-origin JSON-string POST на
+  `/api/playlist/load` только при запуске выбранной единицы.
+- Введён session-owned bounded grant registry с локальными случайными Media3 URI,
+  single-flight/memoization одного leaf и fail-closed HLS-only resolution. Grant token,
+  iframe и transient media URL не попадают в логи и persistence; grant transport не переносит
+  cookies и не следует redirect.
+- Исправлен актуальный authenticated Cinemar flow: карточка может вернуть exact-host
+  `cinemar.cc` player document на непрозрачном runtime route, а не публичный `/embed/...`.
+  Для уже найденного player document введена отдельная строгая проверка exact HTTPS host:
+  запрещены root, `/api/`, query, fragment, userinfo и нестандартный порт; discovery новых
+  предложений по-прежнему допускает только `/embed/...`.
+- Deferred grant всегда строит отдельно фиксированный same-origin `/api/playlist/load` и
+  выполняется без cookies, redirect и retry. Прежний общий `/embed/` validator отклонял
+  текущий runtime route как `INVALID_EMBED_ADDRESS`, из-за чего оставался только web fallback.
+- Explicit Cinemar Web fallback сохраняет first-party PlayerJS state в своём
+  WebView profile. Back теперь отправляет `pause` и ждёт callback перед dispose;
+  после чего вызывает `CookieManager.flush()` только для internal WebView profile.
+  `stop`, сбрасывающий provider checkpoint, не используется. Это не межустройственная
+  синхронизация и не перенос native checkpoint.
+
+### Back, поиск и About
+
+- Player Back по-прежнему ведёт в Details, а Details Back теперь возвращает в
+  исходный Home/Catalog/Search/Library/History, а не всегда в Home.
+- Root хранит stable ID последней карточки отдельно для Home, Catalog, Search, Bookmarks и
+  History; при возврате сетка восстанавливает non-first item, если он ещё есть в той же
+  feed identity. Смена category/filter/query адресно сбрасывает только соответствующий ID.
+- Search query, уже загруженная выдача и stable ID фокуса живут на root-уровне,
+  поэтому возврат из карточки восстанавливает прежний запрос, результаты и
+  последнюю активную карточку.
+- До десяти последних подтверждённых поисков дедуплицируются, сохраняются локально
+  и показываются в одной горизонтальной строке. Запись делается только после
+  OK/Enter, голосового результата или выбора chip; debounce-выдача не засоряет history.
+- Карточка «О программе» перенесена наверх Settings и увеличена. Логотип в
+  navigation rail стал отдельным D-pad action для открытия того же About dialog.
+
+### Подписанный многоканальный updater
+
+- Updater теперь в первую очередь читает до четырёх signed manifest endpoints.
+  Envelope проверяется public key установленного APK; payload связывает
+  version/name/code, exact asset size/SHA-256, срок не более 90 дней и набор HTTPS
+  download mirrors.
+- Default metadata URLs настроены на GitHub Pages и jsDelivr CDN; дополнительные
+  endpoints можно зашить в APK через `KINOGO_UPDATE_MANIFEST_URLS`. Если подписанные endpoints
+  недоступны, остаётся strict GitHub Release API fallback.
+- Для C-007 планируются четыре signed download URLs: Pages, best-effort
+  `ghfast.top`, best-effort `ghproxy.net` и direct GitHub Release. Прокси не являются
+  trusted: их ответ принимается только после signed size/SHA-256 и повторных
+  package/version/signer checks. Operator-owned non-GitHub storage ещё не настроено.
+- Даже после верной manifest-подписи APK повторно проходит existing
+  package/version/code/size/SHA/signer checks, а установка остаётся явным
+  системным диалогом Android.
+
+### Validation status
+
+- Source metadata: code 15 / `0.5.1`, minSdk 28, targetSdk 37.
+- Добавлены fixtures и unit/contract guards для deferred Cinemar parser/grant transport/
+  session registry, истории поиска, Back/focus и signed/fallback updater policy.
+- Final local canonical run
+  `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`:
+  **SUCCESS за 4 мин 27 с**, **82 suites / 393 tests**, 0 failures, 0 errors, 0 skipped;
+  lint **0 errors / 22 warnings / 2 hints**.
+- Exact local release APK `dist/KinogoATV-0.5.1-code15.apk`: **38 304 478 bytes**,
+  SHA-256 `3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`;
+  package `com.kinogo.atv`, code 15 / `0.5.1`,
+  minSdk 28, targetSdk 37, LEANBACK launcher/label `KinogoATV`, zipalign OK, v2 true,
+  certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+- Final local `update/manifest.json`: **1 273 bytes**, SHA-256
+  `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
+  `0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
+  (18 ноября 2026 года, 06:40:54 UTC) и четыре download URLs.
+- Stable-signed APK установлен через `adb install -r` на KIVI Android TV 14
+  (`192.168.1.112`) с сохранением `firstInstallTime=2026-07-26 16:42:18`. Из Истории
+  «Далеко во Вселенной» открыл native selector Cinemar с озвучками, сезонами 1–4 и
+  сериями; `Продолжить` показал 10:48, Media3 воспроизвёл S2E5 с продвижением 11:01 → 11:39.
+  `OK` показал HUD без паузы; Back вернул Player → Details → History.
+- Отдельно подтверждён non-first History focus: вторая карточка «История его служанки»
+  после source/details chain и двойного Back снова получила `focused=true`. Search non-first
+  focus ещё **PENDING**.
+- Адресно восстановлено случайно изменённое состояние «Spider-Man»: кнопка снова
+  `В избранное`, а после `Не смотрел` материал отсутствует в серверном разделе «Все» (10/10).
+- Final source commit, CI, GitHub Release и Pages/jsDelivr deployment — **PENDING**; local и
+  TV evidence не объявляют публикацию updater channel.
+- B-001 / `0.3.3-dev` остаётся последним полным playback rollback baseline; C-006 /
+  `0.5.0` сохраняет свой ранее записанный build/device evidence.
+
 ## [0.5.0] — 2026-08-15 (validation candidate)
 
 ### TV-интерфейс и продолжение просмотра

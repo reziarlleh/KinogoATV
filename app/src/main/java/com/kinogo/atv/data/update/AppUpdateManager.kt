@@ -9,8 +9,16 @@ import androidx.core.content.FileProvider
 
 internal class AppUpdateManager(
     context: Context,
-    private val client: GitHubReleaseUpdateClient = GitHubReleaseUpdateClient(),
+    private val client: AppUpdateClient = DefaultAppUpdateClientFactory.create(context),
 ) {
+    constructor(
+        context: Context,
+        additionalManifestUrls: List<String>,
+    ) : this(
+        context = context,
+        client = DefaultAppUpdateClientFactory.create(context, additionalManifestUrls),
+    )
+
     private val appContext = context.applicationContext
     private val verifier = ApkUpdateVerifier(appContext)
 

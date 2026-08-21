@@ -1,9 +1,12 @@
 package com.kinogo.atv.player
 
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.kinogo.atv.data.mirror.NetworkAddressPolicy
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.domain.PlaybackMediaUrlResolver
 import java.io.IOException
 import java.net.InetAddress
 import java.net.UnknownHostException
@@ -21,9 +24,21 @@ object SafePlaybackDataSources {
         buildClient(PublicOnlyDns())
     }
 
-    fun createFactory(): DataSource.Factory =
-        OkHttpDataSource.Factory(client)
+    @androidx.annotation.OptIn(UnstableApi::class)
+    fun createFactory(
+        mediaUrlResolver: PlaybackMediaUrlResolver? = null,
+    ): DataSource.Factory {
+        val networkFactory = OkHttpDataSource.Factory(client)
             .setUserAgent("KinogoATV/0.5 (Android TV; native player)")
+        if (mediaUrlResolver == null) return networkFactory
+        return ResolvingDataSource.Factory(
+            networkFactory,
+            ResolvingDataSource.Resolver { dataSpec ->
+                val resolved = mediaUrlResolver.resolveOrNull(dataSpec.uri.toString())
+                if (resolved == null) dataSpec else dataSpec.withUri(android.net.Uri.parse(resolved))
+            },
+        )
+    }
 
     internal fun buildClient(dns: Dns): OkHttpClient = OkHttpClient.Builder()
         .dns(dns)

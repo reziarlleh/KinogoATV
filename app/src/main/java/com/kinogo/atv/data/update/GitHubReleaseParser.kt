@@ -53,7 +53,7 @@ internal object GitHubReleaseParser {
         return if (candidate.versionCode > currentVersionCode) {
             AppUpdateCheckResult.Available(candidate)
         } else {
-            AppUpdateCheckResult.UpToDate(candidate.versionName)
+            AppUpdateCheckResult.UpToDate(candidate.versionName, candidate.versionCode)
         }
     }
 

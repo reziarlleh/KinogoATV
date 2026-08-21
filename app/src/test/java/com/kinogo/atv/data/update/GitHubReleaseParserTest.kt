@@ -15,13 +15,13 @@ class GitHubReleaseParserTest {
         assertEquals("0.5.0", release.versionName)
         assertEquals(14L, release.versionCode)
         assertEquals("a".repeat(64), release.sha256)
-        assertTrue(release.toString().contains("downloadUrl=<redacted>"))
+        assertTrue(release.toString().contains("downloadUrls=<redacted:1>"))
     }
 
     @Test
     fun `installed release is up to date`() {
         assertEquals(
-            AppUpdateCheckResult.UpToDate("0.5.0"),
+            AppUpdateCheckResult.UpToDate("0.5.0", 14),
             GitHubReleaseParser.parse(releaseJson(), currentVersionCode = 14),
         )
     }

@@ -7,6 +7,11 @@ import org.junit.Test
 
 class CinemarWebViewRecoveryStateTest {
     @Test
+    fun `leaving web fallback pauses instead of erasing provider resume state`() {
+        assertEquals(PlayerJsCommand.Pause, providerExitCommand)
+    }
+
+    @Test
     fun `ordinary load error retries on the same live WebView`() {
         val initial = CinemarWebViewRecoveryState(instanceGeneration = 4)
 

@@ -12,11 +12,10 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
@@ -27,13 +26,15 @@ import com.kinogo.atv.ui.model.AppUpdateUiPhase
 import com.kinogo.atv.ui.model.withPreferences
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertTrue
 
 class SettingsScreenDpadTest {
     @get:Rule
     val composeRule = createComposeRule()
 
     @Test
-    fun updateActionMovesDownToAboutRow() {
+    fun aboutIsTheFirstFocusedSettingsAction() {
+        var opened = false
         composeRule.setContent {
             MaterialTheme {
                 SettingsScreen(
@@ -44,17 +45,13 @@ class SettingsScreenDpadTest {
                         status = "Установлена актуальная версия",
                         actionLabel = "Проверить снова",
                     ),
+                    onAboutOpen = { opened = true },
                 )
             }
         }
 
-        composeRule.onNodeWithTag("settings-list")
-            .performScrollToNode(hasText("Проверить снова"))
-        val update = composeRule.onNodeWithText("Проверить снова")
-        update.performSemanticsAction(SemanticsActions.RequestFocus)
-        update.performKeyInput { pressKey(Key.DirectionDown) }
-
-        composeRule.onNodeWithText("О приложении").assertIsFocused()
+        composeRule.onNodeWithTag("settings-about").assertIsFocused().performClick()
+        composeRule.runOnIdle { assertTrue(opened) }
     }
 
     @Test

@@ -42,6 +42,68 @@ class KinogoPlaybackPreparationServiceTest {
     }
 
     @Test
+    fun `Cinemar native config stays bound to requested embed after safe runtime redirect`() =
+        runTest {
+            val requestedEmbed = "https://cinemar-fixture.example/embed/9010/offer"
+            val resolvedRuntimeRoute = "https://cinemar-fixture.example/runtime/player/session"
+            val calls = mutableListOf<String>()
+            val service = service(
+                ProviderDocumentTransport { uri, _ ->
+                    calls += uri.toASCIIString()
+                    when (uri.toASCIIString()) {
+                        requestedEmbed -> ProviderDocumentHttpResponse(
+                            statusCode = 302,
+                            contentType = null,
+                            location = resolvedRuntimeRoute,
+                            body = ByteArray(0),
+                        )
+                        resolvedRuntimeRoute -> ProviderDocumentHttpResponse(
+                            statusCode = 200,
+                            contentType = "text/html; charset=utf-8",
+                            location = null,
+                            body = fixture("cinemar/movie_deferred_grant.html")
+                                .encodeToByteArray(),
+                        )
+                        else -> error("Unexpected provider route")
+                    }
+                },
+            )
+
+            val result = service.prepare(request(listOf(requestedEmbed)))
+
+            assertTrue(result is PlaybackPreparationResult.Ready)
+            val session = (result as PlaybackPreparationResult.Ready).session
+            assertNotNull(session.nativePlan)
+            assertTrue(session.nativePlan!!.variants.single().mediaUrl.startsWith("kinogo-cinemar:"))
+            assertEquals(resolvedRuntimeRoute, session.webFallbacks.single().embedUrl)
+            assertEquals(listOf(requestedEmbed, resolvedRuntimeRoute), calls)
+        }
+
+    @Test
+    fun `current exact-origin Cinemar runtime offer produces native deferred plan`() = runTest {
+        val runtimeDocument = "https://cinemar.cc/runtime/player/session"
+        val service = service(
+            ProviderDocumentTransport { uri, _ ->
+                assertEquals(runtimeDocument, uri.toASCIIString())
+                ProviderDocumentHttpResponse(
+                    statusCode = 200,
+                    contentType = "text/html; charset=utf-8",
+                    location = null,
+                    body = fixture("cinemar/movie_deferred_grant.html").encodeToByteArray(),
+                )
+            },
+        )
+
+        val result = service.prepare(request(listOf(runtimeDocument)))
+
+        assertTrue(result is PlaybackPreparationResult.Ready)
+        val session = (result as PlaybackPreparationResult.Ready).session
+        assertNotNull(session.nativePlan)
+        assertTrue(session.nativePlan!!.variants.single().mediaUrl.startsWith("kinogo-cinemar:"))
+        assertEquals(runtimeDocument, session.webFallbacks.single().embedUrl)
+    }
+
+    @Test
     fun `a native parser failure preserves the isolated web alternative`() = runTest {
         val service = service(
             ProviderDocumentTransport { _, _ ->

@@ -3,6 +3,7 @@ package com.kinogo.atv.data.playback
 import com.kinogo.atv.data.playback.cinemar.CinemarMediaKind
 import com.kinogo.atv.data.playback.cinemar.CinemarParsedCatalog
 import com.kinogo.atv.data.playback.cinemar.CinemarStream
+import com.kinogo.atv.data.playback.cinemar.CinemarDeferredGrantRegistry
 import com.kinogo.atv.data.playback.collaps.CollapsParsedCatalog
 import com.kinogo.atv.data.playback.collaps.CollapsPlaybackItem
 import com.kinogo.atv.data.playback.collaps.CollapsStream
@@ -15,7 +16,11 @@ import java.util.Locale
 
 /** Maps provider-owned ephemeral catalogs into the one native TV-player matrix. */
 object NativePlaybackPlanMapper {
-    fun fromCinemar(catalog: CinemarParsedCatalog): PlaybackMediaPlan {
+    fun fromCinemar(
+        catalog: CinemarParsedCatalog,
+        deferredEmbedUrl: String? = null,
+    ): PlaybackMediaPlan {
+        var deferredRegistry: CinemarDeferredGrantRegistry? = null
         val coordinates = catalog.streams.associateWith(::cinemarCoordinates)
         val episodic = coordinates.values.any { it.episodeNumber != null }
         val voices = UniqueLabelScope()
@@ -54,10 +59,36 @@ object NativePlaybackPlanMapper {
                         ),
                     )
                 }
+                if (stream.mediaVariants.isEmpty() && stream.grantToken != null) {
+                    val embedUrl = requireNotNull(deferredEmbedUrl) {
+                        "Deferred Cinemar streams require their resolved embed address"
+                    }
+                    add(
+                        PlaybackMediaVariant(
+                            id = "cinemar:${stream.id}:grant",
+                            sourceId = CINEMAR_SOURCE_ID,
+                            sourceLabel = CINEMAR_SOURCE_LABEL,
+                            seasonNumber = seasonNumber,
+                            episodeNumber = if (episodic) coordinate.episodeNumber else null,
+                            voiceover = voiceover,
+                            quality = qualities.next(stream.id, "Авто"),
+                            mediaUrl = (deferredRegistry ?: CinemarDeferredGrantRegistry().also {
+                                deferredRegistry = it
+                            }).register(embedUrl, stream),
+                            // The current playlist/load contract returns HLS. A different provider
+                            // kind is rejected by the lazy resolver and falls back to web safely.
+                            mimeType = CinemarMediaKind.HLS.mimeType,
+                            subtitleTracks = subtitles,
+                        ),
+                    )
+                }
             }
         }
         require(variants.isNotEmpty()) { "Cinemar catalog has no mappable native variants" }
-        return PlaybackMediaPlan(variants)
+        return PlaybackMediaPlan(
+            variants = variants,
+            mediaUrlResolver = deferredRegistry,
+        )
     }
 
     fun fromCollaps(catalog: CollapsParsedCatalog): PlaybackMediaPlan {
@@ -97,7 +128,15 @@ object NativePlaybackPlanMapper {
         require(plans.isNotEmpty())
         val episodic = plans.first().isEpisodic
         val compatible = plans.filter { it.isEpisodic == episodic }
-        return PlaybackMediaPlan(compatible.flatMap(PlaybackMediaPlan::variants))
+        val resolvers = compatible.mapNotNull(PlaybackMediaPlan::mediaUrlResolver)
+        return PlaybackMediaPlan(
+            variants = compatible.flatMap(PlaybackMediaPlan::variants),
+            mediaUrlResolver = when (resolvers.size) {
+                0 -> null
+                1 -> resolvers.single()
+                else -> CompositePlaybackMediaUrlResolver(resolvers)
+            },
+        )
     }
 
     private fun mapCollapsItem(
@@ -253,4 +292,13 @@ object NativePlaybackPlanMapper {
         RegexOption.IGNORE_CASE,
     )
     private val SXX_EXX = Regex("""s([1-9]\d*)\s*e([1-9]\d*)""", RegexOption.IGNORE_CASE)
+}
+
+private class CompositePlaybackMediaUrlResolver(
+    private val delegates: List<com.kinogo.atv.domain.PlaybackMediaUrlResolver>,
+) : com.kinogo.atv.domain.PlaybackMediaUrlResolver {
+    override fun resolveOrNull(mediaUrl: String): String? =
+        delegates.firstNotNullOfOrNull { it.resolveOrNull(mediaUrl) }
+
+    override fun toString(): String = "CompositePlaybackMediaUrlResolver(<redacted>)"
 }

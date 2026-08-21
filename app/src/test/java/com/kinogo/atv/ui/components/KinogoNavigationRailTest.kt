@@ -6,6 +6,11 @@ import org.junit.Test
 
 class KinogoNavigationRailTest {
     @Test
+    fun `brand exposes about action to dpad semantics`() {
+        assertEquals("О программе", RAIL_ABOUT_CONTENT_DESCRIPTION)
+    }
+
+    @Test
     fun `every selected destination is its preferred rail focus target`() {
         TvDestination.entries.forEachIndexed { expectedIndex, selected ->
             assertEquals(

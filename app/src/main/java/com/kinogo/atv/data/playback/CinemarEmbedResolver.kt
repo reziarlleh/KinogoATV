@@ -23,6 +23,7 @@ interface TrustedEmbedUrlPolicy {
 object CinemarEmbedUrlPolicy : TrustedEmbedUrlPolicy {
     const val PROVIDER_HOST = "cinemar.cc"
     private const val EMBED_PATH_PREFIX = "/embed/"
+    private const val API_PATH_PREFIX = "/api/"
 
     override val providerId: String = "cinemar"
     override val displayName: String = "Cinemar"
@@ -35,6 +36,28 @@ object CinemarEmbedUrlPolicy : TrustedEmbedUrlPolicy {
         if (!isSafeProviderUri(uri)) return null
         val path = uri.rawPath ?: return null
         if (!path.startsWith(EMBED_PATH_PREFIX) || path.length == EMBED_PATH_PREFIX.length) {
+            return null
+        }
+        return uri
+    }
+
+    /**
+     * Validates a Cinemar player document after Kinogo/provider routing has already completed.
+     *
+     * Current authenticated pages can point directly at an opaque runtime route instead of the
+     * public `/embed/` entry. Such a route is usable only on the exact Cinemar HTTPS origin and
+     * never for its API namespace; the fixed same-origin grant endpoint is constructed separately.
+     */
+    internal fun validatedPlayerDocumentUri(rawUrl: String): URI? {
+        val uri = parseUri(rawUrl) ?: return null
+        if (!isSafeProviderUri(uri)) return null
+        val path = uri.rawPath ?: return null
+        if (
+            path.isEmpty() ||
+            path == "/" ||
+            path.startsWith(API_PATH_PREFIX, ignoreCase = true) ||
+            uri.rawQuery != null
+        ) {
             return null
         }
         return uri

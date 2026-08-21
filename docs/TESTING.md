@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Принцип доказательств
 
@@ -29,28 +29,41 @@
   status/favorite semantics;
 - mirror normalization, trust, redirect, health и bounded remote bootstrap manifest;
 - DNS/public destination policy;
-- Cinemar/Collaps/direct/gateway playback discovery;
+- Cinemar/Collaps/direct/gateway playback discovery, включая deferred Cinemar leaf,
+  exact-origin grant transport, lazy session registry и Media3 resolver ownership;
 - media plan mapping, dependent choices и cross-season episode coordinates;
 - history codec, legacy resolver, newest-unfinished resume/completion;
 - TV preferences;
 - player reducer, key mapper, focus retry, HUD routing, one-shot source refresh и
   cross-season completion policy;
-- update release parser, asset/hash/package/version/signing policy;
+- signed multi-endpoint/GitHub-fallback update parsers и clients,
+  asset/hash/package/version/signing policy;
 - UI mappers, отдельное направление сортировки и ключевые pure focus/back/grid decisions.
 
 Live HTML не должен быть единственным тестом parser. Сначала redacted fixture, затем
 необязательная read-only live-проверка.
 
-Последний полностью записанный unit run — C-005 / `0.4.3-dev` от 1 августа 2026 года: **68 suites,
-309 unit tests**, 0 failures/errors/skipped. Полный canonical lint/build указан в
-`PROJECT_STATE.md` после завершения сборки кандидата.
+Исторический unit run C-005 / `0.4.3-dev` от 1 августа 2026 года: **68 suites,
+309 unit tests**, 0 failures/errors/skipped. Его полный canonical lint/build сохранён в
+`PROJECT_STATE.md`; актуальный C-007 result указан ниже.
 
-Для C-006 / `0.5.0` в дереве присутствуют новые guards, включая
+Для C-006 / `0.5.0` в дереве присутствуют guards, включая
 `KinogoAppRootResumeTest`, `PlaybackSourceRefreshTest`, `KinogoRegistrationApiTest`,
 `RegistrationHtmlParserTest`, `MirrorBootstrapClientTest`, `GitHubReleaseParserTest`,
 `ApkUpdatePolicyTest` и обновлённые preferences/completion tests. Финальный локальный
 integration pass: **75 suites / 348 unit tests**, 0 failures, 0 errors, 0 skipped. До commit
 этот результат относится к рабочему дереву, а не к неизменяемой Git-ревизии.
+
+Для C-007 / `0.5.1` добавлены `CinemarNativeSourceAdapterTest`,
+`CinemarGrantClientTest`, `CinemarDeferredGrantRegistryTest`,
+`CinemarDeferredGrantPlaybackPlanTest`, `SearchHistoryStoreTest`,
+`SignedUpdateManifestParserTest`, `SignedManifestUpdateClientTest`,
+`FallbackAppUpdateClientTest`, а также обновлённые navigation/grid/WebView tests.
+Final local canonical command
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` дал
+**SUCCESS за 4 мин 27 с**, **82 suites / 393 tests**, 0 failures, 0 errors, 0 skipped;
+lint — **0 errors / 22 warnings / 2 hints**.
+Результат относится к текущему рабочему дереву; final source commit и CI ещё **PENDING**.
 
 ## Lint и сборка
 
@@ -60,7 +73,7 @@ integration pass: **75 suites / 348 unit tests**, 0 failures, 0 errors, 0 skippe
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
 
-Последний записанный C-005: lint 0 errors, 7 warnings и 2 hints; debug APK успешно создан. APK прошёл
+Исторический C-005: lint 0 errors, 7 warnings и 2 hints; debug APK успешно создан. APK прошёл
 zipalign и v2 verification с ожидаемым certificate SHA-256; точный artifact hash указан в
 `PROJECT_STATE.md`.
 
@@ -68,6 +81,20 @@ zipalign и v2 verification с ожидаемым certificate SHA-256; точн�
 завершены успешно; lint — 0 errors / 19 warnings / 2 hints. Финальный artifact
 `dist/KinogoATV-0.5.0-code14.apk` прошёл metadata/size/SHA-256, zipalign, v2 signature и
 certificate verification; значения находятся в `PROJECT_STATE.md`.
+
+Для C-007 локально проверен exact release APK `dist/KinogoATV-0.5.1-code15.apk`:
+38 304 478 bytes, SHA-256
+`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`; package
+`com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK launcher/label
+`KinogoATV`, zipalign OK, v2 true,
+certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+
+Final local `update/manifest.json` имеет 1 273 bytes, SHA-256
+`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
+`0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
+(18 ноября 2026 года, 06:40:54 UTC), четыре URLs и exact APK size/hash. Локальная
+проверка файла не доказывает commit, CI, publication, live endpoint или TV runtime.
 
 После изменения signing/build logic дополнительно проверить clean clone без `.signing`:
 unit/lint/debug должны работать со стандартной debug signature, release — завершаться ясной
@@ -82,6 +109,8 @@ focus — `Не принимаю`, callback accept срабатывает тол
 `Принимаю и продолжить`, а Down с нижней границы rules scroll возвращает focus на безопасный
 decline вместо scroll trap. Пакет `com.kinogo.atv.test` после проверки удалён.
 Settings Switch/dropdown и initial rail focus дополнительно проверены debug runtime-smoke.
+Обновлённые C-007 AndroidTest sources успешно прошли `assembleDebugAndroidTest`;
+точечный hardware run в этом кандидате ещё **PENDING**.
 
 ### Запрет на пользовательском TV
 
@@ -153,6 +182,31 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | Exit | Root Back asks for confirmation, default focus is Stay |
 | Crash diagnostics | Controlled debug fault only on disposable data/device |
 
+### Focused TV evidence C-007
+
+- Device: KIVI `192.168.1.112`, Android TV 14. Stable-signed release APK установлен через
+  `adb install -r`; `firstInstallTime=2026-07-26 16:42:18` сохранился.
+- Current provider contract: authenticated detail вернул exact `cinemar.cc` runtime player
+  document, не `/embed/...`. Native selector «Далеко во Вселенной» показал Cinemar,
+  озвучки, сезоны 1–4 и серии; `Продолжить` показал 10:48.
+- Media3 S2E5 продвинулся 11:01 → 11:39 (>15 с). При скрытом HUD `OK` показал controls и
+  не поставил видео на паузу. Back вернул Player → Details → History.
+- History non-first: вторая карточка «История его служанки» после source/details chain и
+  Back → Details → Back → History снова имела `focused=true`.
+- Search non-first: запрос `Chris`, выдача и вторая карточка «Рождественская неделя»
+  сохранились после Details → physical Back; ровно эта карточка снова имела `focused=true`.
+  Горизонтальная recent-query row подтверждена ранее.
+- Web fallback: D-pad selector дошёл до `Оригинальный web-плеер`
+  (`Смотреть онлайн · cinemar`), fullscreen WebView запустился, Back чисто вернул Details,
+  затем History. Playlist/position provider недоступны accessibility/safe logs, поэтому
+  actual resume across reopen не подтверждён.
+- Случайная mutation «Spider-Man» восстановлена адресно: кнопка `В избранное`, после
+  `Не смотрел` материал отсутствует в серверном «Все» (10/10). `pm clear`, uninstall и
+  broad DataStore clear не выполнялись.
+
+Это focused evidence, а не полный release pass: Web fallback resume, cross-season/natural
+end, live updater/Package Installer и остальные пункты матрицы остаются отдельными.
+
 ### Player regression matrix
 
 - hidden HUD `OK` shows controls without immediate pause;
@@ -207,7 +261,30 @@ server sorts — дата, рейтинг, топ за 3 дня, просмот�
 выдачу. В финальном logcat нет catalog error, fatal exception или ANR. Combinations
 подборки/года/страны и длинная Home/Catalog/Search-пагинация требуют дальнейшего TV smoke.
 
-### Integration matrix 0.5.0
+### Integration matrix 0.5.1
+
+| Контракт | Automated guard в source | Финальное/TV evidence C-007 |
+| --- | --- | --- |
+| Exact-host runtime player document | `CinemarEmbedResolverTest`, `KinogoPlaybackPreparationServiceTest` | KIVI current `cinemar.cc` runtime route → native selector verified |
+| Deferred Cinemar parse | `CinemarNativeSourceAdapterTest` + fixture | KIVI selector voices/seasons 1–4/episodes verified |
+| Exact selected-leaf grant POST | `CinemarGrantClientTest` | KIVI native Media3 S2E5 >15 с verified; token/media URL redacted |
+| Lazy/session-owned/single-flight resolver | `CinemarDeferredGrantRegistryTest`, `CinemarDeferredGrantPlaybackPlanTest` | KIVI selected-unit Media3 open verified; concurrent-open runtime not isolated separately |
+| True source-destination Back | `KinogoTvInitialFocusTest` + source navigation guards | Player → Details → History verified; History/Search non-first focus verified |
+| Search query/results/focus + 10 recent | `SearchHistoryStoreTest`, `TvPosterGridTest` | `Chris` + second result restored; recent row verified |
+| About first + focusable logo | `SettingsScreenDpadTest`, `KinogoNavigationRailTest` | Final local canonical run green; TV reachability pending |
+| Web fallback pause/flush-before-dispose | `CinemarWebViewRecoveryStateTest` | Fullscreen launch + Back → Details → History passed; actual same-profile playlist item/position reopen pending |
+| Signed manifest schema/signature/expiry | `SignedUpdateManifestParserTest` | Exact local manifest verified; commit/live endpoint pending |
+| Multi-endpoint agreement/download fallback | `SignedManifestUpdateClientTest`, `FallbackAppUpdateClientTest` | Final local canonical run green; live outage scenario + OS confirmation pending |
+| GitHub Release fallback | `GitHubReleaseParserTest`, `ApkUpdatePolicyTest` | Final local canonical run green; actual fallback release/installer pending |
+
+Матрица опирается на записанный выше final local canonical pass, но не доказывает final
+commit, CI, publication или runtime. Default Pages и jsDelivr metadata endpoints до
+проверки успешного deployment/cache refresh
+считаются pending, а не доказанным alternative channel. Планируемые `ghfast.top` и
+`ghproxy.net` — best-effort transports без trust/SLA; их наличие в signed payload доказывает
+только адрес, а не доступность или целостность байтов.
+
+### Historical integration matrix 0.5.0
 
 | Контракт | Automated guard в source | Финальное/TV evidence |
 | --- | --- | --- |
@@ -298,6 +375,18 @@ Live domains и provider documents изменчивы:
 - не называть зеркало официальным только по HTML/logo;
 - отделять service outage от parser regression;
 - после изменения parser создавать fixture, чтобы результат воспроизводился офлайн.
+
+Для Cinemar C-007 отдельно проверять: discovery только через strict `/embed/...`, already
+discovered player document через exact-host `validatedPlayerDocumentUri`, leaf с opaque
+`data`, exact same-origin `/api/playlist/load`, один POST только для selected leaf,
+отсутствие cookie/redirect/retry и HLS-only result. В evidence не включать grant token,
+точный runtime path, iframe/media URLs и cookies. Начало реального Media3 воспроизведения
+на KIVI подтверждено; это не заменяет проверки других материалов, TTL/error и cross-season.
+
+Для signed updater проверка считается закрытой только если exact payload
+проходит installed-signer signature, endpoint доступен из целевой сети, APK
+совпадает по size/SHA/package/version/signer и Android показал системное
+подтверждение. HTTP 200 manifest без этих шагов не доказывает live updater.
 
 ## Формат evidence
 

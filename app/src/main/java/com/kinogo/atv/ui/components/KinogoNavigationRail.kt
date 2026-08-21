@@ -46,6 +46,7 @@ import com.kinogo.atv.ui.model.TvDestination
 fun KinogoNavigationRail(
     selected: TvDestination,
     onSelected: (TvDestination) -> Unit,
+    onAboutRequested: () -> Unit = {},
     modifier: Modifier = Modifier,
     requestInitialFocus: Boolean = false,
 ) {
@@ -87,7 +88,7 @@ fun KinogoNavigationRail(
                 .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            RailBrand()
+            RailBrand(onClick = onAboutRequested)
             Spacer(Modifier.height(5.dp))
             destinations.forEachIndexed { index, destination ->
                 NavigationRailItem(
@@ -104,38 +105,49 @@ fun KinogoNavigationRail(
 }
 
 @Composable
-private fun RailBrand() {
-    Row(
+private fun RailBrand(onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = RAIL_ABOUT_CONTENT_DESCRIPTION },
+        shape = RectangleShape,
+        color = if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_kinogo_original),
-            contentDescription = null,
-            modifier = Modifier.size(38.dp),
-        )
-        Column {
-            Text(
-                text = "KINOGO",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_kinogo_original),
+                contentDescription = null,
+                modifier = Modifier.size(38.dp),
             )
-            Text(
-                text = "for Android TV",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
+            Column {
+                Text(
+                    text = "KINOGO",
+                    color = if (focused) Color(0xFF10272D) else Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                )
+                Text(
+                    text = "for Android TV",
+                    color = if (focused) Color(0xFF10272D) else MaterialTheme.colorScheme.primary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
+
+internal const val RAIL_ABOUT_CONTENT_DESCRIPTION = "О программе"
 
 @Composable
 private fun NavigationRailItem(

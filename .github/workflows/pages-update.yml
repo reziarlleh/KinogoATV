@@ -1,0 +1,136 @@
+name: Publish signed update channel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - update/manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages-update
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'reziarlleh/KinogoATV' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      EXPECTED_SIGNER_SHA256: 154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.1
+
+      - name: Install APK signature verifier
+        run: sdkmanager "build-tools;36.0.0"
+
+      - name: Inspect strict manifest metadata
+        id: manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f update/manifest.json
+          python3 scripts/verify_update_manifest.py self-test
+          python3 scripts/verify_update_manifest.py inspect \
+            --manifest update/manifest.json \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Download exact stable GitHub Release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.manifest.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.manifest.outputs.asset_name }}
+          ASSET_SIZE: ${{ steps.manifest.outputs.asset_size_bytes }}
+          ASSET_SHA256: ${{ steps.manifest.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$RUNNER_TEMP/release.json"
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$release_json"
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg name "$ASSET_NAME" \
+            --argjson size "$ASSET_SIZE" \
+            --arg digest "sha256:$ASSET_SHA256" \
+            '.tag_name == $tag and .draft == false and .prerelease == false and
+             ([.assets[] | select(.name == $name)] | length) == 1 and
+             ([.assets[] | select(.name == $name)][0].size) == $size and
+             ([.assets[] | select(.name == $name)][0].digest) == $digest' \
+            "$release_json" > /dev/null
+          mkdir -p "$RUNNER_TEMP/release"
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "$ASSET_NAME" \
+            --dir "$RUNNER_TEMP/release"
+
+      - name: Verify APK signer, manifest signature, size, and SHA-256
+        env:
+          ASSET_NAME: ${{ steps.manifest.outputs.asset_name }}
+          VERSION_NAME: ${{ steps.manifest.outputs.version_name }}
+          VERSION_CODE: ${{ steps.manifest.outputs.version_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$RUNNER_TEMP/release/$ASSET_NAME"
+          signer_report="$RUNNER_TEMP/apk-signer.txt"
+          signer_certificate="$RUNNER_TEMP/apk-signer.pem"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify \
+            --verbose --print-certs-pem "$apk" > "$signer_report"
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' "$signer_report"
+          test "$(grep -c -- '-----BEGIN CERTIFICATE-----' "$signer_report")" -eq 1
+          sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' \
+            "$signer_report" > "$signer_certificate"
+          test "$(apkanalyzer manifest application-id "$apk")" = "com.kinogo.atv"
+          test "$(apkanalyzer manifest version-name "$apk")" = "$VERSION_NAME"
+          test "$(apkanalyzer manifest version-code "$apk")" = "$VERSION_CODE"
+          test "$(apkanalyzer manifest min-sdk "$apk")" = "28"
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 "$apk" > /dev/null
+          owner_lower="${GITHUB_REPOSITORY_OWNER,,}"
+          repository_name="${GITHUB_REPOSITORY#*/}"
+          pages_apk_url="https://$owner_lower.github.io/$repository_name/update/$ASSET_NAME"
+          python3 scripts/verify_update_manifest.py verify \
+            --manifest update/manifest.json \
+            --apk "$apk" \
+            --certificate "$signer_certificate" \
+            --expected-certificate-sha256 "$EXPECTED_SIGNER_SHA256" \
+            --required-download-url "$pages_apk_url"
+
+      - name: Stage minimal Pages artifact
+        env:
+          ASSET_NAME: ${{ steps.manifest.outputs.asset_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/pages-site"
+          mkdir -p "$site/update"
+          install -m 0644 update/manifest.json "$site/update/manifest.json"
+          install -m 0644 "$RUNNER_TEMP/release/$ASSET_NAME" "$site/update/$ASSET_NAME"
+          touch "$site/.nojekyll"
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/pages-site
+
+      - name: Deploy signed update channel
+        id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

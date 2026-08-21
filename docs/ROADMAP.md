@@ -1,26 +1,38 @@
 # Roadmap
 
-Последнее обновление: **15 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: финализация и аппаратная приёмка 0.5.0
+## Сейчас: финализация и аппаратная приёмка 0.5.1
 
-C-006 объединяет регистрацию, remote mirror bootstrap, проверяемый updater, About/public
-disclaimer, initial rail focus, новые Settings controls, единый resume и bounded playback
-source refresh. Local 75-suite/348-test pass и debug+androidTest+release assembly зелёные.
-Final stable-signed APK проверен и установлен через `adb install -r` на X96Max Plus Ultra с
-сохранением данных; cold launch/catalog smoke пройден. KIVI debug ранее подтвердил Settings,
-About и короткий playback/resume-return. Application source зафиксирован как `6567088`;
-CI/public release и расширенные live/player сценарии ещё не закреплены. B-001 остаётся
-playback rollback baseline.
+C-007 адаптирует Cinemar к deferred `/api/playlist/load`, возвращает Back в
+исходный раздел с Search state/focus, добавляет историю из 10 поисков,
+делает About первой карточкой Settings/действием rail logo, сохраняет
+first-party PlayerJS state при выходе и вводит signed multi-endpoint updater с GitHub API
+fallback. Final local canonical pass (82 suites / 393 tests, 4 мин 27 с), exact
+stable-signed APK и signed manifest подтверждены. KIVI прошёл current exact-host Cinemar
+native playback, History/Search non-first Back/focus и WebView launch/Back smoke. Final
+commit, CI, GitHub Release/Pages/jsDelivr deployment, actual Web resume и расширенные
+player/update runtime-сценарии ещё **PENDING**. C-006 и B-001 сохраняются как предыдущий
+integration evidence и полный playback rollback baseline.
 
 ### P0 — TV regression pass
 
-- Получить первый GitHub Actions result и опубликовать проверенный artifact из application
-  commit `6567088` как exact GitHub Release asset.
+- Связать final C-007 commit с локально подтверждёнными canonical counts/lint, exact
+  `KinogoATV-0.5.1-code15.apk` и `update/manifest.json`; при любом production change
+  повторить сборку и проверки.
+- Получить GitHub Actions result на exact commit, опубликовать exact Release asset и
+  доказать live Pages/jsDelivr metadata и каждый заявленный APK transport. До этого все
+  endpoints считаются pending.
+- Проверить достижимость крупной первой About card и focusable rail logo.
+- Для Web fallback доказать actual повторный вход в тот же playlist item/position.
+  Fullscreen launch и Back → Details → History уже прошли, но provider state недоступен
+  accessibility/safe logs. Не считать это cross-device/native sync.
+- Проверить signed-manifest update при недоступном GitHub API: metadata, fallback
+  download, все APK checks и передачу системному Package Installer без silent install.
 - Расширить cold focus smoke: Right/Left и отсутствие focus steal каждого раздела, затем
   проверить category/filter/search focus flows.
 - Проверить на живом зеркале combinations подборки/года/страны, смену категорий и длинную
@@ -112,6 +124,10 @@ playback rollback baseline.
 
 - Выпустить первый stable GitHub Release с exact asset name
   `KinogoATV-<version>-code<code>.apk`, GitHub SHA-256 digest и release notes.
+- После exact Release asset подписать bounded update payload тем же APK signing identity,
+  развернуть Pages artifact и проверить его из целевой сети. При необходимости
+  добавить в следующий APK ещё один не-GitHub HTTPS endpoint через
+  `KINOGO_UPDATE_MANIFEST_URLS`; trust остаётся криптографическим, а не host-based.
 - Настроить protected release environment и безопасную передачу signing secrets в CI, если
   автоматический release действительно понадобится.
 - Перед сменой visibility повторно проверить disclaimer/repository hygiene. Лицензию
@@ -120,7 +136,7 @@ playback rollback baseline.
 
 ## Реализовано в source
 
-Пункты C-006 в этом списке не становятся verified runtime автоматически; актуальный уровень
+Пункты C-007 в этом списке не становятся verified runtime автоматически; актуальный уровень
 evidence указан в `PROJECT_STATE.md`.
 
 - Native Android TV shell и launcher tile.
@@ -140,13 +156,24 @@ evidence указан в `PROJECT_STATE.md`.
 - DLE/xSort session работает по HTTP/1.1; неоднозначный сетевой сбой допускает один
   безопасный полный retry от `clearallfields`, без повторения отдельной toggle-команды.
 - Search debounce 750 ms, immediate submit с закрытием клавиатуры и graphical voice action.
+- Search возвращает query/results/focused stable ID после Details; до 10 последних
+  подтверждённых OK/voice/chip запросов хранятся локально и показываются одной
+  TV-строкой; промежуточные debounce-строки в history не попадают.
 - Live catalog, top-level sections, text/voice search и early preload.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.
 - Account credentials + automatic re-login.
 - Server statuses/favorite with local outbox.
 - Local episode/position history and legacy ID recovery.
 - Native Media3 player and selection matrix.
-- Cinemar/Collaps native adapters, direct media и explicit provider Web fallback.
+- Cinemar/Collaps native adapters, включая lazy selected-leaf Cinemar grant через
+  `/api/playlist/load`, direct media и explicit provider Web fallback.
+- Current authenticated exact-host Cinemar runtime player document отделён от strict
+  `/embed/...` discovery; KIVI подтвердил selector и Media3 S2E5 >15 секунд.
+- True Back и exact non-first focus подтверждены на KIVI для второй History card и второго
+  Search result; query/results и recent-query row сохранились.
+- Web fallback сохраняет first-party same-profile PlayerJS state: выход выполняет
+  `pause`, фиксирует cookies только internal WebView profile и затем выполняет dispose,
+  но не обещает native/cross-device sync.
 - Compact HUD, bottom episode row и timeline focus after hidden seek.
 - White timeline focus marker, центральный buffering state, cross-season Previous/Next и
   возврат в details после естественного окончания Media3.
@@ -163,8 +190,11 @@ evidence указан в `PROJECT_STATE.md`.
   confirmation.
 - Initial rail focus, Switch/dropdown Settings и newest-unfinished resume policy.
 - One-shot fresh playback source recovery с cross-screen loop guard.
-- About dialog, unchanged owner-supplied donation QR, exact external URL allowlist и
+- About dialog как первая крупная Settings card и focusable rail-logo action, unchanged
+  owner-supplied donation QR, exact external URL allowlist и
   public-repository disclaimer.
+- Signed multi-endpoint update manifest с installed-signer verification, bounded expiry/download
+  mirrors и GitHub Release API fallback; Pages/jsDelivr deployment ещё pending.
 - GitHub Actions clean-clone workflow (первый remote green run pending).
 - Local C-006 integration pass: 75 suites / 348 tests, lint 0 errors / 19 warnings / 2 hints,
   debug/androidTest/release assembly; verified stable-signed artifact и X96 final release

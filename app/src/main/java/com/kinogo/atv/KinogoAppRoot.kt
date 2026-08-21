@@ -64,6 +64,8 @@ import com.kinogo.atv.data.playback.PlaybackPreparationResult
 import com.kinogo.atv.data.playback.PlaybackSourceRequest
 import com.kinogo.atv.data.playback.PlaybackSourceResolution
 import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
+import com.kinogo.atv.data.search.SearchHistoryCollection
+import com.kinogo.atv.data.search.SearchHistoryStore
 import com.kinogo.atv.data.settings.TvPreferencesStore
 import com.kinogo.atv.data.update.AppUpdateCheckResult
 import com.kinogo.atv.data.update.AppUpdateInstallResult
@@ -77,6 +79,7 @@ import com.kinogo.atv.domain.CatalogCategory
 import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.CatalogQuery
 import com.kinogo.atv.domain.ContentDetails
+import com.kinogo.atv.domain.LibraryFilter
 import com.kinogo.atv.domain.PlaybackMediaPlan
 import com.kinogo.atv.domain.PlaybackMediaVariant
 import com.kinogo.atv.domain.WatchProgress
@@ -259,6 +262,7 @@ fun KinogoAppRoot() {
     val libraryStore = remember(context) { LibraryStateStore(context.kinogoDataStore) }
     val mirrorPreferences = remember(context) { MirrorPreferencesStore(context.kinogoDataStore) }
     val tvPreferencesStore = remember(context) { TvPreferencesStore(context.kinogoDataStore) }
+    val searchHistoryStore = remember(context) { SearchHistoryStore(context.kinogoDataStore) }
     val tvPreferencesSnapshot by tvPreferencesStore.preferences.collectAsState(initial = null)
     val tvPreferences = tvPreferencesSnapshot ?: TvPreferences()
     val mirrorRegistry = remember { MirrorRegistry() }
@@ -331,6 +335,14 @@ fun KinogoAppRoot() {
     var playbackReturnDetailsId by remember { mutableStateOf<String?>(null) }
     var startupError by remember { mutableStateOf<String?>(null) }
     var currentDestination by remember { mutableStateOf(TvDestination.Home) }
+    var searchInputQuery by remember { mutableStateOf("") }
+    var recentSearchQueries by remember { mutableStateOf(emptyList<String>()) }
+    var searchFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var homeFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var catalogFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var bookmarksFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var historyFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var bookmarksFilter by remember { mutableStateOf(LibraryFilter.ALL) }
     var homeFeed by remember {
         mutableStateOf(CatalogFeedState(query = CatalogQuery()))
     }
@@ -543,12 +555,15 @@ fun KinogoAppRoot() {
     }
 
     fun requestSearch(rawQuery: String) {
-        val value = rawQuery.trim()
+        val value = SearchHistoryCollection.normalize(rawQuery).orEmpty()
         if (value.isEmpty()) {
             searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
             return
         }
         val query = CatalogQuery.search(value)
+        if (searchFeed.query?.identity != query.identity) {
+            searchFocusedItemId = null
+        }
         if (searchFeed.query?.identity == query.identity) {
             if (searchFeed.loading) return
             if (searchFeed.error == null && searchFeed.items.isNotEmpty()) return
@@ -572,6 +587,20 @@ fun KinogoAppRoot() {
             page = if (retryAppend) requireNotNull(searchFeed.nextPage) else 1,
             reset = !retryAppend,
         )
+    }
+
+    fun recordCommittedSearch(rawQuery: String) {
+        val value = SearchHistoryCollection.normalize(rawQuery) ?: return
+        recentSearchQueries = SearchHistoryCollection.record(recentSearchQueries, value)
+        scope.launch {
+            try {
+                recentSearchQueries = searchHistoryStore.record(value)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(APP_ROOT_LOG_TAG, "Recent search query write failed", error)
+            }
+        }
     }
 
     fun requestDetails(contentId: String) {
@@ -1347,6 +1376,13 @@ fun KinogoAppRoot() {
             Log.e(APP_ROOT_LOG_TAG, "Playback history read failed", error)
         }
         try {
+            recentSearchQueries = searchHistoryStore.list()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.w(APP_ROOT_LOG_TAG, "Recent search history read failed", error)
+        }
+        try {
             libraryRecords = libraryStore.importLegacyFavorites(favoriteStore.list())
             favoriteStore.clear()
             librarySyncPendingCount = libraryStore.pending().size
@@ -1621,6 +1657,7 @@ fun KinogoAppRoot() {
         )
     } else {
         KinogoTvApp(
+            initialDestination = currentDestination,
             initialDetailsId = playbackReturnDetailsId,
             homeCatalog = homePosters,
             history = historyUi,
@@ -1655,6 +1692,15 @@ fun KinogoAppRoot() {
             searchLoading = searchFeed.loading,
             searchError = searchFeed.error,
             searchHasMore = searchFeed.nextPage != null,
+            searchQuery = searchInputQuery,
+            recentSearchQueries = recentSearchQueries,
+            searchFocusedItemId = searchFocusedItemId,
+            searchResultsQuery = searchFeed.query?.normalizedSearchTerm,
+            homeFocusedItemId = homeFocusedItemId,
+            catalogFocusedItemId = catalogFocusedItemId,
+            bookmarksFocusedItemId = bookmarksFocusedItemId,
+            historyFocusedItemId = historyFocusedItemId,
+            bookmarksFilter = bookmarksFilter,
             useRemoteCatalog = true,
             onPlayRequested = ::startPlayback,
             onCatalogLoadMore = {
@@ -1718,6 +1764,7 @@ fun KinogoAppRoot() {
             onHomeFiltersChanged = { filters ->
                 val current = homeFeed.query ?: CatalogQuery()
                 if (filters != current.filters) {
+                    homeFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.HOME,
@@ -1754,6 +1801,7 @@ fun KinogoAppRoot() {
                 val current = catalogFeed.query
                     ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
                 if (category != current.category) {
+                    catalogFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.CATALOG,
@@ -1773,6 +1821,7 @@ fun KinogoAppRoot() {
                 val current = catalogFeed.query
                     ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
                 if (filters != current.filters) {
+                    catalogFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.CATALOG,
@@ -1784,7 +1833,30 @@ fun KinogoAppRoot() {
                     }
                 }
             },
+            onSearchInputChanged = { value -> searchInputQuery = value },
             onSearchQueryChanged = ::requestSearch,
+            onSearchCommitted = ::recordCommittedSearch,
+            onSearchFocusedItemChanged = { contentId ->
+                searchFocusedItemId = contentId
+            },
+            onHomeFocusedItemChanged = { contentId ->
+                homeFocusedItemId = contentId
+            },
+            onCatalogFocusedItemChanged = { contentId ->
+                catalogFocusedItemId = contentId
+            },
+            onBookmarksFocusedItemChanged = { contentId ->
+                bookmarksFocusedItemId = contentId
+            },
+            onHistoryFocusedItemChanged = { contentId ->
+                historyFocusedItemId = contentId
+            },
+            onBookmarksFilterSelected = { filter ->
+                if (bookmarksFilter != filter) {
+                    bookmarksFilter = filter
+                    bookmarksFocusedItemId = null
+                }
+            },
             onSearchLoadMore = {
                 val origin = activeMirrorOrigin
                 val query = searchFeed.query
