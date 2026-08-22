@@ -22,6 +22,37 @@ class CinemarTransientUrl internal constructor(
     override fun toString(): String = "CinemarTransientUrl(<redacted>)"
 }
 
+/**
+ * A short-lived opaque handle used by Cinemar to issue the actual media grant.
+ *
+ * This is deliberately not a data class: the raw handle must not appear in diagnostics, crash
+ * reports or a persisted playback plan. It may only leave this type as the JSON body of the
+ * exact-origin grant request.
+ */
+class CinemarGrantToken internal constructor(
+    private val value: String,
+) {
+    init {
+        require(value.isNotBlank())
+        require(value.length <= MAX_CHARS)
+        require(value == value.trim())
+        require(value.none(Char::isISOControl))
+    }
+
+    internal fun valueForRequest(): String = value
+
+    override fun equals(other: Any?): Boolean =
+        other is CinemarGrantToken && value == other.value
+
+    override fun hashCode(): Int = value.hashCode()
+
+    override fun toString(): String = "CinemarGrantToken(<redacted>)"
+
+    private companion object {
+        const val MAX_CHARS = 8 * 1_024
+    }
+}
+
 enum class CinemarMediaKind(
     val mimeType: String,
 ) {
@@ -107,13 +138,14 @@ data class CinemarStream(
     val folderPath: List<CinemarFolderPathEntry>,
     val mediaVariants: List<CinemarMediaVariant>,
     val subtitles: List<CinemarSubtitle>,
+    val grantToken: CinemarGrantToken? = null,
 ) : CinemarPlaylistNode {
     init {
         require(id.isNotBlank())
         require(title.isNotBlank())
         require(voiceId.isNotBlank())
         require(durationMs == null || durationMs > 0L)
-        require(mediaVariants.isNotEmpty())
+        require(mediaVariants.isNotEmpty() || grantToken != null)
         require(mediaVariants.map { it.id }.distinct().size == mediaVariants.size)
         require(subtitles.map { it.id }.distinct().size == subtitles.size)
     }

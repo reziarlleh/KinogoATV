@@ -42,16 +42,19 @@ object PlaybackProgressCollection {
     }
 
     fun upsert(entries: Collection<WatchProgress>, progress: WatchProgress): List<WatchProgress> {
-        val existingSnapshot = entries
-            .firstOrNull { it.progressKey() == progress.progressKey() }
-            ?.contentSnapshot
-        val enrichedProgress = if (progress.contentSnapshot == null && existingSnapshot != null) {
-            progress.copy(contentSnapshot = existingSnapshot)
-        } else {
-            progress
+        val normalized = normalize(entries)
+        val key = progress.progressKey()
+        val current = normalized.firstOrNull { it.progressKey() == key }
+        val winner = when {
+            current == null -> progress
+            progress.updatedAtEpochMs >= current.updatedAtEpochMs -> progress.copy(
+                contentSnapshot = progress.contentSnapshot ?: current.contentSnapshot,
+            )
+            else -> current.copy(
+                contentSnapshot = current.contentSnapshot ?: progress.contentSnapshot,
+            )
         }
-        val withoutTarget = entries.filterNot { it.progressKey() == progress.progressKey() }
-        return normalize(withoutTarget + enrichedProgress)
+        return normalize(normalized.filterNot { it.progressKey() == key } + winner)
     }
 
     fun attachContentSnapshot(

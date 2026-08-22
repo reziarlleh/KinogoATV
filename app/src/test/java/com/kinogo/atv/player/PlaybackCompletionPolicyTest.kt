@@ -36,6 +36,7 @@ class PlaybackCompletionPolicyTest {
             playbackPauseCompletion(
                 playWhenReady = false,
                 mediaItemEnded = true,
+                autoNextEpisode = false,
             ),
         )
         assertEquals(
@@ -43,6 +44,7 @@ class PlaybackCompletionPolicyTest {
             playbackPauseCompletion(
                 playWhenReady = false,
                 mediaItemEnded = false,
+                autoNextEpisode = false,
             ),
         )
         assertEquals(
@@ -50,6 +52,44 @@ class PlaybackCompletionPolicyTest {
             playbackPauseCompletion(
                 playWhenReady = true,
                 mediaItemEnded = true,
+                autoNextEpisode = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `end pause cannot exit while cross season auto next is enabled`() {
+        assertEquals(
+            PlaybackPauseCompletion.IGNORE,
+            playbackPauseCompletion(
+                playWhenReady = false,
+                mediaItemEnded = true,
+                autoNextEpisode = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `automatic source refresh is bounded to one request per prepared session`() {
+        assertEquals(
+            PlaybackErrorRecoveryDecision.REFRESH_SOURCES,
+            playbackErrorRecoveryDecision(
+                refreshCallbackAvailable = true,
+                refreshAlreadyRequested = false,
+            ),
+        )
+        assertEquals(
+            PlaybackErrorRecoveryDecision.SHOW_ERROR,
+            playbackErrorRecoveryDecision(
+                refreshCallbackAvailable = true,
+                refreshAlreadyRequested = true,
+            ),
+        )
+        assertEquals(
+            PlaybackErrorRecoveryDecision.SHOW_ERROR,
+            playbackErrorRecoveryDecision(
+                refreshCallbackAvailable = false,
+                refreshAlreadyRequested = false,
             ),
         )
     }

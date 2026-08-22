@@ -1,7 +1,10 @@
 package com.kinogo.atv
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,14 +32,23 @@ import com.kinogo.atv.data.catalog.ParsedContentPage
 import com.kinogo.atv.data.catalog.PlayerEmbedCandidate
 import com.kinogo.atv.data.favorites.FavoriteStore
 import com.kinogo.atv.data.auth.KinogoAuthApi
+import com.kinogo.atv.data.auth.KinogoRegistrationApi
 import com.kinogo.atv.data.auth.KinogoSessionManager
+import com.kinogo.atv.data.auth.RegistrationCaptchaKind
+import com.kinogo.atv.data.auth.RegistrationInput
+import com.kinogo.atv.data.auth.RegistrationLoadResult
+import com.kinogo.atv.data.auth.RegistrationPage
+import com.kinogo.atv.data.auth.RegistrationRulesPage
+import com.kinogo.atv.data.auth.RegistrationSubmitResult
 import com.kinogo.atv.data.auth.createCredentialStore
 import com.kinogo.atv.data.history.PlaybackProgressStore
+import com.kinogo.atv.data.history.PlaybackProgressCollection
 import com.kinogo.atv.data.history.LegacyHistoryDetailsResolver
 import com.kinogo.atv.data.library.KinogoLibraryApi
 import com.kinogo.atv.data.library.KinogoLibraryRepository
 import com.kinogo.atv.data.library.LibraryStateStore
 import com.kinogo.atv.data.mirror.MirrorEntry
+import com.kinogo.atv.data.mirror.MirrorBootstrapClient
 import com.kinogo.atv.data.mirror.MirrorHealthChecker
 import com.kinogo.atv.data.mirror.MirrorHealthStatus
 import com.kinogo.atv.data.mirror.MirrorPreferencesStore
@@ -53,7 +65,14 @@ import com.kinogo.atv.data.playback.PlaybackPreparationResult
 import com.kinogo.atv.data.playback.PlaybackSourceRequest
 import com.kinogo.atv.data.playback.PlaybackSourceResolution
 import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
+import com.kinogo.atv.data.search.SearchHistoryCollection
+import com.kinogo.atv.data.search.SearchHistoryStore
 import com.kinogo.atv.data.settings.TvPreferencesStore
+import com.kinogo.atv.data.update.AppUpdateCheckResult
+import com.kinogo.atv.data.update.AppUpdateInstallResult
+import com.kinogo.atv.data.update.AppUpdateManager
+import com.kinogo.atv.data.update.AppUpdateRelease
+import com.kinogo.atv.data.update.VerifiedAppUpdate
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.CatalogBrowseFilters
@@ -61,6 +80,7 @@ import com.kinogo.atv.domain.CatalogCategory
 import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.CatalogQuery
 import com.kinogo.atv.domain.ContentDetails
+import com.kinogo.atv.domain.LibraryFilter
 import com.kinogo.atv.domain.PlaybackMediaPlan
 import com.kinogo.atv.domain.PlaybackMediaVariant
 import com.kinogo.atv.domain.WatchProgress
@@ -69,12 +89,18 @@ import com.kinogo.atv.domain.StoredCredentials
 import com.kinogo.atv.domain.WatchStatus
 import com.kinogo.atv.domain.TvPreferences
 import com.kinogo.atv.player.ui.TvPlayerScreen
+import com.kinogo.atv.player.ui.PlaybackCheckpoint
+import com.kinogo.atv.player.ui.PlaybackSourceRefreshRequest
+import com.kinogo.atv.player.ui.PlaybackSourceRefreshUnitKey
 import com.kinogo.atv.player.web.ProviderEmbedPlayerScreen
 import com.kinogo.atv.ui.KinogoTvApp
 import com.kinogo.atv.ui.components.PosterGridColumnCount
 import com.kinogo.atv.ui.mapper.toDetailsUiModel
 import com.kinogo.atv.ui.mapper.toPosterUiModel
 import com.kinogo.atv.ui.model.BookmarkUiModel
+import com.kinogo.atv.ui.model.DetailsUiModel
+import com.kinogo.atv.ui.model.AppUpdateUiModel
+import com.kinogo.atv.ui.model.AppUpdateUiPhase
 import com.kinogo.atv.ui.model.HistoryUiModel
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.MirrorStatusUi
@@ -82,6 +108,9 @@ import com.kinogo.atv.ui.model.MirrorUiModel
 import com.kinogo.atv.ui.model.MirrorUiState
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
+import com.kinogo.atv.ui.model.RegistrationSubmissionUiInput
+import com.kinogo.atv.ui.model.RegistrationUiModel
+import com.kinogo.atv.ui.model.RegistrationUiPhase
 import com.kinogo.atv.ui.model.TvDestination
 import com.kinogo.atv.ui.model.withPreferences
 import com.kinogo.atv.ui.screens.PlaybackPreparationScreen
@@ -91,6 +120,8 @@ import com.kinogo.atv.ui.screens.PlaybackWebFallbackUiModel
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -106,6 +137,8 @@ private const val DEVELOPMENT_FIXTURE_QUALITY = "320p"
 private const val APP_ROOT_LOG_TAG = "KinogoAppRoot"
 private const val PLAYBACK_DETAIL_RETRY_DELAY_MS = 350L
 private const val HOME_INITIAL_PRELOAD_ROWS = 3
+private const val DONATE_URL = "https://donate.stream/donate_6a60559cd9e35"
+private const val REPOSITORY_URL = "https://github.com/reziarlleh/KinogoATV"
 
 /**
  * Home starts with the focused first row, so three rows keep two complete rows ready below it.
@@ -121,11 +154,180 @@ internal fun shouldContinueHomeInitialPreload(
     nextPage != null &&
     nextPage > loadedPage
 
+internal fun isSamePlaybackUnit(
+    requested: PlaybackSelectionUiModel,
+    normalized: PlaybackSelectionUiModel,
+): Boolean = requested.contentId == normalized.contentId &&
+    requested.season == normalized.season &&
+    requested.episode == normalized.episode
+
+internal data class PlaybackLaunchSafety(
+    val automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey>,
+    val discardActivePlaybackOnExit: Boolean,
+)
+
+internal enum class PlaybackRecoveryEarlyFailure {
+    CONTENT_UNAVAILABLE,
+    MIRROR_UNAVAILABLE,
+}
+
+internal fun playbackLaunchSafety(
+    currentAttempts: Set<PlaybackSourceRefreshUnitKey>,
+    recovery: PlaybackSourceRefreshRequest?,
+): PlaybackLaunchSafety = PlaybackLaunchSafety(
+    automaticSourceRefreshAttempts = if (recovery == null) {
+        currentAttempts
+    } else {
+        currentAttempts + recovery.attemptedUnits
+    },
+    discardActivePlaybackOnExit = recovery != null,
+)
+
+internal fun PlaybackLaunchSafety.recoveryErrorFor(
+    failure: PlaybackRecoveryEarlyFailure,
+): String? {
+    if (!discardActivePlaybackOnExit) return null
+    return when (failure) {
+        PlaybackRecoveryEarlyFailure.CONTENT_UNAVAILABLE ->
+            "Не удалось обновить источник: карточка больше недоступна"
+        PlaybackRecoveryEarlyFailure.MIRROR_UNAVAILABLE ->
+            "Не удалось обновить источник: нет активного проверенного зеркала"
+    }
+}
+
 private data class ActivePlaybackSession(
+    val generation: Long,
     val selection: PlaybackSelectionUiModel,
     val mediaPlan: PlaybackMediaPlan,
     val webFallbacks: List<ResolvedPlaybackEmbed> = emptyList(),
+    val automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey> = emptySet(),
 )
+
+/**
+ * Checkpoint writes must keep callback order. In particular, the close checkpoint must become
+ * visible before an immediate Continue action reads DataStore again.
+ */
+internal class PlaybackCheckpointWriteQueue {
+    private var tail: Job? = null
+
+    fun enqueue(
+        scope: CoroutineScope,
+        write: suspend () -> Unit,
+    ) {
+        val next = synchronized(this) {
+            val previous = tail
+            scope.launch(start = CoroutineStart.LAZY) {
+                previous?.join()
+                write()
+            }.also { tail = it }
+        }
+        next.start()
+    }
+
+    suspend fun awaitIdle() {
+        while (true) {
+            val observed = synchronized(this) { tail } ?: return
+            observed.join()
+            if (synchronized(this) { tail === observed }) return
+        }
+    }
+}
+
+internal fun acceptsPlaybackCheckpoint(
+    activeGeneration: Long?,
+    callbackGeneration: Long,
+): Boolean = activeGeneration == callbackGeneration
+
+internal fun monotonicPlaybackCheckpointTimestamp(
+    nowMs: Long,
+    previousTimestampMs: Long,
+    entries: Collection<WatchProgress>,
+): Long {
+    val newestKnown = maxOf(
+        previousTimestampMs,
+        entries.maxOfOrNull(WatchProgress::updatedAtEpochMs) ?: 0L,
+    )
+    val nextKnown = if (newestKnown == Long.MAX_VALUE) Long.MAX_VALUE else newestKnown + 1L
+    return maxOf(nowMs.coerceAtLeast(0L), nextKnown)
+}
+
+/** The fresh page used for source discovery also keeps the return Details action immediately live. */
+internal fun ParsedContentPage.toPlaybackDetailsUiModel(): DetailsUiModel {
+    val details = ContentDetails(
+        catalogItem = catalogItem,
+        description = description,
+        countries = countries,
+        genres = genres,
+        directors = directors,
+        cast = cast,
+        durationMinutes = durationMinutes,
+    )
+    val voiceovers = metadata.findValue("Перевод")
+        ?.split(',')
+        ?.map(String::trim)
+        ?.filter(String::isNotEmpty)
+        .orEmpty()
+    val qualities = listOfNotNull(metadata.findValue("Качество"))
+    val canDiscoverAtLaunch =
+        playerEmbeds.isNotEmpty() || (catalogItem.serverPostId != null && catalogItem.year != null)
+    val sourceStatus = when {
+        playerEmbeds.isNotEmpty() ->
+            "Нативные источники, переводы и серии будут обновлены перед запуском"
+        canDiscoverAtLaunch ->
+            "Источник будет найден и проверен непосредственно перед запуском"
+        else -> playerNotice ?: "На странице не найден источник воспроизведения"
+    }
+    return details.toDetailsUiModel(
+        playbackAvailable = canDiscoverAtLaunch,
+        statusMessage = sourceStatus,
+    ).copy(
+        voiceovers = voiceovers,
+        qualities = qualities,
+        providerPlayback = false,
+    )
+}
+
+/**
+ * Source discovery can succeed even when the conservative HTML card did not expose enough
+ * metadata to advertise playback beforehand. Keep the returned Details action enabled after a
+ * successful preparation instead of forcing the user to leave and reopen the card.
+ */
+internal fun DetailsUiModel.withPreparedPlaybackAvailability(
+    nativePlanReady: Boolean,
+    webFallbackReady: Boolean,
+): DetailsUiModel {
+    if (!nativePlanReady && !webFallbackReady) return this
+    return copy(
+        playbackAvailable = true,
+        statusMessage = if (nativePlanReady) {
+            "Нативный источник готов к воспроизведению"
+        } else {
+            "Доступен оригинальный web-плеер"
+        },
+    )
+}
+
+/** A transient refresh must not revoke a playback action that was already proven to work. */
+internal fun DetailsUiModel.preserveConfirmedPlaybackAvailability(
+    previous: DetailsUiModel?,
+): DetailsUiModel = if (previous?.playbackAvailable == true && !playbackAvailable) {
+    copy(
+        playbackAvailable = true,
+        statusMessage = previous.statusMessage,
+    )
+} else {
+    this
+}
+
+internal fun DetailsUiModel.withPlaybackPreparationFailure(): DetailsUiModel =
+    if (playbackAvailable) {
+        copy(
+            statusMessage =
+                "Источник временно недоступен. Нажмите «Смотреть» для повторного поиска",
+        )
+    } else {
+        this
+    }
 
 private data class ActiveEmbeddedPlaybackSession(
     val selection: PlaybackSelectionUiModel,
@@ -136,6 +338,7 @@ private data class PlaybackLaunchUiState(
     val request: PlaybackSelectionUiModel,
     val title: String,
     val errorMessage: String? = null,
+    val discardActivePlaybackOnExit: Boolean = false,
 )
 
 /** Short-lived prepared sources. This state is memory-only and all nested URLs redact themselves. */
@@ -191,12 +394,17 @@ fun KinogoAppRoot() {
     val libraryStore = remember(context) { LibraryStateStore(context.kinogoDataStore) }
     val mirrorPreferences = remember(context) { MirrorPreferencesStore(context.kinogoDataStore) }
     val tvPreferencesStore = remember(context) { TvPreferencesStore(context.kinogoDataStore) }
-    val tvPreferences by tvPreferencesStore.preferences.collectAsState(initial = TvPreferences())
+    val searchHistoryStore = remember(context) { SearchHistoryStore(context.kinogoDataStore) }
+    val tvPreferencesSnapshot by tvPreferencesStore.preferences.collectAsState(initial = null)
+    val tvPreferences = tvPreferencesSnapshot ?: TvPreferences()
     val mirrorRegistry = remember { MirrorRegistry() }
+    val mirrorBootstrapClient = remember { MirrorBootstrapClient() }
     val mirrorCoordinator = remember(mirrorRegistry) {
         MirrorRefreshCoordinator(mirrorRegistry, MirrorHealthChecker())
     }
     val sessionHttpClient = remember { KinogoSessionHttpClient() }
+    val registrationApi = remember(sessionHttpClient) { KinogoRegistrationApi(sessionHttpClient) }
+    val appUpdateManager = remember(context) { AppUpdateManager(context) }
     val htmlParser = remember { KinogoHtmlParser() }
     val credentialStore = remember(context) { context.createCredentialStore() }
     val sessionManager = remember(credentialStore, sessionHttpClient) {
@@ -233,7 +441,22 @@ fun KinogoAppRoot() {
     var activeMirrorOrigin by remember { mutableStateOf<String?>(null) }
     var mirrorCheckInProgress by remember { mutableStateOf(false) }
     var lastMirrorCheckLabel by remember { mutableStateOf<String?>(null) }
+    var registrationPage by remember { mutableStateOf<RegistrationPage?>(null) }
+    var registrationRulesPage by remember { mutableStateOf<RegistrationRulesPage?>(null) }
+    var registrationUi by remember { mutableStateOf<RegistrationUiModel?>(null) }
+    var registrationGeneration by remember { mutableLongStateOf(0L) }
+    var registrationJob by remember { mutableStateOf<Job?>(null) }
+    var availableAppUpdate by remember { mutableStateOf<AppUpdateRelease?>(null) }
+    var verifiedAppUpdate by remember { mutableStateOf<VerifiedAppUpdate?>(null) }
+    var appUpdateUi by remember {
+        mutableStateOf(AppUpdateUiModel(currentVersion = BuildConfig.VERSION_NAME))
+    }
+    var appUpdateJob by remember { mutableStateOf<Job?>(null) }
+    var automaticUpdateCheckStarted by remember { mutableStateOf(false) }
     var activePlayback by remember { mutableStateOf<ActivePlaybackSession?>(null) }
+    var playbackSessionGeneration by remember { mutableLongStateOf(0L) }
+    var lastCheckpointTimestampMs by remember { mutableLongStateOf(0L) }
+    val checkpointWriteQueue = remember { PlaybackCheckpointWriteQueue() }
     var activeEmbeddedPlayback by remember {
         mutableStateOf<ActiveEmbeddedPlaybackSession?>(null)
     }
@@ -247,6 +470,14 @@ fun KinogoAppRoot() {
     var playbackReturnDetailsId by remember { mutableStateOf<String?>(null) }
     var startupError by remember { mutableStateOf<String?>(null) }
     var currentDestination by remember { mutableStateOf(TvDestination.Home) }
+    var searchInputQuery by remember { mutableStateOf("") }
+    var recentSearchQueries by remember { mutableStateOf(emptyList<String>()) }
+    var searchFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var homeFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var catalogFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var bookmarksFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var historyFocusedItemId by remember { mutableStateOf<String?>(null) }
+    var bookmarksFilter by remember { mutableStateOf(LibraryFilter.ALL) }
     var homeFeed by remember {
         mutableStateOf(CatalogFeedState(query = CatalogQuery()))
     }
@@ -264,6 +495,16 @@ fun KinogoAppRoot() {
     var loadingDetailIds by remember { mutableStateOf(emptySet<String>()) }
     var enrichingHistoryIds by remember { mutableStateOf(emptySet<String>()) }
 
+    fun nextCheckpointTimestampMs(): Long {
+        val timestamp = monotonicPlaybackCheckpointTimestamp(
+            nowMs = System.currentTimeMillis(),
+            previousTimestampMs = lastCheckpointTimestampMs,
+            entries = history,
+        )
+        lastCheckpointTimestampMs = timestamp
+        return timestamp
+    }
+
     fun knownCatalogItems(): List<CatalogItem> =
         (
             homeFeed.items +
@@ -275,7 +516,7 @@ fun KinogoAppRoot() {
 
     suspend fun persistHistorySnapshot(item: CatalogItem) {
         progressStore.attachContentSnapshot(item)
-        history = progressStore.list()
+        history = PlaybackProgressCollection.normalize(history + progressStore.list())
     }
 
     suspend fun loadCatalogDetails(origin: String, item: CatalogItem) =
@@ -459,12 +700,15 @@ fun KinogoAppRoot() {
     }
 
     fun requestSearch(rawQuery: String) {
-        val value = rawQuery.trim()
+        val value = SearchHistoryCollection.normalize(rawQuery).orEmpty()
         if (value.isEmpty()) {
             searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
             return
         }
         val query = CatalogQuery.search(value)
+        if (searchFeed.query?.identity != query.identity) {
+            searchFocusedItemId = null
+        }
         if (searchFeed.query?.identity == query.identity) {
             if (searchFeed.loading) return
             if (searchFeed.error == null && searchFeed.items.isNotEmpty()) return
@@ -490,6 +734,20 @@ fun KinogoAppRoot() {
         )
     }
 
+    fun recordCommittedSearch(rawQuery: String) {
+        val value = SearchHistoryCollection.normalize(rawQuery) ?: return
+        recentSearchQueries = SearchHistoryCollection.record(recentSearchQueries, value)
+        scope.launch {
+            try {
+                recentSearchQueries = searchHistoryStore.record(value)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Log.w(APP_ROOT_LOG_TAG, "Recent search query write failed", error)
+            }
+        }
+    }
+
     fun requestDetails(contentId: String) {
         val item = knownCatalogItems().firstOrNull { it.id == contentId } ?: return
         val origin = activeMirrorOrigin ?: return
@@ -501,45 +759,7 @@ fun KinogoAppRoot() {
                 val parsed = loadCatalogDetails(origin, item)
                 if (generation != contentGeneration || activeMirrorOrigin != origin) return@launch
                 persistHistorySnapshot(parsed.catalogItem)
-                val details = ContentDetails(
-                    catalogItem = parsed.catalogItem,
-                    description = parsed.description,
-                    countries = parsed.countries,
-                    genres = parsed.genres,
-                    directors = parsed.directors,
-                    cast = parsed.cast,
-                    durationMinutes = parsed.durationMinutes,
-                )
-                val voiceovers = parsed.metadata.findValue("Перевод")
-                    ?.split(',')
-                    ?.map(String::trim)
-                    ?.filter(String::isNotEmpty)
-                    .orEmpty()
-                val qualities = listOfNotNull(parsed.metadata.findValue("Качество"))
-                val canDiscoverAtLaunch =
-                    parsed.playerEmbeds.isNotEmpty() ||
-                        (
-                            parsed.catalogItem.serverPostId != null &&
-                                parsed.catalogItem.year != null
-                            )
-                val sourceStatus = when {
-                    parsed.playerEmbeds.isNotEmpty() ->
-                        "Нативные источники, переводы и серии будут обновлены перед запуском"
-                    canDiscoverAtLaunch ->
-                        "Источник будет найден и проверен непосредственно перед запуском"
-                    else ->
-                        parsed.playerNotice ?: "На странице не найден источник воспроизведения"
-                }
-                liveDetailsById = liveDetailsById + (
-                    contentId to details.toDetailsUiModel(
-                        playbackAvailable = canDiscoverAtLaunch,
-                        statusMessage = sourceStatus,
-                    ).copy(
-                        voiceovers = voiceovers,
-                        qualities = qualities,
-                        providerPlayback = false,
-                    )
-                )
+                liveDetailsById = liveDetailsById + (contentId to parsed.toPlaybackDetailsUiModel())
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -571,6 +791,8 @@ fun KinogoAppRoot() {
         activeMirrorOrigin = selectedOrigin
         if (mirrorChanged) {
             contentGeneration++
+            registrationPage = null
+            registrationUi = null
             liveDetailsById = emptyMap()
             loadingDetailIds = emptySet()
             searchFeed = CatalogFeedState(generation = searchFeed.generation + 1L)
@@ -656,6 +878,10 @@ fun KinogoAppRoot() {
                     Log.e(APP_ROOT_LOG_TAG, "Selected mirror preference read failed", error)
                     null
                 }
+                // Remote candidates never become active here. They enter the registry quarantined
+                // and still have to pass the existing DNS/HTTPS/service-fingerprint probe below.
+                mirrorBootstrapClient.refresh(mirrorRegistry)
+                mirrorEntries = mirrorRegistry.all()
                 val result = mirrorCoordinator.refresh()
                 startupError = null
                 applyMirrorRefresh(result, persistedPreference)
@@ -678,14 +904,353 @@ fun KinogoAppRoot() {
         }
     }
 
-    fun startPlayback(requested: PlaybackSelectionUiModel) {
+    fun applyRegistrationLoadResult(result: RegistrationLoadResult) {
+        when (result) {
+            is RegistrationLoadResult.Ready -> {
+                registrationRulesPage = null
+                registrationPage = result.page
+                registrationUi = result.page.toRegistrationUiModel()
+            }
+            is RegistrationLoadResult.ConsentRequired -> {
+                registrationPage = null
+                registrationRulesPage = result.page
+                registrationUi = RegistrationUiModel(
+                    phase = RegistrationUiPhase.RULES,
+                    rulesText = result.page.rulesText,
+                )
+            }
+            is RegistrationLoadResult.Unavailable -> {
+                registrationPage = null
+                registrationRulesPage = null
+                registrationUi = RegistrationUiModel(
+                    phase = RegistrationUiPhase.UNAVAILABLE,
+                    message = result.message,
+                )
+            }
+            is RegistrationLoadResult.Failed -> {
+                registrationPage = null
+                registrationRulesPage = null
+                registrationUi = RegistrationUiModel(
+                    phase = RegistrationUiPhase.ERROR,
+                    message = result.message,
+                )
+            }
+        }
+    }
+
+    fun requestRegistration() {
+        registrationJob?.cancel()
+        val generation = ++registrationGeneration
+        val origin = activeMirrorOrigin
+        registrationPage = null
+        registrationRulesPage = null
+        if (origin == null) {
+            registrationUi = RegistrationUiModel(
+                phase = RegistrationUiPhase.UNAVAILABLE,
+                message = "Сначала выберите доступное проверенное зеркало",
+            )
+            return
+        }
+        registrationUi = RegistrationUiModel(phase = RegistrationUiPhase.LOADING)
+        registrationJob = scope.launch {
+            try {
+                val result = registrationApi.load(origin)
+                if (generation != registrationGeneration || activeMirrorOrigin != origin) return@launch
+                applyRegistrationLoadResult(result)
+            } finally {
+                if (generation == registrationGeneration) registrationJob = null
+            }
+        }
+    }
+
+    fun acceptRegistrationRules() {
+        val page = registrationRulesPage ?: return
+        val origin = activeMirrorOrigin ?: return
+        registrationJob?.cancel()
+        val generation = ++registrationGeneration
+        registrationUi = RegistrationUiModel(
+            phase = RegistrationUiPhase.LOADING,
+            message = "Загружаем регистрационную форму…",
+        )
+        registrationJob = scope.launch {
+            try {
+                val result = registrationApi.acceptRules(page)
+                if (generation != registrationGeneration || activeMirrorOrigin != origin) return@launch
+                applyRegistrationLoadResult(result)
+            } finally {
+                if (generation == registrationGeneration) registrationJob = null
+            }
+        }
+    }
+
+    fun submitRegistration(input: RegistrationSubmissionUiInput) {
+        val page = registrationPage ?: return
+        val origin = activeMirrorOrigin ?: return
+        registrationJob?.cancel()
+        val generation = ++registrationGeneration
+        registrationUi = page.toRegistrationUiModel(
+            phase = RegistrationUiPhase.SUBMITTING,
+            message = null,
+        )
+        registrationJob = scope.launch {
+            try {
+                val submission = RegistrationInput(
+                    login = input.login,
+                    email = input.email,
+                    password = input.password,
+                    passwordConfirmation = input.passwordConfirmation,
+                    captchaText = input.captchaText,
+                    acceptedTerms = input.acceptedTerms,
+                )
+                val result = registrationApi.submit(page, submission)
+                if (generation != registrationGeneration || activeMirrorOrigin != origin) return@launch
+                when (result) {
+                    is RegistrationSubmitResult.Completed -> {
+                        registrationUi = RegistrationUiModel(
+                            phase = RegistrationUiPhase.COMPLETED,
+                            message = "Аккаунт создан. Выполняем вход…",
+                        )
+                        try {
+                            val login = input.login.trim()
+                            if (accountState.login != null && accountState.login != login) {
+                                libraryStore.clearAccountData()
+                                if (generation != registrationGeneration || activeMirrorOrigin != origin) {
+                                    return@launch
+                                }
+                                libraryRecords = emptyList()
+                                librarySyncPendingCount = 0
+                            }
+                            val session = sessionManager.saveAndLogin(
+                                origin,
+                                StoredCredentials(login, input.password),
+                            )
+                            if (generation != registrationGeneration || activeMirrorOrigin != origin) {
+                                return@launch
+                            }
+                            registrationUi = RegistrationUiModel(
+                                phase = RegistrationUiPhase.COMPLETED,
+                                message = if (session != null) {
+                                    requestLibrarySync(origin, session.login)
+                                    "Аккаунт создан, вход выполнен"
+                                } else {
+                                    "Аккаунт создан. Войдите с новыми данными"
+                                },
+                            )
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (_: Exception) {
+                            if (generation == registrationGeneration && activeMirrorOrigin == origin) {
+                                registrationUi = RegistrationUiModel(
+                                    phase = RegistrationUiPhase.COMPLETED,
+                                    message = "Аккаунт создан. Автоматический вход не удался — выполните вход вручную",
+                                )
+                            }
+                        }
+                    }
+                    is RegistrationSubmitResult.Rejected -> {
+                        val refreshedPage = result.refreshedPage ?: page
+                        registrationPage = refreshedPage
+                        registrationUi = refreshedPage.toRegistrationUiModel(message = result.message)
+                    }
+                    is RegistrationSubmitResult.Failed -> registrationUi = page.toRegistrationUiModel(
+                        phase = RegistrationUiPhase.ERROR,
+                        message = result.message,
+                    )
+                }
+            } finally {
+                if (generation == registrationGeneration) registrationJob = null
+            }
+        }
+    }
+
+    fun requestAppUpdateCheck() {
+        if (appUpdateJob?.isActive == true) return
+        verifiedAppUpdate?.apkFile?.delete()
+        verifiedAppUpdate = null
+        availableAppUpdate = null
+        appUpdateUi = AppUpdateUiModel(
+            currentVersion = BuildConfig.VERSION_NAME,
+            phase = AppUpdateUiPhase.CHECKING,
+            status = "Проверяем GitHub Release…",
+            actionLabel = null,
+            actionEnabled = false,
+        )
+        appUpdateJob = scope.launch {
+            try {
+                when (val result = appUpdateManager.check(BuildConfig.VERSION_CODE.toLong())) {
+                    is AppUpdateCheckResult.UpToDate -> {
+                        availableAppUpdate = null
+                        verifiedAppUpdate = null
+                        appUpdateUi = AppUpdateUiModel(
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            phase = AppUpdateUiPhase.CURRENT,
+                            status = if (result.latestVersionName == null) {
+                                "Опубликованных обновлений пока нет"
+                            } else {
+                                "Установлена актуальная версия"
+                            },
+                            actionLabel = "Проверить снова",
+                        )
+                    }
+                    is AppUpdateCheckResult.Available -> {
+                        availableAppUpdate = result.release
+                        verifiedAppUpdate = null
+                        appUpdateUi = AppUpdateUiModel(
+                            currentVersion = BuildConfig.VERSION_NAME,
+                            phase = AppUpdateUiPhase.AVAILABLE,
+                            status = "Доступна версия ${result.release.versionName}",
+                            availableVersion = result.release.versionName,
+                            actionLabel = "Загрузить",
+                        )
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                appUpdateUi = AppUpdateUiModel(
+                    currentVersion = BuildConfig.VERSION_NAME,
+                    phase = AppUpdateUiPhase.ERROR,
+                    status = "Не удалось проверить обновления",
+                    actionLabel = "Повторить",
+                )
+            } finally {
+                appUpdateJob = null
+            }
+        }
+    }
+
+    fun requestAppUpdateDownload(release: AppUpdateRelease) {
+        if (appUpdateJob?.isActive == true) return
+        appUpdateUi = AppUpdateUiModel(
+            currentVersion = BuildConfig.VERSION_NAME,
+            phase = AppUpdateUiPhase.DOWNLOADING,
+            status = "Загружаем и проверяем подпись APK…",
+            availableVersion = release.versionName,
+            actionLabel = null,
+            actionEnabled = false,
+        )
+        appUpdateJob = scope.launch {
+            try {
+                val verified = appUpdateManager.downloadAndVerify(release)
+                verifiedAppUpdate = verified
+                appUpdateUi = AppUpdateUiModel(
+                    currentVersion = BuildConfig.VERSION_NAME,
+                    phase = AppUpdateUiPhase.READY_TO_INSTALL,
+                    status = "APK проверен. Android попросит подтвердить установку",
+                    availableVersion = release.versionName,
+                    actionLabel = "Установить",
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                verifiedAppUpdate = null
+                appUpdateUi = AppUpdateUiModel(
+                    currentVersion = BuildConfig.VERSION_NAME,
+                    phase = AppUpdateUiPhase.ERROR,
+                    status = "Не удалось загрузить или проверить обновление",
+                    availableVersion = release.versionName,
+                    actionLabel = "Повторить",
+                )
+            } finally {
+                appUpdateJob = null
+            }
+        }
+    }
+
+    fun handleAppUpdateAction() {
+        when (appUpdateUi.phase) {
+            AppUpdateUiPhase.AVAILABLE -> availableAppUpdate?.let(::requestAppUpdateDownload)
+            AppUpdateUiPhase.DOWNLOADING,
+            AppUpdateUiPhase.CHECKING,
+            -> Unit
+            AppUpdateUiPhase.READY_TO_INSTALL -> {
+                val host = activity
+                val update = verifiedAppUpdate
+                if (host == null || update == null) {
+                    availableAppUpdate = null
+                    verifiedAppUpdate = null
+                    appUpdateUi = appUpdateUi.copy(
+                        phase = AppUpdateUiPhase.ERROR,
+                        status = "Системный установщик недоступен",
+                        actionLabel = "Проверить снова",
+                    )
+                } else {
+                    try {
+                        appUpdateUi = when (appUpdateManager.requestInstall(host, update)) {
+                            AppUpdateInstallResult.InstallerOpened -> appUpdateUi.copy(
+                                status = "Подтвердите обновление в системном окне Android",
+                                actionLabel = "Установить снова",
+                            )
+                            AppUpdateInstallResult.UnknownSourcesPermissionOpened -> appUpdateUi.copy(
+                                status = "Разрешите установку для KinogoATV, вернитесь и нажмите «Установить»",
+                                actionLabel = "Установить",
+                            )
+                        }
+                    } catch (_: Exception) {
+                        appUpdateUi = appUpdateUi.copy(
+                            phase = AppUpdateUiPhase.READY_TO_INSTALL,
+                            status = "Не удалось открыть системный установщик",
+                            actionLabel = "Повторить установку",
+                        )
+                    }
+                }
+            }
+            else -> {
+                val available = availableAppUpdate
+                if (appUpdateUi.phase == AppUpdateUiPhase.ERROR && available != null) {
+                    requestAppUpdateDownload(available)
+                } else {
+                    requestAppUpdateCheck()
+                }
+            }
+        }
+    }
+
+    fun startPlayback(
+        requested: PlaybackSelectionUiModel,
+        recovery: PlaybackSourceRefreshRequest? = null,
+    ) {
         playbackReturnDetailsId = requested.contentId
         playbackLaunchJob?.cancel()
         playbackLaunchJob = null
+        val launchSafety = playbackLaunchSafety(
+            currentAttempts = activePlayback
+                ?.automaticSourceRefreshAttempts
+                .orEmpty(),
+            recovery = recovery,
+        )
+        if (recovery != null) {
+            // Persist the consumed refresh budget before the launch screen disposes Media3.
+            // Otherwise Back could revive the failed session with an empty immutable set.
+            activePlayback = activePlayback?.copy(
+                automaticSourceRefreshAttempts =
+                    launchSafety.automaticSourceRefreshAttempts,
+            )
+        }
+        fun stopRecoveryBeforePreparation(title: String, errorMessage: String) {
+            activePlayback = null
+            activeEmbeddedPlayback = null
+            pendingPlaybackSelection = null
+            playbackLaunchGeneration++
+            playbackLaunchUi = PlaybackLaunchUiState(
+                request = requested,
+                title = title,
+                errorMessage = errorMessage,
+                discardActivePlaybackOnExit = true,
+            )
+        }
         val allItems = knownCatalogItems()
         val item = allItems.firstOrNull { it.id == requested.contentId }
         if (item == null) {
-            val fixturePlan = fixturePlaybackPlan(requested) ?: return
+            val fixturePlan = fixturePlaybackPlan(requested)
+            if (fixturePlan == null) {
+                launchSafety.recoveryErrorFor(
+                    PlaybackRecoveryEarlyFailure.CONTENT_UNAVAILABLE,
+                )?.let { errorMessage ->
+                    stopRecoveryBeforePreparation(requested.contentId, errorMessage)
+                }
+                return
+            }
             pendingPlaybackSelection = PendingPlaybackSelectionSession(
                 title = KinogoFixtures.catalog
                     .firstOrNull { it.id == requested.contentId }
@@ -700,13 +1265,22 @@ fun KinogoAppRoot() {
             activeEmbeddedPlayback = null
             return
         }
-        val origin = activeMirrorOrigin ?: return
+        val origin = activeMirrorOrigin
+        if (origin == null) {
+            launchSafety.recoveryErrorFor(
+                PlaybackRecoveryEarlyFailure.MIRROR_UNAVAILABLE,
+            )?.let { errorMessage ->
+                stopRecoveryBeforePreparation(item.title, errorMessage)
+            }
+            return
+        }
         pendingPlaybackSelection = null
         playbackLaunchGeneration++
         val launchGeneration = playbackLaunchGeneration
         playbackLaunchUi = PlaybackLaunchUiState(
             request = requested,
             title = item.title,
+            discardActivePlaybackOnExit = launchSafety.discardActivePlaybackOnExit,
         )
         playbackLaunchJob = scope.launch {
             try {
@@ -733,6 +1307,19 @@ fun KinogoAppRoot() {
                 ) {
                     return@launch
                 }
+                checkpointWriteQueue.awaitIdle()
+                if (
+                    launchGeneration != playbackLaunchGeneration ||
+                    activeMirrorOrigin != origin
+                ) {
+                    return@launch
+                }
+                val previousPlaybackDetails = liveDetailsById[requested.contentId]
+                liveDetailsById = liveDetailsById + (
+                    requested.contentId to fresh
+                        .toPlaybackDetailsUiModel()
+                        .preserveConfirmedPlaybackAvailability(previousPlaybackDetails)
+                )
                 persistHistorySnapshot(fresh.catalogItem)
                 val documentUrl = resolvedPlaybackDocumentUrl(origin, fresh)
                 val directPlan = resolveFreshDirectPlan(
@@ -773,6 +1360,14 @@ fun KinogoAppRoot() {
                     .takeIf(List<PlaybackMediaPlan>::isNotEmpty)
                     ?.let(NativePlaybackPlanMapper::merge)
                 val webFallbacks = preparedSession?.webFallbacks.orEmpty()
+                liveDetailsById[requested.contentId]?.let { cachedDetails ->
+                    liveDetailsById = liveDetailsById + (
+                        requested.contentId to cachedDetails.withPreparedPlaybackAvailability(
+                            nativePlanReady = plan != null,
+                            webFallbackReady = webFallbacks.isNotEmpty(),
+                        )
+                    )
+                }
 
                 if (plan == null && webFallbacks.isEmpty()) {
                     val message = fresh.playerNotice
@@ -781,28 +1376,36 @@ fun KinogoAppRoot() {
                         ?.userMessage
                         ?: preparedSession?.notices?.firstOrNull()
                         ?: "Не найден совместимый источник воспроизведения"
+                    if (launchSafety.discardActivePlaybackOnExit) activePlayback = null
+                    liveDetailsById[requested.contentId]?.let { cachedDetails ->
+                        liveDetailsById = liveDetailsById + (
+                            requested.contentId to
+                                cachedDetails.withPlaybackPreparationFailure()
+                        )
+                    }
                     playbackLaunchUi = PlaybackLaunchUiState(
                         request = requested,
                         title = item.title,
                         errorMessage = message,
+                        discardActivePlaybackOnExit =
+                            launchSafety.discardActivePlaybackOnExit,
                     )
                     return@launch
                 }
 
                 var effectiveSelection = requested
-                var initialPosition = 0L
-                if (requested.resume) {
+                var initialPosition = recovery?.positionMs ?: 0L
+                if (recovery == null && requested.resume) {
                     try {
-                        val allProgress = progressStore.list()
-                        val requestedDomain = requested.toDomainSelection()
-                        val exact = progressStore.get(
-                            contentId = requestedDomain.contentId,
-                            seasonId = requestedDomain.seasonId,
-                            episodeId = requestedDomain.episodeId,
+                        checkpointWriteQueue.awaitIdle()
+                        val allProgress = PlaybackProgressCollection.normalize(
+                            progressStore.list() + history,
                         )
-                        val saved = exact ?: allProgress.firstOrNull {
-                            it.selection.contentId == requested.contentId && !it.isCompleted()
-                        }
+                        history = allProgress
+                        val saved = preferredResumeProgress(
+                            entries = allProgress,
+                            contentId = requested.contentId,
+                        )
                         if (saved != null) {
                             effectiveSelection = saved.selection.toUiSelection(resume = true)
                             initialPosition = saved.resumePositionMs() ?: 0L
@@ -819,6 +1422,31 @@ fun KinogoAppRoot() {
                 } else {
                     effectiveSelection
                 }
+                if (
+                    recovery != null &&
+                    plan != null &&
+                    isSamePlaybackUnit(requested, normalizedSelection)
+                ) {
+                    val recoveredSelection = normalizedSelection.copy(resume = true)
+                    val recoveredSourceId = recoveredSelection.sourceId ?: plan.defaultSourceId
+                    playbackInitialPositionMs = recovery.positionMs
+                    activePlayback = ActivePlaybackSession(
+                        generation = ++playbackSessionGeneration,
+                        selection = recoveredSelection,
+                        mediaPlan = PlaybackSourceSelectionModel.preferSource(
+                            plan,
+                            recoveredSourceId,
+                        ),
+                        webFallbacks = webFallbacks,
+                        automaticSourceRefreshAttempts =
+                            launchSafety.automaticSourceRefreshAttempts,
+                    )
+                    pendingPlaybackSelection = null
+                    activeEmbeddedPlayback = null
+                    playbackLaunchUi = null
+                    return@launch
+                }
+                if (recovery != null) initialPosition = 0L
                 pendingPlaybackSelection = PendingPlaybackSelectionSession(
                     title = fresh.catalogItem.title,
                     selection = normalizedSelection,
@@ -834,10 +1462,13 @@ fun KinogoAppRoot() {
             } catch (error: Exception) {
                 if (launchGeneration == playbackLaunchGeneration) {
                     Log.e(APP_ROOT_LOG_TAG, "Playback preparation failed", error)
+                    if (launchSafety.discardActivePlaybackOnExit) activePlayback = null
                     playbackLaunchUi = PlaybackLaunchUiState(
                         request = requested,
                         title = item.title,
                         errorMessage = playbackPreparationErrorLabel(error),
+                        discardActivePlaybackOnExit =
+                            launchSafety.discardActivePlaybackOnExit,
                     )
                 }
             }
@@ -877,11 +1508,18 @@ fun KinogoAppRoot() {
         }
         mirrorEntries = mirrorRegistry.all()
         try {
-            history = progressStore.list()
+            history = PlaybackProgressCollection.normalize(history + progressStore.list())
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             Log.e(APP_ROOT_LOG_TAG, "Playback history read failed", error)
+        }
+        try {
+            recentSearchQueries = searchHistoryStore.list()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.w(APP_ROOT_LOG_TAG, "Recent search history read failed", error)
         }
         try {
             libraryRecords = libraryStore.importLegacyFavorites(favoriteStore.list())
@@ -901,6 +1539,16 @@ fun KinogoAppRoot() {
             null
         }
         requestMirrorRefresh(preferredOrigin)
+    }
+
+    LaunchedEffect(tvPreferencesSnapshot?.autoCheckUpdates) {
+        if (
+            tvPreferencesSnapshot?.autoCheckUpdates == true &&
+            !automaticUpdateCheckStarted
+        ) {
+            automaticUpdateCheckStarted = true
+            requestAppUpdateCheck()
+        }
     }
 
     val legacyHistoryIds = remember(history) {
@@ -994,6 +1642,13 @@ fun KinogoAppRoot() {
         isChecking = mirrorCheckInProgress,
         lastCheckedLabel = lastMirrorCheckLabel,
     )
+    val detailsUiById = remember(liveDetailsById, history) {
+        liveDetailsById.mapValues { (contentId, details) ->
+            preferredResumeProgress(history, contentId)
+                ?.let { progress -> details.copy(resumeLabel = resumeActionLabel(progress)) }
+                ?: details
+        }
+    }
 
     val launchUi = playbackLaunchUi
     val selectorSession = pendingPlaybackSelection
@@ -1009,6 +1664,7 @@ fun KinogoAppRoot() {
                 playbackLaunchJob?.cancel()
                 playbackLaunchJob = null
                 playbackLaunchGeneration++
+                if (launchUi.discardActivePlaybackOnExit) activePlayback = null
                 playbackLaunchUi = null
             },
         )
@@ -1034,6 +1690,7 @@ fun KinogoAppRoot() {
                     0L
                 }
                 activePlayback = ActivePlaybackSession(
+                    generation = ++playbackSessionGeneration,
                     selection = selected,
                     mediaPlan = PlaybackSourceSelectionModel.preferSource(plan, sourceId),
                     webFallbacks = selectorSession.webFallbacks,
@@ -1085,26 +1742,54 @@ fun KinogoAppRoot() {
             mediaPlan = playbackSession.mediaPlan,
             title = title,
             initialPositionMs = playbackInitialPositionMs,
+            playbackSessionGeneration = playbackSession.generation,
             preferences = tvPreferences,
-            onCheckpoint = { currentSelection, positionMs, durationMs ->
-                if (positionMs > 0L) {
-                    scope.launch {
-                        progressStore.upsert(
-                            WatchProgress(
-                                selection = currentSelection.toDomainSelection(),
-                                positionMs = positionMs,
-                                durationMs = durationMs.takeIf { it > 0L },
-                                updatedAtEpochMs = System.currentTimeMillis(),
-                                contentSnapshot = knownCatalogItems()
-                                    .firstOrNull { it.id == currentSelection.contentId },
-                            ),
+            onCheckpoint = checkpoint@{ checkpoint: PlaybackCheckpoint ->
+                if (
+                    !acceptsPlaybackCheckpoint(
+                        activeGeneration = activePlayback?.generation,
+                        callbackGeneration = playbackSession.generation,
+                    )
+                ) {
+                    return@checkpoint
+                }
+                if (
+                    checkpoint.positionMs > 0L ||
+                    (
+                        checkpoint.selection.season != null &&
+                            checkpoint.selection.episode != null
                         )
-                        history = progressStore.list()
+                ) {
+                    val progress = WatchProgress(
+                        selection = checkpoint.selection.toDomainSelection(),
+                        positionMs = checkpoint.positionMs,
+                        durationMs = checkpoint.durationMs.takeIf { it > 0L },
+                        updatedAtEpochMs = nextCheckpointTimestampMs(),
+                        playbackEnded = checkpoint.playbackEnded,
+                        contentSnapshot = knownCatalogItems()
+                            .firstOrNull { it.id == checkpoint.selection.contentId },
+                    )
+                    // The Details screen is restored synchronously after exit; publish the exact
+                    // checkpoint before Media3 is removed, then serialize the durable writes.
+                    history = PlaybackProgressCollection.upsert(history, progress)
+                    checkpointWriteQueue.enqueue(scope) {
+                        try {
+                            progressStore.upsert(progress)
+                            history = PlaybackProgressCollection.normalize(
+                                history + progressStore.list(),
+                            )
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (error: Exception) {
+                            Log.e(APP_ROOT_LOG_TAG, "Playback checkpoint persistence failed", error)
+                        }
                     }
                 }
             },
-            onRefreshSourceRequested = { currentSelection ->
-                startPlayback(currentSelection.copy(resume = true))
+            automaticSourceRefreshAttempts =
+                playbackSession.automaticSourceRefreshAttempts,
+            onAutomaticSourceRefreshRequested = { request ->
+                startPlayback(request.selection, recovery = request)
             },
             onWebFallbackRequested = playbackSession.webFallbacks
                 .takeIf(List<ResolvedPlaybackEmbed>::isNotEmpty)
@@ -1131,10 +1816,21 @@ fun KinogoAppRoot() {
                         }
                     }
                 },
-            onExit = { activePlayback = null },
+            onExit = exit@{
+                if (
+                    !acceptsPlaybackCheckpoint(
+                        activeGeneration = activePlayback?.generation,
+                        callbackGeneration = playbackSession.generation,
+                    )
+                ) {
+                    return@exit
+                }
+                activePlayback = null
+            },
         )
     } else {
         KinogoTvApp(
+            initialDestination = currentDestination,
             initialDetailsId = playbackReturnDetailsId,
             homeCatalog = homePosters,
             history = historyUi,
@@ -1146,7 +1842,7 @@ fun KinogoAppRoot() {
             watchStatusById = libraryRecords.mapNotNull { record ->
                 record.status?.let { record.item.id to it }
             }.toMap(),
-            detailsById = liveDetailsById,
+            detailsById = detailsUiById,
             catalogHasMore = catalogFeed.nextPage != null,
             catalogLoading = catalogFeed.loading ||
                 (activeMirrorOrigin == null && mirrorCheckInProgress),
@@ -1169,6 +1865,15 @@ fun KinogoAppRoot() {
             searchLoading = searchFeed.loading,
             searchError = searchFeed.error,
             searchHasMore = searchFeed.nextPage != null,
+            searchQuery = searchInputQuery,
+            recentSearchQueries = recentSearchQueries,
+            searchFocusedItemId = searchFocusedItemId,
+            searchResultsQuery = searchFeed.query?.normalizedSearchTerm,
+            homeFocusedItemId = homeFocusedItemId,
+            catalogFocusedItemId = catalogFocusedItemId,
+            bookmarksFocusedItemId = bookmarksFocusedItemId,
+            historyFocusedItemId = historyFocusedItemId,
+            bookmarksFilter = bookmarksFilter,
             useRemoteCatalog = true,
             onPlayRequested = ::startPlayback,
             onCatalogLoadMore = {
@@ -1232,6 +1937,7 @@ fun KinogoAppRoot() {
             onHomeFiltersChanged = { filters ->
                 val current = homeFeed.query ?: CatalogQuery()
                 if (filters != current.filters) {
+                    homeFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.HOME,
@@ -1268,6 +1974,7 @@ fun KinogoAppRoot() {
                 val current = catalogFeed.query
                     ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
                 if (category != current.category) {
+                    catalogFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.CATALOG,
@@ -1287,6 +1994,7 @@ fun KinogoAppRoot() {
                 val current = catalogFeed.query
                     ?: CatalogQuery(category = CatalogCategory.NEW_RELEASES)
                 if (filters != current.filters) {
+                    catalogFocusedItemId = null
                     activeMirrorOrigin?.let { origin ->
                         requestFeedPage(
                             kind = CatalogFeedKind.CATALOG,
@@ -1298,7 +2006,30 @@ fun KinogoAppRoot() {
                     }
                 }
             },
+            onSearchInputChanged = { value -> searchInputQuery = value },
             onSearchQueryChanged = ::requestSearch,
+            onSearchCommitted = ::recordCommittedSearch,
+            onSearchFocusedItemChanged = { contentId ->
+                searchFocusedItemId = contentId
+            },
+            onHomeFocusedItemChanged = { contentId ->
+                homeFocusedItemId = contentId
+            },
+            onCatalogFocusedItemChanged = { contentId ->
+                catalogFocusedItemId = contentId
+            },
+            onBookmarksFocusedItemChanged = { contentId ->
+                bookmarksFocusedItemId = contentId
+            },
+            onHistoryFocusedItemChanged = { contentId ->
+                historyFocusedItemId = contentId
+            },
+            onBookmarksFilterSelected = { filter ->
+                if (bookmarksFilter != filter) {
+                    bookmarksFilter = filter
+                    bookmarksFocusedItemId = null
+                }
+            },
             onSearchLoadMore = {
                 val origin = activeMirrorOrigin
                 val query = searchFeed.query
@@ -1331,6 +2062,12 @@ fun KinogoAppRoot() {
                     activeMirrorOrigin = entry.origin
                     if (mirrorChanged) {
                         contentGeneration++
+                        registrationJob?.cancel()
+                        registrationJob = null
+                        registrationGeneration++
+                        registrationPage = null
+                        registrationRulesPage = null
+                        registrationUi = null
                         liveDetailsById = emptyMap()
                         loadingDetailIds = emptySet()
                         searchFeed = CatalogFeedState(
@@ -1388,7 +2125,7 @@ fun KinogoAppRoot() {
             },
             onMirrorRetry = { origin -> requestMirrorRefresh(origin) },
             onHistoryResume = { contentId ->
-                val saved = history.firstOrNull { it.selection.contentId == contentId }
+                val saved = preferredResumeProgress(history, contentId)
                 saved?.let { startPlayback(it.selection.toUiSelection(resume = true)) }
             },
             accountState = accountState,
@@ -1441,12 +2178,35 @@ fun KinogoAppRoot() {
                 val login = accountState.login
                 if (origin != null && login != null) requestLibrarySync(origin, login)
             },
+            registrationState = registrationUi,
+            onRegistrationOpen = ::requestRegistration,
+            onRegistrationDismiss = {
+                registrationJob?.cancel()
+                registrationJob = null
+                registrationGeneration++
+                registrationPage = null
+                registrationRulesPage = null
+                registrationUi = null
+            },
+            onRegistrationRetry = ::requestRegistration,
+            onRegistrationAcceptRules = ::acceptRegistrationRules,
+            onRegistrationRefreshCaptcha = ::requestRegistration,
+            onRegistrationSubmit = ::submitRegistration,
+            appUpdate = appUpdateUi,
+            onUpdateAction = ::handleAppUpdateAction,
+            appVersionName = BuildConfig.VERSION_NAME,
+            onDonateOpen = {
+                activity?.openTrustedExternalUrl(DONATE_URL)
+            },
+            onRepositoryOpen = {
+                activity?.openTrustedExternalUrl(REPOSITORY_URL)
+            },
             settingsSections = KinogoFixtures.settings.withPreferences(tvPreferences),
             highContrast = tvPreferences.highContrast,
             reduceMotion = tvPreferences.reduceMotion,
             defaultQuality = tvPreferences.defaultQuality,
-            onSettingChanged = { settingId, direction ->
-                scope.launch { tvPreferencesStore.cycle(settingId, direction) }
+            onSettingSelected = { settingId, optionId ->
+                scope.launch { tvPreferencesStore.set(settingId, optionId) }
             },
             onExitConfirmed = { activity?.finish() },
         )
@@ -1480,6 +2240,29 @@ private fun fixturePlaybackPlan(selection: PlaybackSelectionUiModel): PlaybackMe
         )
     }
     return PlaybackMediaPlan(variants)
+}
+
+private fun RegistrationPage.toRegistrationUiModel(
+    phase: RegistrationUiPhase = RegistrationUiPhase.READY,
+    message: String? = this.message,
+): RegistrationUiModel = RegistrationUiModel(
+    phase = phase,
+    message = message,
+    captchaBytes = captchaImage?.bytes,
+    captchaMimeType = captchaImage?.mimeType,
+    requiresCaptcha = form.captcha?.kind == RegistrationCaptchaKind.IMAGE,
+    requiresConsent = form.consent != null,
+    consentLabel = form.consent?.label ?: "Я принимаю правила сайта",
+)
+
+private fun Activity.openTrustedExternalUrl(rawUrl: String) {
+    if (rawUrl !in setOf(DONATE_URL, REPOSITORY_URL)) return
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(rawUrl))
+    try {
+        startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        // Android TV builds without a browser keep the About dialog open instead of crashing.
+    }
 }
 
 private suspend fun resolveFreshDirectPlan(
@@ -1564,6 +2347,42 @@ internal fun WatchProgress.historyCatalogItem(): CatalogItem? =
     contentSnapshot ?: legacyHistoryLookupItem(selection.contentId)
 
 /**
+ * One resume policy is shared by History, Catalog and Search entry points. The newest unfinished
+ * playback unit wins; a completed checkpoint for a default first episode must never hide a later
+ * unfinished episode.
+ */
+internal fun preferredResumeProgress(
+    entries: Collection<WatchProgress>,
+    contentId: String,
+): WatchProgress? {
+    val latestActiveUnit = entries
+        .asSequence()
+        .filter { it.selection.contentId == contentId }
+        .filter { progress ->
+            progress.resumePositionMs() != null ||
+                progress.isCompleted() ||
+                (progress.selection.isEpisode && progress.positionMs == 0L)
+        }
+        .maxByOrNull(WatchProgress::updatedAtEpochMs)
+    return latestActiveUnit?.takeUnless { it.isCompleted() }
+}
+
+internal fun resumeActionLabel(progress: WatchProgress): String {
+    val position = formatClock(progress.boundedPositionMs)
+    val season = progress.selection.seasonId?.trailingNumber()
+    val episode = progress.selection.episodeId?.trailingNumber()
+    return if (season != null && episode != null) {
+        if (progress.boundedPositionMs == 0L) {
+            "Продолжить S%02dE%02d".format(season, episode)
+        } else {
+            "Продолжить S%02dE%02d с %s".format(season, episode, position)
+        }
+    } else {
+        "Продолжить с $position"
+    }
+}
+
+/**
  * A constrained probe lets the legacy resolver recover a canonical card path after the old search
  * result has disappeared. Only a positive numeric id is accepted, so persisted text can never
  * become an arbitrary request path.
@@ -1610,6 +2429,18 @@ private val LEGACY_HISTORY_RECOVERABLE_HTTP_STATUSES = setOf(404, 410)
 
 private fun String.trailingNumber(): Int? =
     takeLastWhile(Char::isDigit).toIntOrNull()
+
+private fun formatClock(milliseconds: Long): String {
+    val totalSeconds = milliseconds.coerceAtLeast(0L) / 1_000L
+    val hours = totalSeconds / 3_600L
+    val minutes = (totalSeconds % 3_600L) / 60L
+    val seconds = totalSeconds % 60L
+    return if (hours > 0L) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
+    }
+}
 
 private fun toHistoryUiModel(
     progress: WatchProgress,

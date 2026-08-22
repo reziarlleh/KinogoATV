@@ -4,7 +4,8 @@
 > Текущий production-flow и фактически подключённые возможности см. в
 > [`PLAYBACK.md`](PLAYBACK.md) и [`PROJECT_STATE.md`](PROJECT_STATE.md).
 
-Статус: экспериментальные native adapters реализованы 26 июля 2026 года. Они
+Статус: экспериментальные native adapters реализованы 26 июля и актуализированы
+21 августа 2026 года. Они
 обрабатывают только конфигурацию, которую обычный браузер уже получает внутри iframe,
 не выполняют JavaScript, не обходят DRM, авторизацию, referer/cookie, географические
 или entitlement-ограничения. Контракт остаётся нестабильным и требует web fallback.
@@ -35,17 +36,26 @@ mapper строит `PlaybackMediaPlan` для Media3. Если структур
 | Источник | Что подтверждено | Чего нет |
 | --- | --- | --- |
 | Официальный APK / gateway | `GET /v1/post/{id}/player` с именованными `tabs`; gateway требует `X-App-Signature`; у записи из live fixture есть вкладки `cinemar` и `collaps`. | Прямого manifest URL, выбора серии/сезона/озвучки/качества, описания срока жизни или документации провайдеров. |
-| Cinemar | Текущий rotating iframe host, `/embed/{id}`, вызов `Cinemar({...})`; `file` декодируется детерминированным публичным `#2` envelope в playlist-tree. На live-снимке «Ночного бизнеса» получены 4 озвучки, HLS и SRT. | Гарантированный TTL и стабильная схема; JavaScript-computed/DRM варианты остаются web-only. |
+| Cinemar | Discovery `/embed/...` и current authenticated exact-host runtime player document на `cinemar.cc`; вызов `Cinemar({...})`, публичный `#2` envelope и playlist-tree. Leaf содержит opaque `data`, а реальный HLS выдаёт fixed same-origin `POST /api/playlist/load`; cookies не требуются. KIVI подтвердил native selector с озвучками/сезонами/сериями и Media3 S2E5 >15 с. | Гарантированный TTL и стабильная схема; не-HLS grants, JavaScript-computed/DRM варианты остаются web-only. |
 | Collaps | Exact origin `api.ortified.ws`, `/embed/...`, публичный `makePlayer({...})`; movie и season/episode playlist, HLS/DASH/file, порядок audio tracks и subtitles. Live-снимок дал 2 manifests, 2 audio и 4 subtitles. | Гарантия неизменности VenomPlayer-конфига и поддержка remote playlist/DRM; эти формы остаются web-only. |
 | Alloha | В старом исследовании и gateway-поиске встречалось имя Alloha; test fixture намеренно проверяет, что неизвестная вкладка не выбирается. | В актуальном player fixture нет именованной Alloha-вкладки; нет origin, API-контракта или media metadata. |
 | Kodik | В исследованных APK, gateway JSON и site fixtures не обнаружен. | Идентификация, endpoint, host allowlist, metadata и native delivery contract. |
 | Динамические hosts из `mirrors[]` | В live fixture были динамический subdomain-host и токенизированный host. Поле `provider` — число без опубликованной таблицы соответствия. | Стабильная принадлежность, доверенный origin, право передачи cookies/referer, прямое медиа. |
 
-Фиксированные результаты live-research датированы 22 июля 2026 года. В частности,
+Первичный live-research датирован 22 июля 2026 года; Cinemar contract повторно проверен
+21 августа 2026 года. В новой схеме массовая hydration всех playlist leaves запрещена:
+grant запрашивается лениво только при открытии выбранного элемента Media3. В частности,
 у Cinemar успешные повторные GET наблюдались примерно в течение 15 секунд после
 получения страницы, но верхняя граница TTL не измерялась. Это не разрешает кэширование
 или повторное использование offer: каждый offer надо считать одноразовым и только
 in-memory. Полные tokenized URL не приводятся ни здесь, ни в логах.
+
+Текущий authenticated detail дополнительно показал второй route-class: уже discovered
+player document может находиться на непрозрачном non-`/embed/` path exact host `cinemar.cc`.
+Старый общий validator возвращал `INVALID_EMBED_ADDRESS`. Исправление не ослабляет discovery:
+новый offer всё ещё принимается только как `/embed/...`, а `validatedPlayerDocumentUri`
+применяется лишь после discovery и отклоняет root, `/api/`, query, fragment, userinfo,
+нестандартный порт и любой другой host.
 
 ## Идентификация и discovery
 
@@ -56,15 +66,22 @@ in-memory. Полные tokenized URL не приводятся ни здесь,
    `lightsearch`, затем `/v1/post/{gatewayId}/player`. Сопоставление строгое:
    нормализованные title + year и, когда есть, original title / `kinopoisk_id`.
    Нет точного единственного совпадения — остановиться.
-3. Принимать только `tabs[]` с известным текстовым `balancer`; каждый fresh URL и
+3. Принимать только `tabs[]` с известным текстовым `balancer`; новый Cinemar offer проходит
+   strict exact-host `/embed/...` discovery policy. Каждый fresh URL и
    каждый redirect проверять как HTTPS/public-DNS, затем привязывать web fallback к
    exact origin именно этого предложения. Дедуплицировать только в памяти.
    `mirrors[]` не использовать:
    числовой `provider` и динамический адрес не образуют trust relationship.
-4. Загрузить iframe-документ без cookies и без автоматических redirect, с ограничением
-   размера. Адаптер читает только browser-visible конфигурацию, не выполняет script.
+4. Загрузить player document без cookies и без автоматических redirect, с ограничением
+   размера. После уже подтверждённого Cinemar discovery допускается exact-host runtime
+   document через отдельную non-root/non-`/api/` policy; это не разрешение произвольного
+   route discovery. Адаптер читает только browser-visible конфигурацию, не выполняет script.
 5. Проверить каждый media/subtitle endpoint до передачи Media3. URL остаются только
    в активном `PreparedPlaybackSession`; `toString()` их скрывает.
+6. Для Cinemar deferred leaf сохранить token только в session-owned resolver, поместить в
+   plan случайную локальную ссылку и обменять token ровно один раз при первом Media3 open.
+   Exact endpoint — fixed same-origin `/api/playlist/load`; no cookies, no redirects,
+   no transport retry, bounded JSON.
 
 Не допускается использовать имя балансира, hostname suffix, HTML-строку `m3u8` или
 успешную загрузку iframe как доказательство поддержки. Нельзя угадывать mapping
@@ -108,6 +125,10 @@ requestMedia(selection) -> MediaGrant {
 analytics. В лог допускаются provider id, status class, duration и короткий hash,
 но не URL, query, Cookie, Authorization, Referer или token.
 
+Cinemar selected-leaf grant является исключением из общего будущего retry guidance ниже:
+POST не повторяется после неоднозначного transport failure. Session memoize-ит success или
+failure одной попытки; новый запрос возможен только через новый fresh playback plan.
+
 При `401`, `403`, `404` или явном истечении срока один раз заново выполнить
 **документированный** `requestMedia` с тем же выбором. При сетевой ошибке —
 ограниченный exponential backoff без повторной отправки секретов в лог. Не повторять
@@ -133,6 +154,9 @@ mirror. Если refresh не описан поставщиком, заверш�
   quarantine до независимой HTTPS/redirect/content-fingerprint проверки.
 - Проверять DNS при каждом новом origin и не строить allowlist из того, что вернул
   provider. Subdomain wildcard запрещён, пока он явно не выдан договором.
+- Для Cinemar не объединять три разные политики: discovery `/embed/...`, already discovered
+  exact-host runtime player document и fixed grant `/api/playlist/load`. Runtime-document
+  validator никогда не применяется к API route и не наследует subdomains.
 
 ## Матрица приоритета
 

@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -151,6 +152,28 @@ internal fun ownsPosterGridFocusMove(
     moveGeneration: Long,
 ): Boolean = activeGeneration == moveGeneration
 
+/** Restores focus by stable content identity rather than by a stale numeric grid position. */
+internal fun restoredPosterGridFocusIndex(
+    preferredItemId: String?,
+    itemIds: List<String>,
+    requested: Boolean,
+): Int? = if (requested && preferredItemId != null) {
+    itemIds.indexOf(preferredItemId).takeIf { it >= 0 }
+} else {
+    null
+}
+
+/** Lets a recreated origin screen fall back to its first poster only when no stable target exists. */
+internal fun shouldRequestFirstPosterFocus(
+    requestInitialFocus: Boolean,
+    preferredItemId: String?,
+    itemIds: List<String>,
+): Boolean = requestInitialFocus && restoredPosterGridFocusIndex(
+    preferredItemId = preferredItemId,
+    itemIds = itemIds,
+    requested = true,
+) == null
+
 /**
  * Shared six-column TV poster grid with stable identity, deterministic D-pad movement and early
  * page preloading. The component only attaches [firstFocus]; it never requests initial focus on
@@ -169,11 +192,14 @@ fun TvPosterGrid(
     columns: Int = PosterGridColumnCount,
     preloadRows: Int = 2,
     pagingKey: Any? = null,
+    preferredFocusItemId: String? = null,
+    requestPreferredFocus: Boolean = false,
+    onFocusedItemChanged: (String) -> Unit = {},
 ) {
     require(columns > 0) { "Poster grid column count must be positive" }
     require(preloadRows > 0) { "Poster grid preload row count must be positive" }
 
-    val gridState = rememberLazyGridState()
+    val gridState = key(pagingKey) { rememberLazyGridState() }
     val scope = rememberCoroutineScope()
     val focusRequestersById = remember { mutableMapOf<String, FocusRequester>() }
     val itemIds = remember(items) { items.map(PosterUiModel::id) }
@@ -207,6 +233,33 @@ fun TvPosterGrid(
             itemCount = itemIds.size,
         )
     }
+    LaunchedEffect(
+        requestPreferredFocus,
+        preferredFocusItemId,
+        itemIds,
+        pagingKey,
+    ) {
+        val targetId = preferredFocusItemId
+        val targetIndex = restoredPosterGridFocusIndex(
+            preferredItemId = targetId,
+            itemIds = itemIds,
+            requested = requestPreferredFocus,
+        )
+        if (targetId == null || targetIndex == null) {
+            return@LaunchedEffect
+        }
+        val targetVisible = gridState.layoutInfo.visibleItemsInfo.any { it.key == targetId }
+        if (!targetVisible) {
+            gridState.scrollToItem((targetIndex / columns) * columns)
+        }
+        repeat(8) {
+            withFrameNanos { }
+            val requester = focusRequestersById[targetId]
+            if (requester != null && runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                return@LaunchedEffect
+            }
+        }
+    }
 
     if (items.isEmpty()) {
         Box(
@@ -231,21 +284,22 @@ fun TvPosterGrid(
             key = { _, item -> item.id },
         ) { index, item ->
             val itemRequester = remember(item.id) { FocusRequester() }
-            DisposableEffect(item.id, itemRequester) {
-                focusRequestersById[item.id] = itemRequester
+            val effectiveRequester = if (index == 0) firstFocus ?: itemRequester else itemRequester
+            DisposableEffect(item.id, effectiveRequester) {
+                focusRequestersById[item.id] = effectiveRequester
                 onDispose {
-                    if (focusRequestersById[item.id] === itemRequester) {
+                    if (focusRequestersById[item.id] === effectiveRequester) {
                         focusRequestersById.remove(item.id)
                     }
                 }
             }
-            val effectiveRequester = if (index == 0) firstFocus ?: itemRequester else itemRequester
 
             PosterCard(
                 item = item,
                 onClick = { onOpenDetails(item.id) },
                 focusRequester = effectiveRequester,
                 onFocused = {
+                    onFocusedItemChanged(item.id)
                     if (
                         hasMore &&
                         requestedPreloadBoundary != preloadBoundary &&

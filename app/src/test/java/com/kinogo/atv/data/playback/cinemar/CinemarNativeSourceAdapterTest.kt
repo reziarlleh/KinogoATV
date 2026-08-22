@@ -73,6 +73,44 @@ class CinemarNativeSourceAdapterTest {
     }
 
     @Test
+    fun `retains current deferred leaf without inventing a media URL`() = runTest {
+        val validated = mutableListOf<URI>()
+        val adapter = CinemarNativeSourceAdapter { validated += it }
+
+        val result = adapter.resolve(
+            embedUrl = "https://cinemar-fixture.example/embed/9010",
+            html = fixture("movie_deferred_grant.html"),
+        )
+
+        assertTrue(result is CinemarNativeResolution.Ready)
+        val stream = (result as CinemarNativeResolution.Ready).catalog.streams.single()
+        assertTrue(stream.mediaVariants.isEmpty())
+        assertTrue(stream.grantToken != null)
+        assertEquals(listOf("https://cinemar-fixture.example/embed/9010"), validated.map(URI::toString))
+        assertFalse(result.toString().contains("fixture-opaque-grant-token"))
+        assertEquals("CinemarGrantToken(<redacted>)", stream.grantToken.toString())
+    }
+
+    @Test
+    fun `accepts current exact-origin Cinemar runtime player document`() = runTest {
+        val validated = mutableListOf<URI>()
+        val adapter = CinemarNativeSourceAdapter { validated += it }
+
+        val result = adapter.resolve(
+            embedUrl = "https://cinemar.cc/runtime/player/session",
+            html = fixture("movie_deferred_grant.html"),
+        )
+
+        assertTrue(result is CinemarNativeResolution.Ready)
+        val stream = (result as CinemarNativeResolution.Ready).catalog.streams.single()
+        assertTrue(stream.grantToken != null)
+        assertEquals(
+            listOf("https://cinemar.cc/runtime/player/session"),
+            validated.map(URI::toString),
+        )
+    }
+
+    @Test
     fun `validates every returned endpoint and rejects a failed public boundary`() = runTest {
         val adapter = CinemarNativeSourceAdapter { uri ->
             if (uri.host == "media.example.test") {

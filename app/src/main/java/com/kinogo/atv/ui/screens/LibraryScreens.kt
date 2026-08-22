@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -23,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -48,6 +50,7 @@ import com.kinogo.atv.ui.components.TvChoiceChip
 import com.kinogo.atv.ui.components.TvIconButton
 import com.kinogo.atv.ui.components.TvPosterGrid
 import com.kinogo.atv.ui.components.TvSectionTitle
+import com.kinogo.atv.ui.components.shouldRequestFirstPosterFocus
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
 import kotlinx.coroutines.delay
@@ -57,19 +60,31 @@ internal const val SEARCH_DEBOUNCE_MILLIS = 750L
 @Composable
 fun SearchScreen(
     catalog: List<PosterUiModel>,
+    query: String,
+    recentQueries: List<String>,
+    lastFocusedResultId: String?,
+    resultsQuery: String?,
     onOpenDetails: (String) -> Unit,
     modifier: Modifier = Modifier,
     useRemoteResults: Boolean = false,
     isLoading: Boolean = false,
     errorMessage: String? = null,
+    onInputChanged: (String) -> Unit = {},
     onQueryChanged: (String) -> Unit = {},
+    onQueryCommitted: (String) -> Unit = {},
+    onFocusedResultChanged: (String) -> Unit = {},
     hasMore: Boolean = false,
     onLoadMore: () -> Unit = {},
+    requestInitialFocus: Boolean = true,
 ) {
-    var query by remember { mutableStateOf("") }
-    var submittedQuery by remember { mutableStateOf<String?>(null) }
+    var submittedQuery by remember {
+        mutableStateOf(query.trim().takeIf(String::isNotEmpty))
+    }
     var voiceSearchError by remember { mutableStateOf(false) }
     var focusResultsWhenReady by remember { mutableStateOf(false) }
+    var restorePreferredFocus by remember {
+        mutableStateOf(requestInitialFocus && lastFocusedResultId != null)
+    }
     val inputFocus = remember { FocusRequester() }
     val firstResultFocus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -77,8 +92,11 @@ fun SearchScreen(
 
     fun submit(value: String) {
         val normalized = value.trim()
+        if (normalized != query) onInputChanged(normalized)
         submittedQuery = normalized
         focusResultsWhenReady = true
+        restorePreferredFocus = false
+        onQueryCommitted(normalized)
         keyboard?.hide()
         focusManager.clearFocus(force = true)
         if (useRemoteResults) onQueryChanged(normalized)
@@ -92,14 +110,20 @@ fun SearchScreen(
                 ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
                 ?.firstOrNull()
                 ?.let { spokenQuery ->
-                    query = spokenQuery
                     submit(spokenQuery)
                 }
             voiceSearchError = false
         }
     }
 
-    LaunchedEffect(Unit) { inputFocus.requestFocus() }
+    LaunchedEffect(requestInitialFocus) {
+        if (
+            requestInitialFocus &&
+            (lastFocusedResultId == null || catalog.none { it.id == lastFocusedResultId })
+        ) {
+            inputFocus.requestFocus()
+        }
+    }
     LaunchedEffect(query, useRemoteResults, submittedQuery) {
         val normalized = query.trim()
         if (useRemoteResults && normalized != submittedQuery) {
@@ -116,7 +140,13 @@ fun SearchScreen(
     }
     LaunchedEffect(results.firstOrNull()?.id, focusResultsWhenReady, isLoading) {
         if (focusResultsWhenReady && !isLoading && results.isNotEmpty()) {
-            firstResultFocus.requestFocus()
+            repeat(5) {
+                withFrameNanos { }
+                if (runCatching { firstResultFocus.requestFocus() }.getOrDefault(false)) {
+                    focusResultsWhenReady = false
+                    return@LaunchedEffect
+                }
+            }
             focusResultsWhenReady = false
         }
     }
@@ -134,8 +164,10 @@ fun SearchScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = {
-                    query = it
+                    restorePreferredFocus = false
+                    onInputChanged(it)
                     submittedQuery = null
+                    focusResultsWhenReady = false
                 },
                 modifier = Modifier
                     .weight(1f)
@@ -191,6 +223,33 @@ fun SearchScreen(
                 fontSize = 11.sp,
             )
         }
+        if (recentQueries.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Последние запросы",
+                    color = Color(0xFFD0DEE4),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                LazyRow(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    items(recentQueries, key = { it }) { recentQuery ->
+                        TvChoiceChip(
+                            text = recentQuery,
+                            selected = recentQuery.equals(query.trim(), ignoreCase = true),
+                            onClick = { submit(recentQuery) },
+                        )
+                    }
+                }
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -226,9 +285,15 @@ fun SearchScreen(
                 "Попробуйте изменить запрос"
             },
             firstFocus = firstResultFocus,
+            preferredFocusItemId = lastFocusedResultId,
+            requestPreferredFocus = restorePreferredFocus && !focusResultsWhenReady,
+            onFocusedItemChanged = { contentId ->
+                restorePreferredFocus = false
+                onFocusedResultChanged(contentId)
+            },
             hasMore = hasMore,
             onNearEnd = onLoadMore,
-            pagingKey = query.trim(),
+            pagingKey = resultsQuery.orEmpty(),
         )
     }
 }
@@ -251,10 +316,20 @@ fun BookmarksScreen(
     bookmarks: List<BookmarkUiModel>,
     onOpenDetails: (String) -> Unit,
     modifier: Modifier = Modifier,
+    selectedFilter: LibraryFilter? = null,
+    onFilterSelected: (LibraryFilter) -> Unit = {},
+    requestInitialFocus: Boolean = true,
+    lastFocusedItemId: String? = null,
+    onFocusedItemChanged: (String) -> Unit = {},
 ) {
-    var selectedFilter by remember { mutableStateOf(LibraryFilter.ALL) }
+    val firstFocus = remember { FocusRequester() }
+    var localSelectedFilter by remember { mutableStateOf(LibraryFilter.ALL) }
+    val effectiveFilter = selectedFilter ?: localSelectedFilter
+    var restorePreferredFocus by remember {
+        mutableStateOf(requestInitialFocus && lastFocusedItemId != null)
+    }
     val filtered = bookmarks.filter { bookmark ->
-        when (selectedFilter) {
+        when (effectiveFilter) {
             LibraryFilter.ALL -> bookmark.favorite || bookmark.watchStatus != null
             LibraryFilter.WATCHING ->
                 bookmark.watchStatus == com.kinogo.atv.domain.WatchStatus.WATCHING
@@ -271,6 +346,18 @@ fun BookmarksScreen(
             LibraryFilter.FAVORITES -> bookmark.favorite
         }
     }.map { it.poster }
+    val filteredIds = remember(filtered) { filtered.map(PosterUiModel::id) }
+    LaunchedEffect(filteredIds, requestInitialFocus, lastFocusedItemId) {
+        if (
+            shouldRequestFirstPosterFocus(
+                requestInitialFocus = requestInitialFocus,
+                preferredItemId = lastFocusedItemId,
+                itemIds = filteredIds,
+            ) && filtered.isNotEmpty()
+        ) {
+            firstFocus.requestFocus()
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize(),
@@ -284,8 +371,11 @@ fun BookmarksScreen(
             items(LibraryFilter.entries, key = LibraryFilter::name) { filter ->
                 TvChoiceChip(
                     text = filter.title,
-                    selected = selectedFilter == filter,
-                    onClick = { selectedFilter = filter },
+                    selected = effectiveFilter == filter,
+                    onClick = {
+                        localSelectedFilter = filter
+                        onFilterSelected(filter)
+                    },
                 )
             }
         }
@@ -294,6 +384,14 @@ fun BookmarksScreen(
             onOpenDetails = onOpenDetails,
             emptyTitle = "Здесь пока пусто",
             emptyDescription = "Выберите статус или добавьте материал в избранное",
+            firstFocus = firstFocus,
+            pagingKey = effectiveFilter,
+            preferredFocusItemId = lastFocusedItemId,
+            requestPreferredFocus = restorePreferredFocus,
+            onFocusedItemChanged = { contentId ->
+                restorePreferredFocus = false
+                onFocusedItemChanged(contentId)
+            },
         )
     }
 }
@@ -308,6 +406,9 @@ internal fun PosterGrid(
     hasMore: Boolean = false,
     onNearEnd: () -> Unit = {},
     pagingKey: Any? = null,
+    preferredFocusItemId: String? = null,
+    requestPreferredFocus: Boolean = false,
+    onFocusedItemChanged: (String) -> Unit = {},
 ) {
     TvPosterGrid(
         items = items,
@@ -318,5 +419,8 @@ internal fun PosterGrid(
         onNearEnd = onNearEnd,
         firstFocus = firstFocus,
         pagingKey = pagingKey,
+        preferredFocusItemId = preferredFocusItemId,
+        requestPreferredFocus = requestPreferredFocus,
+        onFocusedItemChanged = onFocusedItemChanged,
     )
 }

@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 ## Принцип
 
@@ -33,6 +33,7 @@ flowchart TD
     J --> L
     L --> M["TvPlayerScreen / Media3"]
     L --> N["Explicit ProviderEmbedPlayerScreen"]
+    M --> O["Lazy Cinemar grant for selected local reference"]
 ```
 
 Перед каждым запуском details и provider documents запрашиваются заново. Page preparation
@@ -56,6 +57,28 @@ destination validation.
 - не выполняет provider JavaScript;
 - проверяет все media/subtitle destinations.
 
+Discovery нового Cinemar offer остаётся строгим: только exact HTTPS host `cinemar.cc`,
+стандартный порт и непустой `/embed/...` без query/fragment/userinfo. Однако актуальная
+authenticated Kinogo detail может уже вернуть player document на непрозрачном exact-host
+runtime route. Для этой второй, уже discovered стадии используется отдельный
+`validatedPlayerDocumentUri`: разрешён только non-root/non-`/api/` path того же exact host,
+по-прежнему без query/fragment/userinfo и нестандартного порта. Это не расширяет discovery
+на произвольные Cinemar routes.
+
+Live-контракт от 21 августа 2026 года добавляет deferred leaves: playlist по-прежнему
+декодируется из публичного `#2` envelope, но leaf может содержать opaque `data` и пустой
+placeholder `file`. Такой leaf попадает в `PlaybackMediaPlan` как случайная локальная ссылка.
+Токен и exact iframe остаются в session-owned `CinemarDeferredGrantRegistry`; только когда
+Media3 открывает выбранный вариант, registry выполняет один exact-origin JSON-string
+`POST /api/playlist/load`, принимает HLS grant и передаёт его безопасному data source.
+Grant endpoint не берётся из HTML: он конструируется отдельно на том же origin. Cookies,
+redirect и transport retry запрещены; один исход попытки memoize-ится в текущей сессии.
+
+Один registry принадлежит одному media plan и исчезает вместе с playback-сессией. Он
+ограничен parser node/document bounds, имеет TTL и single-flight memoization: повторный или
+параллельный `open` одной серии не создаёт несколько grant POST. Новый source refresh строит
+новый plan/registry и не повторяет старый transient URL.
+
 ### Collaps
 
 `data/playback/collaps/`:
@@ -77,7 +100,22 @@ Web fallback:
 - блокирует navigation за пределы admitted origin;
 - запрещает file/content access, mixed content, popup, download, geolocation и permissions;
 - отключает third-party cookies;
+- сохраняет обычное first-party cookie/DOM-storage состояние только внутри профиля WebView;
 - содержит TV HUD и виртуальный D-pad cursor.
+
+При выходе приложение отправляет PlayerJS `pause`, ждёт callback (не более 750 ms), затем
+вызывает `CookieManager.flush()` и только после этого уничтожает WebView. Flush сохраняет
+лишь внутреннее first-party cookie-состояние профиля WebView: cookies не копируются в
+OkHttp/native session и не логируются. `stop` больше не используется, поскольку он сбрасывает
+позицию. На
+проверенном Cinemar конфиг содержит стабильный `cuid`; штатный механизм PlayerJS может
+запоминать playlist item и time в том же browser profile независимо от iframe URL. Это
+web-to-web resume, а не экспорт cookies в OkHttp и не межустройственная синхронизация.
+
+На KIVI D-pad selector достиг `Оригинальный web-плеер` (`Смотреть онлайн · cinemar`),
+fullscreen WebView запустился и Back чисто вернул Details, затем History. Provider
+playlist/position не видны accessibility и безопасным логам; поэтому actual resume после
+повторного открытия **не подтверждён** и остаётся отдельным runtime-пунктом.
 
 `PlayerJsCapabilities` и расширенные JS-команды существуют как изолированный код, но полный
 унифицированный выбор web-quality/audio/subtitles ещё не подключён к production Web screen.
@@ -103,7 +141,9 @@ optional preferred audio track
 - film и episodic content не смешиваются;
 - tuple source/season/episode/voiceover/quality уникален;
 - у series есть совместимые season/episode coordinates;
-- UI получает только варианты, реально присутствующие в plan.
+- UI получает только варианты, реально присутствующие в plan;
+- optional `PlaybackMediaUrlResolver` живёт только в активном plan, скрывает opaque provider
+  token и разрешает локальную ссылку непосредственно на Media3 loader thread.
 
 Список сезонов и серий зависит от выбранной озвучки. UI не строит декартово произведение
 несуществующих вариантов.
@@ -116,6 +156,34 @@ optional preferred audio track
 
 Карточка details не показывает пустую speculative секцию вариантов. Реальный выбор появляется
 только после свежего discovery.
+
+### Контракт качества C-008
+
+Выбранное пользователем качество — долгоживущее намерение, а не подпись фактически
+загруженного потока. Fixed choice (`2160p`, `1080p`, `720p`, `480p`) сохраняется как cap
+для следующих серий и последующего resume, пока пользователь снова не выберет другое
+значение. `Auto` остаётся отдельным намерением. Concrete plan variant и Media3 adaptive
+track являются session state и не перезаписывают desired quality в checkpoint.
+
+Для каждой playback unit policy объединяет совместимые fixed variants и конкретные video
+tracks, обнаруженные внутри adaptive HLS/DASH manifest. Fixed cap разрешается в таком
+порядке:
+
+1. точное совпадение разрешения;
+2. максимальное доступное разрешение не выше cap;
+3. если все доступные варианты выше cap — минимальное из них как единственный playable
+   fallback.
+
+Так, запрос `720p` выбирает `720p`, если он есть; иначе `480p` предпочтительнее `1080p`, но
+при единственном наборе `1080p/2160p` выбирается `1080p`. Adaptive и отдельные fixed URL
+сравниваются совместно, поэтому наличие Auto/master playlist не маскирует более подходящий
+fixed stream. При смене серии та же policy применяется заново к её реальному набору.
+
+MediaItems будущих серий создаются с concrete variant, выбранным по текущему desired quality.
+Поэтому изменение intent перестраивает весь будущий episodic playlist до следующего preload или
+перехода, даже если concrete variant текущей серии уже совпадает. Перестройка сохраняет exact
+current variant/reference, media-item index, position и play state, сбрасывает stale preload/error
+и async generations; одноразовый Cinemar grant текущей серии повторно не выполняется.
 
 ## Native player
 
@@ -139,6 +207,32 @@ Media3 `PlayerView` выводит видео без стандартного co
 - нижняя episode row для series.
 
 HUD полупрозрачный и полноэкранное видео остаётся видимым.
+
+Отдельной кнопки «Обновить источник» в native HUD нет. Ошибка или обнаруженный stall
+сначала запускают bounded automatic recovery; после исчерпания попытки Back возвращает в
+карточку, где действие «Смотреть» выполняет новый полный discovery. Это не относится к
+изолированному Web fallback, чей provider-specific flow остаётся отдельным.
+
+### Buffer target и LoadControl C-008
+
+Настройка «Буфер воспроизведения» хранит `T ∈ {5, 10, 15, 20, 30}` секунд; default —
+15 секунд. Это не декоративная подпись: `PlaybackBufferPolicy` строит реальный Media3
+`DefaultLoadControl` со следующими значениями:
+
+```text
+targetMs = T * 1000
+minBufferMs = targetMs
+maxBufferMs = targetMs
+bufferForPlaybackMs = (targetMs / 3).coerceIn(1000, 2500)
+bufferForPlaybackAfterRebufferMs = (targetMs / 2).coerceIn(2000, 5000)
+nextEpisodePreloadMs = (targetMs / 2).coerceIn(2000, 5000)
+targetPreloadDurationUs = nextEpisodePreloadMs * 1000
+prioritizeTimeOverSizeThresholds = true
+```
+
+Preference сохраняется в DataStore и входит в `remember` identity `TvPlayerScreen`.
+Изменение target поэтому пересоздаёт Media3/ExoPlayer с новым LoadControl; уже созданный
+instance не продолжает работать со старой конфигурацией.
 
 Сфокусированный timeline не получает прямоугольную рамку. Его текущая позиция обозначается
 белой точкой диаметром 12 dp. При Media3 `STATE_BUFFERING` по центру видео появляется
@@ -184,6 +278,27 @@ Resume начинает на 5 секунд раньше сохранённой 
 `WatchProgressRules`: учитывается минимальная просмотренная длительность, 90% и остаток до
 конца. История группируется по content ID, но хранит записи отдельных эпизодов.
 
+`PlaybackCheckpoint` несёт explicit `playbackEnded`: completion не выводится только из
+последней позиции Media3. При переходе на другую серию сначала записывается завершение
+предыдущей, затем новая активная S/E немедленно получает checkpoint с position 0. Благодаря
+этому выход до первого progress tick всё равно возвращает к выбранной серии, а не к первой
+или ранее просмотренной.
+
+Root принимает callback только от текущей `ActivePlaybackSession.generation`. UI snapshot
+обновляется синхронно, durable DataStore writes последовательно проходят через
+`PlaybackCheckpointWriteQueue`, а timestamp растёт монотонно относительно memory и store.
+`PlaybackProgressCollection.upsert` не позволяет поздней записи с меньшим timestamp затереть
+новую. Перед вычислением resume root ждёт очередь и нормализует объединение памяти с
+DataStore, поэтому закрытие плеера и немедленное повторное «Продолжить» видят один порядок.
+
+History, Catalog и Search используют одну `preferredResumeProgress` policy. Для content ID
+сначала выбирается newest активная единица: eligible progress, explicit completed checkpoint
+или episodic checkpoint с position 0. Только после этого проверяется completion. Если newest
+единица завершена, Continue action отсутствует и policy не откатывается к более старой
+незавершённой серии. Details показывает season/episode/position, например
+`Продолжить S03E07 с 17:42`; для новой серии с position 0 — `Продолжить S03E07` без
+фиктивного времени.
+
 Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта.
 
 ## Auto-next
@@ -191,18 +306,121 @@ Resume начинает на 5 секунд раньше сохранённой 
 Настройка `autoNextEpisode` применяется к Media3 session. Завершение элемента плейлиста
 обрабатывается по трём фактическим сигналам Media3:
 
-- автоматический `onMediaItemTransition` внутри сезона сначала сохраняет финальный checkpoint
-  старой серии, затем продолжает следующую;
+- `PlaybackMediaPlan.episodeCoordinatesFor` заранее разворачивает все реально доступные
+  серии совместимых сезонов текущих source/voiceover в один Media3 playlist;
+- автоматический `onMediaItemTransition`, в том числе на границе сезона, сначала сохраняет
+  финальный checkpoint старой серии, затем записывает активацию новой серии с position 0 и
+  продолжает её;
 - при отключённом auto-next `pauseAtEndOfMediaItems` выдаёт
   `PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM`: серия получает финальный checkpoint,
   а fullscreen flow сразу возвращается в карточку;
-- `STATE_ENDED` фильма или последнего элемента сезонного playlist передаётся
-  `PlaybackCompletionPolicy`: он либо запускает первую реально доступную координату
-  следующего совместимого сезона для текущих source/voiceover, либо возвращает в карточку.
+- `STATE_ENDED` фильма или последней coordinate общего playlist передаётся
+  `PlaybackCompletionPolicy` и возвращает в карточку.
+
+C-008 заменяет прежнюю ручную подстановку первой серии следующего сезона единым playlist.
+При `autoNextEpisode=true` сезонная граница больше не требует replacement Media3 session;
+при `false` end-of-item signal по-прежнему сохраняет completion checkpoint и возвращает в
+Details. Новый runtime-flow ещё нужно подтвердить на TV.
 
 Тот же cross-season порядок используется ручными Previous/Next. Сейчас отдельного
 визуального обратного отсчёта следующей серии нет; countdown с Cancel/Play now остаётся в
 roadmap.
+
+### Bounded prefetch следующей серии
+
+Плеер предзагружает только непосредственную следующую реальную coordinate для текущих
+source/voiceover; номера не синтезируются и fan-out по playlist запрещён. Все совместимые
+сезоны уже развёрнуты в один список, поэтому та же штатная Media3 preloading-модель без
+особой ветки покрывает границу сезона.
+
+`ExoPlayer.PreloadConfiguration` получает
+`targetPreloadDurationUs = PlaybackBufferConfiguration.nextEpisodePreloadMs * 1000`, где
+`nextEpisodePreloadMs = (T * 1000 / 2).coerceIn(2000, 5000)`: 2,5 с при `T=5`, 5 с при
+`T=10/15/20/30`. Gate разрешает этот open только для сериала с включённым auto-next,
+`playWhenReady=true` и без suppression, когда до конца текущей серии осталось не больше `T`,
+а её buffered position достигла как минимум `duration - 500 ms`. Pause, suppression,
+close/transition и seek назад disarm-ят preload; после seek назад он не rearm-ится до
+возврата к прежней позиции.
+
+Media3 держит только следующий playlist item в памяти и открывает его через тот же
+session-owned resolver/data-source factory. Для Cinemar это означает обычное ленивое
+разрешение current leaf и только оппортунистическое разрешение immediate-next leaf после
+прохождения gate. Отдельного resolver warmup и disk cache нет. Grant/token, iframe и
+конечный media URL не попадают в checkpoint, DataStore, `MediaItem` URI или логи.
+
+Нефатальный load error будущей immediate-next window лишь отключает preload и не запускает
+recovery текущей серии. Terminal error будущей window сохраняется как exact
+playlist-generation/index/variant identity; fresh recovery запускается только после того,
+как эта exact window стала текущей. Stale generation, другая или более дальняя future item
+игнорируются.
+
+## Автоматическое восстановление error/stall
+
+Recovery запускается как по `Player.Listener.onPlayerError`, так и по сигналу чистого
+`PlaybackStallWatchdog`. Watchdog наблюдает wall-clock и позицию, пока плеер действительно
+намерен воспроизводить:
+
+- начальная `BUFFERING` без прогресса — `max(20, T)` секунд;
+- повторная `BUFFERING` после уже замеченного прогресса —
+  `T.coerceIn(5, 10)` секунд;
+- `READY` с `playWhenReady=true`, но без движения позиции — 15 секунд.
+
+Здесь `T` — выбранный buffer target. Например, target 5 секунд даёт initial/rebuffer
+timeouts 20/5 секунд, а target 30 — 30/10 секунд. Явная source/load error во время
+`BUFFERING` проходит через `onPlayerError` сразу и не ждёт watchdog timeout.
+
+Pause, `playWhenReady=false`, playback suppression, `IDLE` и `ENDED` исключены. Само по себе
+приближение позиции к известному duration не означает natural end: near-end `READY`/`BUFFERING`
+без продвижения проходит через обычный recovery timeout, иначе потерянный последний сегмент
+навсегда блокировал бы auto-next. Движение минимум на 250 ms сбрасывает окно отсутствия
+прогресса. Один экземпляр watchdog выдаёт recovery-сигнал только один раз и сбрасывается лишь
+при осознанной смене source/voice/season/episode.
+
+Перед recovery плеер сохраняет explicit checkpoint и запрашивает у composition root свежую
+details/provider preparation. Это не retry старого URL: новый `PlaybackMediaPlan` строится
+обычным защищённым discovery-flow, после чего выбор нормализуется по свежей sparse-матрице.
+Root увеличивает `playbackSessionGeneration`; generation входит в key player host, поэтому
+даже структурно равный plan создаёт новый Media3/ExoPlayer и не переиспользует зависшую
+сессию. Позиция и automatic restart восстанавливаются только если normalized selection
+сохранил exact исходные `contentId/season/episode`. Если unit изменилась либо исчезла, flow
+открывает обычный selector с позицией 0 и не запускает другую серию незаметно.
+
+Автоматический refresh ограничен одной попыткой на stable unit key
+`contentId + season? + episode?`. Набор attempted keys переносится в replacement player session,
+поэтому тот же failing provider не может создать inter-screen loop. Смена remapped source/quality
+не обнуляет лимит; другая серия получает свою одну попытку. После исчерпания лимита
+остаётся user-safe error с действиями Back/выход в Details. Ручной native refresh из HUD
+удалён: новый discovery пользователь может явно запустить кнопкой «Смотреть» в карточке.
+URL и attempted provider data не сохраняются.
+
+Consumed attempted-unit budget объединяется с active session **до** открытия launch screen
+и disposal failing Media3. Recovery launch устанавливает discard-on-exit contract. Если до
+подготовки пользователь нажал Back, material исчез из известных карточек либо active
+verified mirror отсутствует, root очищает active/pending/embed sessions, увеличивает launch
+generation и показывает конкретную ошибку. Back из ошибки возвращает в Details; late job не
+может resurrect-ить dead player с пустым immutable attempt set.
+
+Три pure safety guards проверяют: persistence budget + discard, неизменность ordinary launch
+и explicit early errors для missing content/mirror. Отдельный exact-unit guard проверяет,
+что old position не применяется к другому episode.
+
+Исторический focused C-007 runtime на KIVI Android TV 14 подтвердил current exact-host Cinemar route:
+native selector «Далеко во Вселенной» показал озвучки, сезоны 1–4 и серии, resume — 10:48;
+Media3 S2E5 продвинулся 11:01 → 11:39. Скрытый HUD по `OK` открылся без паузы. Back вернул
+Player → Details → History. Отдельно подтверждены возврат/focus второй History card и
+второго Search result с сохранённым запросом/выдачей. Actual expired/404 source, exact
+same-unit automatic recovery и natural cross-season end остаются отдельными pending сценариями.
+
+C-008 добавляет configurable real LoadControl, связанный с ним watchdog, новую Media3
+generation, bounded next-coordinate prefetch, serialised checkpoint writes и общую
+adaptive+fixed quality policy. Application source `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`
+прошёл local canonical 87 suites / 441 tests без failures/errors/skips и lint без errors, но
+не наследует для этих ветвей аппаратное evidence C-007. Проверка stall/error recovery,
+фактического buffer target, cross-season warmup, немедленного resume,
+перехода сезонов и смены quality на реальном TV остаётся **PENDING**. Подключение по ADB,
+установка APK и аппаратный smoke
+допустимы только после отдельного явного разрешения владельца на конкретный необходимый
+сценарий; до этого результат формулируется только по review и автоматическим тестам.
 
 ## Сетевые ограничения плеера
 
@@ -211,6 +429,12 @@ roadmap.
 - При смене origin чувствительные headers удаляются.
 - Private/local/documentation networks запрещены.
 - Embed, media и subtitle URL не сохраняются и скрываются в `toString`.
+- Cinemar discovery принимает только `/embed/...`; already discovered runtime player document
+  проходит отдельную exact-host/non-root/non-`/api/` проверку без query/fragment/userinfo/
+  non-443 port.
+- Cinemar grant token не включается в MediaItem URI, storage, cookie jar или diagnostics;
+  fixed same-origin grant endpoint не получает cookies, не следует redirect, не повторяет
+  transport request и имеет bounded response.
 - Истёкший 401/403/404/410 URL требует fresh preparation, а не бесконечного retry того же
   location.
 - DRM, remote JavaScript playlist и неизвестный config нельзя обходить.

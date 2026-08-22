@@ -16,23 +16,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -44,6 +50,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
@@ -59,15 +67,20 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kinogo.atv.domain.AccountConnectionPhase
 import com.kinogo.atv.domain.AccountConnectionState
-import com.kinogo.atv.domain.SettingCycleDirection
 import com.kinogo.atv.ui.components.TvActionButton
+import com.kinogo.atv.ui.components.TvChoiceChip
 import com.kinogo.atv.ui.components.TvSectionTitle
 import com.kinogo.atv.ui.model.KinogoFixtures
+import com.kinogo.atv.ui.model.AppUpdateUiModel
+import com.kinogo.atv.ui.model.AppUpdateUiPhase
 import com.kinogo.atv.ui.model.MirrorStatusUi
 import com.kinogo.atv.ui.model.MirrorUiModel
 import com.kinogo.atv.ui.model.MirrorUiState
 import com.kinogo.atv.ui.model.SettingSectionUiModel
+import com.kinogo.atv.ui.model.SettingControlUi
 import com.kinogo.atv.ui.model.SettingUiModel
+import com.kinogo.atv.ui.model.RegistrationSubmissionUiInput
+import com.kinogo.atv.ui.model.RegistrationUiModel
 
 @Composable
 fun SettingsScreen(
@@ -85,8 +98,19 @@ fun SettingsScreen(
     onAccountReconnect: () -> Unit = {},
     onAccountRemove: () -> Unit = {},
     onSyncNow: () -> Unit = {},
-    onSettingChanged: (String, SettingCycleDirection) -> Unit = { _, _ -> },
+    registrationState: RegistrationUiModel? = null,
+    onRegistrationOpen: () -> Unit = {},
+    onRegistrationDismiss: () -> Unit = {},
+    onRegistrationRetry: () -> Unit = {},
+    onRegistrationAcceptRules: () -> Unit = {},
+    onRegistrationRefreshCaptcha: () -> Unit = {},
+    onRegistrationSubmit: (RegistrationSubmissionUiInput) -> Unit = {},
+    appUpdate: AppUpdateUiModel = AppUpdateUiModel(currentVersion = "—"),
+    onUpdateAction: () -> Unit = {},
+    onAboutOpen: () -> Unit = {},
+    onSettingSelected: (String, String) -> Unit = { _, _ -> },
     reduceMotion: Boolean = false,
+    requestInitialFocus: Boolean = true,
 ) {
     val initialFocus = remember { FocusRequester() }
     var showManualMirrorDialog by rememberSaveable { mutableStateOf(false) }
@@ -95,7 +119,9 @@ fun SettingsScreen(
     var showRemoveAccountDialog by rememberSaveable { mutableStateOf(false) }
     val regularSections = sections.filterNot { it.id == "sources" }
 
-    LaunchedEffect(Unit) { initialFocus.requestFocus() }
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) initialFocus.requestFocus()
+    }
     BackHandler(enabled = showManualMirrorDialog) { showManualMirrorDialog = false }
     BackHandler(enabled = mirrorDetailsId != null) { mirrorDetailsId = null }
     BackHandler(enabled = showAccountDialog) { showAccountDialog = false }
@@ -112,6 +138,12 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(start = 2.dp, top = 2.dp, end = 10.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                item(key = "about-application") {
+                    AboutSettingsButton(
+                        onClick = onAboutOpen,
+                        modifier = Modifier.focusRequester(initialFocus),
+                    )
+                }
                 item(key = "account-heading") {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
@@ -137,10 +169,10 @@ fun SettingsScreen(
                         pendingSyncCount = pendingSyncCount,
                         syncMessage = syncMessage,
                         onLogin = { showAccountDialog = true },
+                        onRegister = onRegistrationOpen,
                         onReconnect = onAccountReconnect,
                         onSyncNow = onSyncNow,
                         onRemove = { showRemoveAccountDialog = true },
-                        initialFocus = initialFocus,
                     )
                 }
                 item(key = "mirror-heading") {
@@ -216,12 +248,27 @@ fun SettingsScreen(
                         item(key = item.id) {
                             SettingRow(
                                 item = item,
-                                onValueChange = { direction ->
-                                    onSettingChanged(item.id, direction)
+                                onOptionSelected = { optionId ->
+                                    onSettingSelected(item.id, optionId)
                                 },
                             )
                         }
                     }
+                }
+                item(key = "application-update-heading") {
+                    Text(
+                        text = "Обновление приложения",
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+                item(key = "application-update-card") {
+                    AppUpdateCard(
+                        state = appUpdate,
+                        onAction = onUpdateAction,
+                    )
                 }
             }
         }
@@ -261,6 +308,73 @@ fun SettingsScreen(
                 },
             )
         }
+        registrationState?.let { state ->
+            RegistrationDialog(
+                state = state,
+                onDismiss = onRegistrationDismiss,
+                onRetry = onRegistrationRetry,
+                onAcceptRules = onRegistrationAcceptRules,
+                onRefreshCaptcha = onRegistrationRefreshCaptcha,
+                onSubmit = onRegistrationSubmit,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AboutSettingsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.018f else 1f,
+        label = "about-settings-focus-scale",
+    )
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .onFocusChanged { focused = it.isFocused }
+            .testTag("settings-about"),
+        shape = RoundedCornerShape(10.dp),
+        color = if (focused) Color(0xFF72FFF8) else Color(0xFF294752),
+        border = BorderStroke(
+            if (focused) 3.dp else 1.dp,
+            if (focused) Color.White else Color(0xFF5A7A85),
+        ),
+        shadowElevation = if (focused) 12.dp else 0.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(13.dp),
+        ) {
+            Text(
+                text = "i",
+                color = if (focused) Color(0xFF10272D) else MaterialTheme.colorScheme.primary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    text = "О программе",
+                    color = if (focused) Color(0xFF10272D) else Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    text = "Версия, информация о проекте и поддержка автора",
+                    color = if (focused) Color(0xFF294752) else Color(0xFFB9CBD2),
+                    fontSize = 11.sp,
+                )
+            }
+        }
     }
 }
 
@@ -270,10 +384,10 @@ private fun AccountCard(
     pendingSyncCount: Int,
     syncMessage: String?,
     onLogin: () -> Unit,
+    onRegister: () -> Unit,
     onReconnect: () -> Unit,
     onSyncNow: () -> Unit,
     onRemove: () -> Unit,
-    initialFocus: FocusRequester,
 ) {
     val statusColor = when (state.phase) {
         AccountConnectionPhase.NO_CREDENTIALS -> Color(0xFF9EABC0)
@@ -371,11 +485,18 @@ private fun AccountCard(
                 TvActionButton(
                     text = if (state.credentialsSaved) "Сменить данные" else "Войти",
                     onClick = onLogin,
-                    modifier = Modifier.focusRequester(initialFocus),
                     primary = !state.credentialsSaved,
                     leadingMark = if (state.credentialsSaved) "✎" else "→",
                     enabled = state.phase != AccountConnectionPhase.CONNECTING,
                 )
+                if (!state.isAuthenticated) {
+                    TvActionButton(
+                        text = "Регистрация",
+                        onClick = onRegister,
+                        leadingMark = "+",
+                        enabled = state.phase != AccountConnectionPhase.CONNECTING,
+                    )
+                }
                 TvActionButton(
                     text = "Переподключиться",
                     onClick = onReconnect,
@@ -397,6 +518,66 @@ private fun AccountCard(
                     onClick = onRemove,
                     leadingMark = "×",
                     enabled = state.credentialsSaved,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppUpdateCard(
+    state: AppUpdateUiModel,
+    onAction: () -> Unit,
+) {
+    val statusColor = when (state.phase) {
+        AppUpdateUiPhase.AVAILABLE,
+        AppUpdateUiPhase.READY_TO_INSTALL,
+        -> MaterialTheme.colorScheme.primary
+        AppUpdateUiPhase.ERROR -> Color(0xFFFF8A80)
+        AppUpdateUiPhase.CURRENT -> Color(0xFF74E0A3)
+        else -> Color(0xFFBDD0D7)
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF253C47),
+        border = BorderStroke(1.dp, Color(0xFF597682)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                Text(
+                    text = "KinogoATV ${state.currentVersion}",
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = state.status,
+                    color = statusColor,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            state.actionLabel?.let { label ->
+                TvActionButton(
+                    text = label,
+                    onClick = onAction,
+                    primary = state.phase == AppUpdateUiPhase.AVAILABLE ||
+                        state.phase == AppUpdateUiPhase.READY_TO_INSTALL,
+                    leadingMark = when (state.phase) {
+                        AppUpdateUiPhase.AVAILABLE -> "↓"
+                        AppUpdateUiPhase.READY_TO_INSTALL -> "✓"
+                        else -> "↻"
+                    },
+                    enabled = state.actionEnabled,
                 )
             }
         }
@@ -631,29 +812,60 @@ private fun MirrorDetailLine(
 @Composable
 private fun SettingRow(
     item: SettingUiModel,
-    onValueChange: (SettingCycleDirection) -> Unit,
+    onOptionSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var showOptions by rememberSaveable(item.id) { mutableStateOf(false) }
+    var restoreFocusGeneration by remember { mutableIntStateOf(0) }
+    val rowFocus = remember(item.id) { FocusRequester() }
+    val selectedOption = item.selectedOptionId
+    val checked = selectedOption == "true"
+    val interactive = item.enabled && item.control != SettingControlUi.VALUE
+
+    fun activate() {
+        when (item.control) {
+            SettingControlUi.SWITCH -> onOptionSelected((!checked).toString())
+            SettingControlUi.DROPDOWN -> showOptions = true
+            SettingControlUi.VALUE -> Unit
+        }
+    }
+
+    fun closeOptions() {
+        showOptions = false
+        restoreFocusGeneration++
+    }
+
+    LaunchedEffect(restoreFocusGeneration) {
+        if (restoreFocusGeneration > 0) {
+            withFrameNanos { }
+            runCatching { rowFocus.requestFocus() }
+        }
+    }
+
     Surface(
-        onClick = { onValueChange(SettingCycleDirection.NEXT) },
-        enabled = item.enabled,
+        onClick = ::activate,
+        enabled = interactive,
         modifier = modifier
             .fillMaxWidth()
+            .focusRequester(rowFocus)
             .testTag("setting-${item.id}")
             .onFocusChanged { focused = it.isFocused }
             .semantics {
                 contentDescription = item.title
                 stateDescription = item.value
+                if (item.control == SettingControlUi.SWITCH) role = Role.Switch
             },
         shape = RoundedCornerShape(12.dp),
-        color = if (focused) Color(0xFF283449) else Color(0xFF151D2A),
+        color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF253C47),
         border = BorderStroke(
             if (focused) 3.dp else 1.dp,
-            if (focused) MaterialTheme.colorScheme.primary else Color(0xFF303B4E),
+            if (focused) Color.White else Color(0xFF597682),
         ),
-        shadowElevation = if (focused) 10.dp else 0.dp,
+        shadowElevation = if (focused) 12.dp else 0.dp,
     ) {
+        val foreground = if (focused) Color(0xFF10272D) else Color.White
+        val secondary = if (focused) Color(0xFF24454D) else Color(0xFFB9CCD3)
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -665,32 +877,142 @@ private fun SettingRow(
             ) {
                 Text(
                     text = item.title,
-                    color = Color.White,
+                    color = foreground,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                 )
                 Text(
                     text = item.description,
-                    color = Color(0xFF96A4B8),
+                    color = secondary,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(
-                text = item.value,
-                color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFFD5DCE8),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
-            Text(
-                text = "OK",
-                color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF8F9DB2),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
-            )
+            when (item.control) {
+                SettingControlUi.SWITCH -> Switch(
+                    checked = checked,
+                    onCheckedChange = null,
+                    enabled = item.enabled,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(0xFF10272D),
+                        checkedTrackColor = if (focused) Color.White else MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = if (focused) Color(0xFF10272D) else Color(0xFFD5E4E8),
+                        uncheckedTrackColor = if (focused) Color.White.copy(alpha = 0.48f) else Color(0xFF526E7A),
+                        uncheckedBorderColor = if (focused) Color(0xFF10272D) else Color(0xFF79939E),
+                    ),
+                )
+                SettingControlUi.DROPDOWN -> Row(
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = item.value,
+                        color = foreground,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                    )
+                    Text(
+                        text = "▾",
+                        color = foreground,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+                SettingControlUi.VALUE -> Text(
+                    text = item.value,
+                    color = secondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+
+    if (showOptions) {
+        SettingOptionsDialog(
+            item = item,
+            onDismiss = ::closeOptions,
+            onSelected = { optionId ->
+                onOptionSelected(optionId)
+                closeOptions()
+            },
+        )
+    }
+}
+
+@Composable
+private fun SettingOptionsDialog(
+    item: SettingUiModel,
+    onDismiss: () -> Unit,
+    onSelected: (String) -> Unit,
+) {
+    val requesters = remember(item.id, item.options) {
+        List(item.options.size) { FocusRequester() }
+    }
+    val selectedIndex = item.options.indexOfFirst { it.id == item.selectedOptionId }
+        .takeIf { it >= 0 }
+        ?: 0
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        BackHandler(onBack = onDismiss)
+        LaunchedEffect(item.id, item.selectedOptionId) {
+            withFrameNanos { }
+            runCatching { requesters.getOrNull(selectedIndex)?.requestFocus() }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.72f))
+                .padding(horizontal = 48.dp, vertical = 24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.width(520.dp),
+                shape = RoundedCornerShape(18.dp),
+                color = Color(0xFF213842),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                shadowElevation = 28.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = item.title,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 390.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        itemsIndexed(
+                            items = item.options,
+                            key = { _, option -> option.id },
+                        ) { index, option ->
+                            TvChoiceChip(
+                                text = option.label,
+                                selected = option.id == item.selectedOptionId,
+                                onClick = { onSelected(option.id) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(requesters[index])
+                                    .testTag("setting-option-${item.id}-${option.id}"),
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -702,8 +1024,8 @@ private fun AccountLoginDialog(
     onDismiss: () -> Unit,
     onSubmit: (String, String) -> Unit,
 ) {
-    var login by rememberSaveable(initialLogin) { mutableStateOf(initialLogin) }
-    var password by rememberSaveable { mutableStateOf("") }
+    var login by remember(initialLogin) { mutableStateOf(initialLogin) }
+    var password by remember { mutableStateOf("") }
     var loginFocused by remember { mutableStateOf(false) }
     var passwordFocused by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }

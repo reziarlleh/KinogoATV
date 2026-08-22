@@ -1,10 +1,15 @@
 # Native Media3 player for Android TV — UX specification
 
+Последнее обновление: **23 августа 2026 года**.
+
 > **Статус документа:** это целевая UX-спецификация и исторический план, а не перечень
 > полностью реализованных функций. Актуальное production-поведение зафиксировано в
 > [`PLAYBACK.md`](PLAYBACK.md) и [`PROJECT_STATE.md`](PROJECT_STATE.md). В частности,
 > resume-card, визуальный countdown следующей серии, часть bounded failover и accessibility
-> announcements ещё остаются в roadmap.
+> announcements ещё остаются в roadmap. C-008 уже реализует automatic error/stall refresh,
+> generation-safe checkpoints, persistent quality cap, configurable real LoadControl и
+> bounded next-coordinate prefetch; их проверка на реальном TV пока не выполнена и не
+> наследуется от C-007.
 
 ## Purpose and boundaries
 
@@ -20,7 +25,8 @@ The target floor is API 28. Use Media3/ExoPlayer, Compose focus APIs and `MediaS
 
 * Full-screen `PlayerView` has no built-in controller and never receives focus. It shows video and Media3 captions; Compose owns every visible interactive control.
 * Start playback as soon as the preferred playable variant is available. When a saved position qualifies, first show a small non-blocking resume card for 6 seconds: **Continue from 23:41** (primary), **Start over**, and **Cancel**. Primary is pre-focused. A cancelled/expired card resumes; an explicit Start over seeks to zero.
-* Initial quality follows `TvPreferences.defaultQuality`; subtitles follow the System/On/Off preference, and auto-next follows `autoNextEpisode`. An explicit in-session selection wins for the current playback unit but does not silently rewrite global preferences.
+* Initial quality follows `TvPreferences.defaultQuality`; subtitles follow the System/On/Off preference, and auto-next follows `autoNextEpisode`. An explicit in-session quality selection becomes the desired cap for subsequent episodes and resume checkpoints in this playback history, but does not silently rewrite the global preference. The concrete variant/track selected for one episode never replaces that desired cap.
+* Playback buffering follows the Settings target `T = 5/10/15/20/30 seconds` (default 15), not a UI-only estimate. Media3 receives `minBuffer=maxBuffer=T`, start threshold `clamp(T/3, 1s, 2.5s)`, rebuffer-start threshold `clamp(T/2, 2s, 5s)`, and prioritizes time over byte size. The same `clamp(T/2, 2s, 5s)` is the duration target for preloading one next playlist item. Changing the preference recreates the player identity with a new LoadControl/preload configuration.
 * Playback starts with unobstructed video. HUD is displayed after an explicit open action,
   buffering, error or an episode transition. It autohides after 4 seconds only while playing and
   while no drawer/dialog is open; on pause it remains visible.
@@ -49,7 +55,7 @@ Open selectors as a right-side modal panel over paused or playing video (do not 
 2. **Season** — only for serials, horizontal chips or a compact vertical list. Changing season keeps the chosen translation where available and opens the episode panel.
 3. **Episode** — a numbered grid/list with watched state, progress bar, duration if known, and “next” marker. Numeric entry remains a fast path; it is additive, not the only way to reach an episode.
 4. **Translation/audio** — display provider label as supplied. Selecting one retains the current quality if that combination exists, otherwise picks the source's preferred quality and announces the substitution.
-5. **Quality** — `Auto` first, then available representations ordered high to low. A choice is selectable only when its exact current source/season/episode/translation tuple resolves. During adaptive HLS/DASH, a quality choice is a track constraint; otherwise it is a new variant.
+5. **Quality** — `Auto` first, then available representations ordered high to low. A choice is selectable only when its current source/season/episode/translation tuple has at least one playable resolution path. During adaptive HLS/DASH, a quality choice may resolve to a track constraint; for separate streams it resolves to a fixed variant. C-008 compares both sets together. A fixed choice is a persistent upper cap: exact resolution wins, otherwise the highest not above the cap, and when every candidate is above it the lowest available candidate is used. The actual fallback stays visible but must not rewrite the desired cap.
 6. **Subtitles** — `System`, `Off`, then the actual Media3 text tracks with language/forced/CC labels. If the source has no captions, keep `Off` and explain why; never present a nonfunctional selector.
 
 The current `PlayerDrawer` already covers episode, voiceover, quality and on/off subtitles. Add season, source and real text-track data without making provider page controls part of the native player.
@@ -100,8 +106,8 @@ Each choice change calls the adapter for compatible descendants rather than assu
 
 Selectors are available from the HUD and retain position wherever safe:
 
-* source / translation / quality: checkpoint first, resolve a fresh stream, replace the media item at the clamped current position, retain play/pause state;
-* season / episode: checkpoint current unit, start requested episode at zero, then resume normal auto-next rules;
+* source / translation / quality: checkpoint first, resolve a fresh stream, replace the media item at the clamped current position, retain play/pause state; quality reuses the persistent desired cap rather than carrying the previous episode's concrete stream label;
+* season / episode: checkpoint current unit, start requested episode at zero, immediately checkpoint the new S/E identity at zero, then resume normal auto-next rules;
 * subtitle track: change Media3 `TrackSelectionParameters` in place; no media reload;
 * after a failed choice, restore the last successful playable tuple and show an actionable error panel.
 
@@ -114,21 +120,54 @@ subtitles, source and **Open Web player** when a validated provider embed is sup
 Optional future actions such as restart, speed, sleep timer, subtitle style and source reports
 belong in a single **More** drawer rather than making the main HUD taller.
 
-`WatchProgress` is the source of truth: `PlaybackSelection` + position + duration + updated time + ended flag, never a signed media URL. Save on the existing 10-second cadence and on state boundaries. Resume rewinds 5 seconds. Continue Watching eligibility and completion continue to follow `WatchProgressRules`: episodes begin after two minutes; completed items are removed when the 90% plus remaining-time rule is met (or explicit end is reported). Store history per episode, newest first, and allow Delete progress from the history detail action.
+`WatchProgress` is the source of truth: `PlaybackSelection` + position + duration + monotonic updated time + explicit ended flag, never a signed media URL. Save on the existing 10-second cadence and on state boundaries. Callback order is serialized; a callback from a replaced Media3 generation is ignored, and an older durable write cannot overwrite the newer in-memory checkpoint. Resume rewinds 5 seconds. Continue Watching eligibility and completion continue to follow `WatchProgressRules`: episodes begin after two minutes; completed items are removed when the 90% plus remaining-time rule is met (or explicit end is reported). A newly activated episode is stored at position zero so it remains the active S/E before the first cadence tick. If the newest active unit is completed, Continue is absent rather than falling back to an older unfinished episode. Store history per episode, newest first, and allow Delete progress from the history detail action.
 
 At episode end, show a 10-second “Next episode” countdown with Cancel/Play now; honour `autoNextEpisode=false` by stopping on the end panel. If a direct episode source cannot report a duration, keep position history but omit percentage and never mark it completed merely because playback ended unexpectedly.
 
-## Error, retry and failover
+Production C-008 flattens every real coordinate of compatible seasons for the selected
+source/translation into one Media3 playlist. `ExoPlayer.PreloadConfiguration` keeps only the
+immediate next item in memory for 2.5 seconds when `T=5`, otherwise 5 seconds. It is armed
+only for episodic auto-next while playback is requested and unsuppressed, remaining time is
+at most `T`, and the current end is buffered through `duration - 500 ms`; pause, suppression,
+close/transition and backward seek disarm it. For Cinemar this may resolve the current leaf
+normally and the immediate-next leaf opportunistically, never the rest of the playlist. The
+same behavior naturally crosses a season boundary. There is no separate resolver warmup,
+fan-out or disk cache. This is a latency optimization, not a visible selection or completion
+change, and it must not persist or log iframe/grant/token/final media URL. A nonfatal future
+load error only disables preload; a terminal future error becomes recoverable only if that
+exact generation/index/variant later becomes current. Stale future events are ignored.
 
-Errors are not a dead end. They open a focused panel over a visible HUD with a plain-language reason and these ordered actions:
+## Error, stall recovery and failover
 
-1. **Retry current stream** once, preserving position and play state.
-2. **Try backup**: next compatible native candidate for the same choice, then another compatible quality, then another source. Each automatic attempt is visible and bounded (one retry + at most two distinct backups); do not loop.
-3. **Choose source**: opens Source with availability/failure information.
-4. **Open Web player**: only for a separately validated `ResolvedPlaybackEmbed`; checkpoint native progress first and explain that exact position/track control may be provider-dependent.
-5. **Back to details**: save checkpoint and exit.
+C-008 performs recovery before exposing a dead-end error. The same fresh-source path handles
+both Media3 errors and a pure watchdog signal:
 
-Do not downgrade to WebView silently. Web fallback may provide only provider controls; Cinemar's cursor mode remains an explicit last-mile action, with D-pad control and a visible exit path. Reject invalid/unsafe/off-origin sources exactly as the resolver does today; do not expose network internals or stream URLs in UI/logs.
+* `max(20, T)` seconds for initial buffering without progress;
+* `T.coerceIn(5, 10)` seconds for rebuffering after playback had progressed;
+* 15 seconds for `READY` while playback is requested but position does not move.
+
+`T` is the selected buffer target. A concrete Media3 source/load error during buffering starts
+fresh recovery immediately; it does not wait for the wall-clock timeout.
+
+The watchdog is inactive on user pause, `playWhenReady=false`, playback suppression and
+states other than actively requested `BUFFERING`/`READY`; only actual `ENDED` is terminal.
+Near-end `READY`/`BUFFERING` without progress remains recoverable rather than being mistaken
+for completion. It emits only once. Recovery checkpoints the unit,
+re-runs protected details/provider discovery and creates a new Media3 session generation even
+when the refreshed plan looks identical. Exact position/play state are retained only for the
+same content/season/episode. The cross-session budget is one automatic refresh per stable
+playback unit; the attempted set survives replacement so no loop is possible.
+
+There is deliberately no manual **Refresh source** action in the native HUD. When the bounded
+automatic attempt is exhausted, the focused error state offers Back/exit to Details; pressing
+**Watch** there performs another explicit full discovery. A separately validated Web player
+may still be offered as an explicit fallback, never as a silent downgrade. The longer-term
+multi-backup/source-ranking flow remains roadmap work, not production C-008 behavior.
+
+Web fallback may provide only provider controls; Cinemar's cursor mode remains an explicit
+last-mile action, with D-pad control and a visible exit path. Reject invalid/unsafe/off-origin
+sources exactly as the resolver does today; do not expose network internals or stream URLs in
+UI/logs.
 
 ## Focus and accessibility graph
 
@@ -212,4 +251,4 @@ sealed interface PlaybackResolveResult {
 1. Introduce the choice graph and adapter test fixtures; preserve the current single-variant resolver through an adapter shim.
 2. Build Source/Season/Episode/Translation/Quality/real-subtitle selectors and focus restoration; verify all flows with D-pad-only Compose tests.
 3. Implement bounded retry/failover and the explicit Web handoff; unit-test no-loop, position preservation and unsafe-source rejection.
-4. Validate on an API 28 device/emulator and a physical TV remote: start/resume, all table keys, media session keys, focus recovery, captions, history, an interrupted stream, a Web fallback and lifecycle pause. A successful Gradle build alone is not acceptance evidence.
+4. Validate on an API 28 device/emulator and a physical TV remote: start/resume, all table keys, media session keys, focus recovery, captions, history, selectable 5/10/15/20/30-second LoadControl targets, an interrupted stream, cross-season prefetch, a Web fallback and lifecycle pause. A successful Gradle build alone is not acceptance evidence. ADB connection, APK installation and physical-TV smoke require the owner's explicit prior permission for one narrow scenario and should be requested only when review and automated tests cannot establish a predictable result. C-008 hardware validation is therefore pending until such permission is given.

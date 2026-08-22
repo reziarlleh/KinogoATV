@@ -5,6 +5,7 @@ import java.net.URI
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,6 +78,27 @@ class CinemarEmbedResolverTest {
         assertFalse(CinemarEmbedUrlPolicy.isAllowedMainFrameUrl("https://ads.cinemar.cc/landing"))
         assertFalse(CinemarEmbedUrlPolicy.isAllowedMainFrameUrl("https://example.test/landing"))
         assertFalse(CinemarEmbedUrlPolicy.isAllowedMainFrameUrl("intent://external"))
+    }
+
+    @Test
+    fun `player document policy admits exact origin runtime route but not root or api`() {
+        val runtime = "https://cinemar.cc/runtime/player/session"
+
+        assertNotNull(CinemarEmbedUrlPolicy.validatedPlayerDocumentUri(runtime))
+        assertNull(CinemarEmbedUrlPolicy.validatedEmbedUri(runtime))
+        listOf(
+            "https://cinemar.cc/",
+            "https://cinemar.cc/api/playlist/load",
+            "https://cinemar.cc/API/playlist/load",
+            "https://www.cinemar.cc/runtime/player/session",
+            "https://cinemar.cc/runtime/player/session?token=opaque",
+            "https://cinemar.cc/runtime/player/session#fragment",
+            "https://user:pass@cinemar.cc/runtime/player/session",
+            "https://cinemar.cc:444/runtime/player/session",
+            "http://cinemar.cc/runtime/player/session",
+        ).forEach { url ->
+            assertNull(CinemarEmbedUrlPolicy.validatedPlayerDocumentUri(url))
+        }
     }
 
     @Test

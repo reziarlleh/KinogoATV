@@ -195,7 +195,7 @@ class MirrorHealthChecker(
     private companion object {
         const val MAX_BODY_BYTES = 128 * 1_024
         const val DEGRADED_LATENCY_MS = 2_500L
-        const val USER_AGENT = "KinogoTV/0.2 (Android TV; mirror health check)"
+        const val USER_AGENT = "KinogoATV/0.5 (Android TV; mirror health check)"
     }
 }
 

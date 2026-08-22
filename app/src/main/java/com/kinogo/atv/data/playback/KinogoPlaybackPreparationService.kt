@@ -1,5 +1,6 @@
 package com.kinogo.atv.data.playback
 
+import android.util.Log
 import com.kinogo.atv.data.catalog.PlayerEmbedCandidate
 import com.kinogo.atv.data.playback.cinemar.CinemarNativeResolution
 import com.kinogo.atv.data.playback.cinemar.CinemarNativeSourceAdapter
@@ -149,9 +150,21 @@ class KinogoPlaybackPreparationService internal constructor(
                 }
                 is ProviderEmbedDocumentResult.Ready -> {
                     val document = fetched.document
+                    // Cinemar may serve a valid embed document after a same-origin redirect to a
+                    // runtime route which is not itself an `/embed/` URL. Bind the public config
+                    // (and any later deferred grant) to the original, already validated embed
+                    // offer. The redirect chain and final WebView URL are still validated and the
+                    // explicit web fallback continues to use the resolved address below.
+                    val requestedAndResolvedShareOrigin = sameHttpsOrigin(
+                        document.requestedUrl,
+                        document.resolvedUrl,
+                    )
+                    val nativeEmbedUrl = document.requestedUrl.takeIf {
+                        requestedAndResolvedShareOrigin
+                    } ?: document.resolvedUrl
                     val native = resolveNative(
                         providerHint = providerHint,
-                        embedUrl = document.resolvedUrl,
+                        embedUrl = nativeEmbedUrl,
                         html = document.html,
                     )
                     native.plan?.let { plan ->
@@ -300,10 +313,18 @@ class KinogoPlaybackPreparationService internal constructor(
                         is CinemarNativeResolution.Ready -> {
                             return NativeCandidateResolution(
                                 providerId = CINEMAR_PROVIDER,
-                                plan = NativePlaybackPlanMapper.fromCinemar(result.catalog),
+                                plan = NativePlaybackPlanMapper.fromCinemar(
+                                    catalog = result.catalog,
+                                    deferredEmbedUrl = embedUrl,
+                                ),
                             )
                         }
                         is CinemarNativeResolution.Rejected -> {
+                            Log.w(
+                                PLAYBACK_PREPARATION_LOG_TAG,
+                                "Cinemar native adapter rejected config: ${result.code}; " +
+                                    safeEmbedAddressShape(embedUrl),
+                            )
                             if (providerHint == CINEMAR_PROVIDER) notice = result.userMessage
                         }
                     }
@@ -325,9 +346,14 @@ class KinogoPlaybackPreparationService internal constructor(
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (_: Exception) {
+            } catch (error: Exception) {
                 // Provider formats evolve independently. A broken first adapter must not suppress
                 // the other adapter or the already validated web fallback.
+                Log.w(
+                    PLAYBACK_PREPARATION_LOG_TAG,
+                    "Native adapter mapping failed: provider=$provider, " +
+                        "type=${error.javaClass.simpleName}",
+                )
                 if (notice == null) {
                     notice = "Нативная структура источника изменилась; доступен web-плеер"
                 }
@@ -381,6 +407,7 @@ class KinogoPlaybackPreparationService internal constructor(
         const val MAX_NOTICES = 3
         const val PAGE_PREPARATION_BUDGET_MS = 18_000L
         const val GATEWAY_PREPARATION_BUDGET_MS = 12_000L
+        const val PLAYBACK_PREPARATION_LOG_TAG = "KinogoPlaybackPrep"
     }
 }
 
@@ -394,6 +421,34 @@ private fun safeProviderId(rawUrl: String): String? {
     val host = runCatching { URI(rawUrl).host }.getOrNull()?.lowercase(Locale.ROOT) ?: return null
     val sanitized = host.replace(Regex("[^a-z0-9.-]"), "-").take(80)
     return sanitized.takeIf(String::isNotBlank)
+}
+
+private fun sameHttpsOrigin(firstUrl: String, secondUrl: String): Boolean = runCatching {
+    val first = URI(firstUrl)
+    val second = URI(secondUrl)
+    val firstHost = first.host ?: return@runCatching false
+    val secondHost = second.host ?: return@runCatching false
+    first.scheme.equals("https", ignoreCase = true) &&
+        second.scheme.equals("https", ignoreCase = true) &&
+        firstHost.equals(secondHost, ignoreCase = true) &&
+        normalizedHttpsPort(first) == normalizedHttpsPort(second)
+}.getOrDefault(false)
+
+private fun normalizedHttpsPort(uri: URI): Int = if (uri.port == -1) 443 else uri.port
+
+/** Bounded diagnostics which never exposes an iframe path, query value or token. */
+private fun safeEmbedAddressShape(rawUrl: String): String {
+    val uri = runCatching { URI(rawUrl) }.getOrNull()
+        ?: return "addressShape=malformed"
+    val path = uri.rawPath.orEmpty()
+    val route = when {
+        path.startsWith("/embed/") -> "embed"
+        path.startsWith("/api/") -> "api"
+        path.isEmpty() || path == "/" -> "root"
+        else -> "other"
+    }
+    return "addressShape(host=${uri.host?.lowercase(Locale.ROOT)}, route=$route, " +
+        "query=${uri.rawQuery != null}, fragment=${uri.rawFragment != null})"
 }
 
 private fun String.looksLikeDirectMedia(): Boolean {

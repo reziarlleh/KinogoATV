@@ -51,6 +51,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,8 +73,11 @@ import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
 import java.net.URI
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val HUD_TIMEOUT_MS = 5_000L
+private const val PROVIDER_EXIT_GRACE_MS = 750L
+internal val providerExitCommand: PlayerJsCommand = PlayerJsCommand.Pause
 
 /**
  * Full-screen provider-only fallback. The catalog, details and navigation stay native; only the
@@ -98,6 +102,7 @@ fun ProviderEmbedPlayerScreen(
     require(seekStepSeconds in 1..600)
 
     val composeView = LocalView.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = remember(composeView) { composeView.findViewTreeLifecycleOwner() }
     val rootFocus = remember { FocusRequester() }
     val primaryFocus = remember { FocusRequester() }
@@ -112,6 +117,7 @@ fun ProviderEmbedPlayerScreen(
     var cursorY by remember(source.id) { mutableStateOf(0.5f) }
     var interactionGeneration by remember(source.id) { mutableIntStateOf(0) }
     var recoveryState by remember(source.id) { mutableStateOf(CinemarWebViewRecoveryState()) }
+    var exitPending by remember(source.id) { mutableStateOf(false) }
 
     fun showHud(message: String? = null) {
         notice = message
@@ -140,8 +146,29 @@ fun ProviderEmbedPlayerScreen(
         if (hudVisible && errorMessage == null) {
             hudVisible = false
         } else {
-            webPlayer?.execute(PlayerJsCommand.Stop)
-            onExit()
+            // PlayerJS persists the active playlist item and position by its stable `cuid` in the
+            // first-party WebView profile. `stop` rewinds that state to zero, so leaving the
+            // fallback must pause before the WebView is disposed.
+            if (exitPending) return
+            exitPending = true
+            fun finishExit() {
+                if (!exitPending) return
+                exitPending = false
+                CookieManager.getInstance().flush()
+                onExit()
+            }
+            val player = webPlayer
+            if (player == null) {
+                finishExit()
+            } else {
+                // evaluateJavascript is asynchronous. Keep the WebView alive until PlayerJS has
+                // accepted pause, with a short escape hatch for a hung renderer.
+                player.execute(providerExitCommand) { finishExit() }
+                scope.launch {
+                    delay(PROVIDER_EXIT_GRACE_MS)
+                    finishExit()
+                }
+            }
         }
     }
 
@@ -650,7 +677,13 @@ private class CinemarWebPlayerView(
             isFocusable = false
             descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
             settings.applySecureProviderSettings()
-            CookieManager.getInstance().setAcceptThirdPartyCookies(this, false)
+            val providerWebView = this
+            CookieManager.getInstance().apply {
+                // Keep the provider's normal first-party browser session in WebView. It is never
+                // exported to OkHttp/native playback and third-party cookies remain prohibited.
+                setAcceptCookie(true)
+                setAcceptThirdPartyCookies(providerWebView, false)
+            }
             webViewClient = SecureCinemarWebViewClient(
                 allowedOrigin = allowedOrigin,
                 onLoading = { this@CinemarWebPlayerView.callbacks.onLoading(it) },

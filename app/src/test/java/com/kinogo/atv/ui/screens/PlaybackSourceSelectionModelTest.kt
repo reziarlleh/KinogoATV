@@ -58,7 +58,7 @@ class PlaybackSourceSelectionModelTest {
                 season = 1,
                 episode = 1,
                 voiceover = "Original",
-                quality = "720p",
+                quality = "1080p",
             ),
             collaps,
         )
@@ -118,7 +118,7 @@ class PlaybackSourceSelectionModelTest {
                 season = 2,
                 episode = 3,
                 voiceover = "Dub B",
-                quality = "1080p",
+                quality = "720p",
             ),
             dubB,
         )
@@ -216,6 +216,30 @@ class PlaybackSourceSelectionModelTest {
             listOf("1080p", "Авто"),
             PlaybackSourceSelectionModel.qualityOptions(plan, state),
         )
+    }
+
+    @Test
+    fun `fixed quality cap survives units whose declared variants differ`() {
+        val plan = PlaybackMediaPlan(
+            listOf(
+                variant("e1-1080", "cinemar", "Cinemar", 1, 1, "Dub", "1080p"),
+                variant("e2-720", "cinemar", "Cinemar", 1, 2, "Dub", "720p"),
+                variant("e3-2160", "cinemar", "Cinemar", 1, 3, "Dub", "2160p"),
+            ),
+        )
+        val first = PlaybackSourceSelectionModel.initial(
+            plan = plan,
+            requested = selection(1, 1, "Dub", "1080p"),
+        )
+
+        val second = PlaybackSourceSelectionModel.selectEpisode(plan, first, 2)
+        val third = PlaybackSourceSelectionModel.selectEpisode(plan, second, 3)
+
+        assertEquals("1080p", first.quality)
+        assertEquals("1080p", second.quality)
+        assertEquals("1080p", third.quality)
+        assertEquals(listOf("1080p", "720p"), PlaybackSourceSelectionModel.qualityOptions(plan, second))
+        assertEquals(listOf("1080p", "2160p"), PlaybackSourceSelectionModel.qualityOptions(plan, third))
     }
 
     @Test

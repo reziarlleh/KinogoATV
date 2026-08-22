@@ -1,6 +1,6 @@
 # Интеграция с Kinogo
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Граница интеграции
 
@@ -60,12 +60,34 @@ flowchart LR
 - Challenge/CAPTCHA, 401/403, geo restriction или DRM не являются поводом обходить защиту или
   бесконечно перебирать домены.
 
-Сейчас discovery получает новые кандидаты только из ручного ввода и безопасных redirect
-targets. Интернет-wide crawler и подписанный remote manifest ещё не подключены.
+В `0.5.0` discovery дополнен узким operator-controlled bootstrap manifest:
+
+```text
+https://raw.githubusercontent.com/reziarlleh/KinogoATV/main/config/mirrors.json
+```
+
+Это не поиск по интернету и не доказательство подлинности mirror. `MirrorBootstrapClient`
+не следует redirect, принимает только exact schema v1 до 32 KiB с ISO timestamps, не более
+24 origin и validity не более 120 дней. Неизвестное поле, duplicate, expired/future manifest
+или любой недопустимый origin отклоняют весь ответ.
+
+Manifest пока **не имеет отдельной криптографической подписи**: его provenance ограничена
+GitHub repository/TLS. Поэтому он не передаёт trust: каждый origin добавляется как
+`DISCOVERY + QUARANTINED` и может стать active только после обычной независимой HTTPS/public-DNS/
+service-fingerprint health check. Ручной ввод и safe redirect targets сохранены; internet-wide
+crawler нет.
+
+Repository snapshot `config/mirrors.json` от `2026-08-15T00:00:00Z` истекает
+`2026-11-13T00:00:00Z` и содержит четыре discovery origin:
+`https://w.kinogo.solar`, `https://kinogo.parts`, `https://kinogo.online` и
+`https://kinogo.family`. Это список для последующей проверки, не список подтверждённых
+зеркал; в частности, добавление `kinogo.family` не является live fingerprint evidence.
+Expiry требует operator review, а не автоматического продления дат.
 
 Ключевые файлы:
 
 - `data/mirror/MirrorRegistry.kt`;
+- `data/mirror/MirrorBootstrapClient.kt`;
 - `data/mirror/MirrorHealthChecker.kt`;
 - `data/mirror/MirrorPreferencesStore.kt`;
 - `data/network/ResilientPublicDns.kt`.
@@ -91,6 +113,36 @@ Cookie jar разделён по origin. Cookies и password POST нельзя �
 redirect. При смене зеркала `KinogoSessionManager` входит на новом origin сохранёнными
 credentials.
 
+Playback provider cookies не входят в эту DLE cookie-session. Provider WebView хранит только
+собственное first-party browser state; Cinemar native grant от 21.08.2026 подтверждён без
+cookies и выполняется отдельным no-cookie exact-origin клиентом.
+
+### Live playback snapshot 2026-08-21
+
+У Cinemar сохранились вызов `Cinemar({...})` и декодируемый `#2` playlist envelope, но leaf
+больше не обязан содержать готовый media URL. Новая browser-visible форма содержит
+placeholder `file` и opaque `data`. Один выбранный leaf обменивается JSON-string POST на
+same-origin `/api/playlist/load`; ответ содержит HLS grant. На проверенном сериале было 45
+таких leaves, поэтому приложение не выполняет eager hydration всего дерева.
+
+Authenticated detail текущего сервиса возвращает player document непосредственно на
+непрозрачном runtime route exact host `cinemar.cc`, а не обязательно на публичном
+`/embed/...`. Это уже discovered player document, не новый общий route allowlist. Discovery
+остаётся strict exact-host `/embed/...`; runtime document допускается отдельной проверкой
+только для exact HTTPS `cinemar.cc`, non-root/non-`/api/`, без query/fragment/userinfo и
+нестандартного порта. Старый общий validator отклонял этот flow как
+`INVALID_EMBED_ADDRESS`.
+
+`CinemarGrantClient` принимает только exact origin/path, не использует cookie jar, не следует
+redirect, не повторяет POST после transport failure, ограничивает JSON 512 KiB и повторно
+проверяет HTTPS/public-DNS для media/subtitle. Endpoint всегда строится как fixed same-origin
+`/api/playlist/load`, а не берётся из HTML. Opaque token принадлежит session-owned resolver
+и исчезает вместе с media plan.
+
+На KIVI Android TV 14 этот current contract подтвердил native selector Cinemar с
+озвучками, сезонами 1–4 и сериями для «Далеко во Вселенной», затем Media3 S2E5 с
+продвижением 11:01 → 11:39. Exact runtime path, token и media URL в evidence не записаны.
+
 ## Каталог, фильтры и поиск
 
 ### Live snapshot 2026-08-01
@@ -100,6 +152,11 @@ credentials.
 наблюдение, а не постоянный адрес и не доказательство официальности домена. Raw filter block
 на трёх адресах совпадал; приложение по-прежнему использует выбранный проверенный origin и
 не сохраняет конечный host в карточках.
+
+15 августа 2026 года `parts` и `online` снова указывали redirect target
+`https://w.kinogo.solar`. Прямой service fingerprint в той проверке не был получен:
+ответы закончились timeout/403/empty body. Поэтому `w.kinogo.solar` включён в
+remote bootstrap только как quarantined candidate, а не как built-in trusted origin.
 
 Текущий DLE-шаблон использует stateful xSort, а не отдельные GET-маршруты года, страны и
 жанра. Корневые маршруты задают только ленту:
@@ -273,6 +330,38 @@ Credentials:
 
 Cookie session memory-only. Истёкшая или сменившая origin сессия восстанавливается через
 сохранённые credentials.
+
+### Регистрация
+
+`KinogoRegistrationApi` реализует двухшаговый browser-visible DLE flow
+`/index.php?do=register`. Первый ответ может быть отдельной страницей правил:
+`RegistrationHtmlParser` возвращает `RegistrationDocument.Rules`, UI показывает текст и по
+умолчанию фокусирует `Не принимаю`. Hidden `dle_rules_accept` POST отправляется только после
+явного выбора `Принимаю и продолжить`; account form до этого не подставляется и не
+сабмитится.
+
+На втором шаге имена login/e-mail/password/confirmation, submit и hidden fields берутся из
+текущего HTML с ограничениями размера/имени; action за пределами selected origin
+отклоняется. Вводимые login/e-mail/password/CAPTCHA живут только в Compose `remember`, а не
+в `rememberSaveable`/DataStore. После dismiss значения не восстанавливаются. Только после
+успешной регистрации login/password проходят существующий encrypted `saveAndLogin` flow.
+
+Image CAPTCHA получается тем же cookie transport с лимитом 512 KiB и проверкой
+bitmap signature/content type. Перед Compose decode дополнительно проверяются размеры:
+не более 4096 px по каждой стороне и 8 млн pixels; крупное допустимое изображение
+downsample-ится до bounded 840×256 target в RGB_565. Код вводит пользователь; ни обхода, ни
+external recognition нет. reCAPTCHA/hCaptcha/Turnstile возвращают explicit unsupported, а
+не fallback с ослабленной защитой. После server rejection повторно загружаются вся форма и
+CAPTCHA.
+
+Каждый load/rules-accept/submit имеет монотонную registration generation и исходный origin.
+Response применяется только если оба всё ещё актуальны: late result после retry, dismiss
+или смены зеркала не может снова открыть старую форму, сохранить credentials либо изменить
+UI текущего origin.
+
+Форма/parser/API покрыты offline tests. Final hardware D-pad instrumentation `OK (1)`
+подтвердил default decline, explicit accept и возврат из нижней границы rules scroll на
+`Не принимаю`; test package удалён. Live registration submit остаётся pending.
 
 ## Серверные закладки
 

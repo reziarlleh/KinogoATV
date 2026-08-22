@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Требования
 
@@ -9,6 +9,7 @@
 - Android SDK Platform 37;
 - Android SDK Build Tools и Platform Tools;
 - Git;
+- Python 3 — только для независимой проверки release update manifest;
 - интернет для первой загрузки Gradle и Maven dependencies.
 
 Зафиксированный toolchain:
@@ -35,7 +36,8 @@ git clone https://github.com/reziarlleh/KinogoATV.git
 Set-Location KinogoATV
 ```
 
-Private repository потребует авторизацию GitHub.
+До фактической смены visibility repository может требовать авторизацию GitHub. Public-readiness
+документация сама по себе не доказывает, что visibility уже изменена.
 
 Укажите JDK и Android SDK:
 
@@ -106,10 +108,32 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 Полная локальная проверка:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug `
+.\gradlew.bat testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease `
   --no-daemon --max-workers=1 `
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
+
+`.github/workflows/android.yml` на push в `main` и pull request выполняет clean-clone subset
+`testDebugUnitTest lintDebug assembleDebug` с JDK 17 / SDK 37. Official Actions закреплены
+полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
+распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
+
+Текущий final local snapshot C-007: canonical command
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
+SUCCESS за 4 мин 27 с; 82 suites / 393 tests, 0 failures/errors/skips; lint —
+0 errors / 22 warnings / 2 hints. Exact `dist/KinogoATV-0.5.1-code15.apk` —
+38 304 478 bytes, SHA-256
+`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`, package
+`com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK launcher/label
+`KinogoATV`, zipalign OK, v2 true,
+certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Final local
+`update/manifest.json` — 1 273 bytes, SHA-256
+`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, issued
+`1787294465`, expires `1794984054` (18 ноября 2026 года, 06:40:54 UTC), четыре URLs.
+Это evidence рабочего дерева: final commit, CI, publication/Pages и TV остаются
+**PENDING**. После любого production change snapshot недействителен до полного повторного
+прогона, пересборки APK и manifest.
 
 Debug APK:
 
@@ -118,6 +142,26 @@ app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Release build выполняйте только по [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md).
+
+### Update manifest endpoints
+
+Code 15 имеет два default signed-manifest transports: GitHub Pages и jsDelivr. Client
+допускает максимум четыре distinct metadata endpoints всего, поэтому к двум default можно
+добавить не более двух новых URL. Они зашиваются в APK Gradle property с разделителем `|`:
+
+```powershell
+.\gradlew.bat assembleRelease `
+  '-PKINOGO_UPDATE_MANIFEST_URLS=https://updates.example.org/kinogo/manifest.json' `
+  --no-daemon --max-workers=1 `
+  '-Pkotlin.compiler.execution.strategy=in-process'
+```
+
+Значение попадает в `BuildConfig.UPDATE_MANIFEST_URLS`, поэтому зашивать можно только
+публичные HTTPS URL, но не secrets/tokens. Host не становится trusted: client требует
+envelope signature installed APK identity, strict schema/expiry/agreement, а затем повторяет
+APK size/SHA/package/version/signer checks. GitHub API остаётся последним fallback.
+Создание и публикация manifest описаны только в
+[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md); development build не должен создавать его автоматически.
 
 ## Android Studio
 
@@ -134,14 +178,16 @@ Touchscreen объявлен необязательным, leanback — обяз
 
 ```text
 app/src/main/java/com/kinogo/atv/
-  data/auth/          credentials, HTML login, cookie session
+  data/auth/          credentials, HTML login/registration/CAPTCHA, cookie session
   data/catalog/       safe HTML transport, routes, parsers, repository
   data/history/       progress codec/store and legacy recovery
   data/library/       server statuses/favorite and local outbox
   data/mirror/        candidates, health, trust and persistence
   data/network/       resilient public DNS
   data/playback/      discovery, provider documents, adapters, mapping
+  data/search/        bounded local recent-query history
   data/settings/      TV preferences
+  data/update/        signed multi-endpoint + GitHub fallback and APK verification
   diagnostics/        startup crash/stall reporting
   domain/             host-independent models and invariants
   player/             reducer, key mapping, Media3 and Web fallback
@@ -157,6 +203,11 @@ app/src/main/java/com/kinogo/atv/
 - Не использовать fixture video в production live-flow.
 - Не добавлять absolute mirror host в persisted content identity.
 - Не логировать transient URLs и account state.
+- Не логировать Cinemar grant token, local resolver URI вместе с его registry state,
+  iframe или конечный media URL; deferred leaf должен разрешаться только при открытии.
+- Не логировать registration hidden fields/CAPTCHA и update download redirects.
+- Не считать Pages/jsDelivr/proxy trusted по имени host; update trust даёт только
+  installed-signer manifest signature и полная повторная проверка APK.
 - D-pad focus — часть функционального контракта, а не косметика.
 - Любая пользовательская строка должна помещаться в TV safe area и оставаться читаемой на
   расстоянии.

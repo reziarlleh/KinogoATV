@@ -1,37 +1,58 @@
 # Roadmap
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: аппаратная приёмка и точечная доводка 0.4.3-dev
+## Сейчас: финализация 0.5.2 и ручная приёмка владельцем
 
-Большая переработка интерфейса реализована: steel/cyan visual system, фиксированный rail,
-шестиколоночные сетки, новая главная, серверный xSort и paged search flow, компактные
-settings/details/source selection и уточнённый HUD. В 0.4.3-dev DLE/xSort-сессия защищена
-HTTP/1.1 и безопасным полным transaction retry, а невидимый Catalog warmup удалён. Все семь
-видов сортировки аппаратно проверены на Главной и в Каталоге, включая оба направления
-рейтинга. До дальнейшей графической полировки нужен полный TV regression pass;
-автоматическая сборка сама по себе не считается подтверждением focus/playback UX. Кандидат
-остаётся validation candidate, а не новым playback baseline.
+C-008 добавляет buffer-aware one-shot recovery, новую player generation при
+fresh source, устойчивые checkpoint/resume writes, сохраняемый quality cap, реальную
+настройку Media3 buffer 5/10/15/20/30 с и in-memory preload ближайшей серии через
+границу сезона. Ручная refresh-кнопка и obsolete settings cycle удалены;
+updater-пункты собраны в конце Settings. Exact commit, final local Gradle evidence и
+stable-signed APK уже зафиксированы; signed manifest, CI/PR/Release/Pages/jsDelivr/live
+publication и runtime-приёмка ещё **PENDING**. C-007 остаётся
+исторической integration point, B-001 — полным playback rollback baseline.
 
-### P0 — TV regression pass
+### P0 — final evidence и приёмка
 
-- Проверить overscan, читаемость, плотность шести колонок и полный focus graph на 1080p/4K
-  с реального расстояния.
-- Проверить переход Left из каждого первого столбца/управляющей строки в rail и Right
-  обратно в content.
-- Проверить category и filter dropdown, возврат фокуса, search submit/keyboard hide и
-  Settings OK-only обычным пультом.
-- Проверить на живом зеркале combinations подборки/года/страны, смену категорий и длинную
-  непрерывную дозагрузку Home/Catalog/Search без перескоков фокуса.
-- Проверить крупный poster/details, достижимость всех status actions и episode row на source
-  selection.
-- Проверить timeline marker и buffering overlay в реальном воспроизведении.
-- Проверить Previous/Next и auto-next на границе сезонов, а также возврат в details после
-  естественного окончания последнего материала.
+- После появления exact Release asset создать и проверить final signed code 16
+  `update/manifest.json`. Старый code 15 manifest до первого merge C-008 намеренно удалён,
+  чтобы Pages workflow не развернул устаревший payload. При любом последующем production
+  change повторить полный canonical pass и artifact verification.
+- Получить GitHub Actions result на exact commit, опубликовать exact Release asset и
+  доказать live Pages/jsDelivr metadata и каждый заявленный APK transport. До этого все
+  endpoints считаются pending.
+- Владелец вручную проверяет выход из player в Details с активной «Смотреть»,
+  exact серию/позицию после restart, переход через границу сезона и immediate-next
+  preload. Для quality проверяется exact/ниже cap/lowest-above и сохранение между
+  сериями.
+- Владелец проверяет все пять buffer values и один контролируемый stall/error:
+  должна сработать ровно одна fresh recovery без retry loop. Точная позиция сохраняется,
+  только если fresh normalization оставила тот же фильм/сезон/эпизод. Если попытка не
+  помогла, явный retry идёт только через Back → Details → «Смотреть».
+- Владелец проверяет signed-manifest update при недоступном GitHub API: metadata,
+  fallback download, APK checks и передачу Package Installer с обязательным OS confirmation.
+- Агент не подключается к TV по ADB, не устанавливает APK и не запускает hardware smoke
+  без нового явного разрешения владельца на конкретный узкий сценарий.
+- Не назначать C-008 playback baseline, пока не закрыта эта runtime-матрица.
+
+### P1 — оставшиеся integration-регрессии
+
+- Доказать actual Web fallback resume в тот же playlist item/position; исторически
+  подтверждены только fullscreen launch и Back → Details → History. Не считать это
+  cross-device/native sync.
+- Проверить About card/rail logo, cold focus без focus steal, category/filter/search flows,
+  длинную Home/Catalog/Search pagination и live combinations подборки/года/страны.
+- Проверить registration form/CAPTCHA refresh/rejection и live submit; rules
+  default-decline/explicit-accept уже подтвержден instrumentation.
+- Проверить remote mirror bootstrap failure/expiry и запрет активации candidate без
+  fingerprint; один manifest не делает live origin trusted.
+- Проверить timeline marker/buffering overlay, Previous/Next/auto-next и возврат в Details
+  после natural end последней unit.
 
 ### P1 — дальнейшая визуальная доводка
 
@@ -61,8 +82,11 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 ### Зеркала
 
-- Подключить подписанный remote manifest с provenance, expiry и rollback.
-- Добавить контролируемое обновление bootstrap list без нового APK.
+- Если remote bootstrap станет release-critical, добавить отдельную криптографическую
+  подпись и rollback/revocation; текущий GitHub/TLS manifest намеренно unsigned и даёт
+  только quarantined candidates.
+- Добавить операторский процесс обновления `config/mirrors.json` с review, expiry и live
+  evidence; наличие origin в файле не делает его trusted.
 - Не превращать discovery в поиск/активацию случайных lookalike domains.
 
 ### История и синхронизация
@@ -77,7 +101,8 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 - Добавлять provider adapters только по наблюдаемым browser-visible contracts и реальным
   failing examples.
 - Реализовать визуальный countdown следующей серии с Cancel/Play now.
-- Улучшить bounded retry/failover и отображение причины unavailable source.
+- После TV evidence решить, нужен ли второй provider failover поверх реализованной одной
+  fresh-source попытки; не увеличивать лимит без loop guards.
 - Решить, какие validated Web player capabilities можно безопасно подключить к единому HUD.
 - Добавить subtitle style и playback speed только после стабилизации основного HUD.
 
@@ -85,7 +110,8 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 - Разделить `KinogoAppRoot` на state holders/use cases без одномоментной миграции всех flow.
 - Удалить дублирование ручной пагинации/PagingSource после выбора одного production пути.
-- Добавить CI для unit/lint/assembleDebug на clean clone.
+- Получить первый зелёный remote run добавленного GitHub Actions workflow и затем считать
+  clean-clone CI operational.
 - Добавить dependency verification metadata и SHA-256 Gradle distribution.
 - Добавить API 28 emulator/device smoke; текущая аппаратная проверка выполнялась на Android TV
   14.
@@ -93,13 +119,22 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 
 ### Выпуск
 
-- Перейти от локального `dist` к GitHub Release assets.
+- Выпустить первый stable GitHub Release с exact asset name
+  `KinogoATV-<version>-code<code>.apk`, GitHub SHA-256 digest и release notes.
+- После exact Release asset подписать bounded update payload тем же APK signing identity,
+  развернуть Pages artifact и проверить его из целевой сети. При необходимости
+  добавить в следующий APK ещё один не-GitHub HTTPS endpoint через
+  `KINOGO_UPDATE_MANIFEST_URLS`; trust остаётся криптографическим, а не host-based.
 - Настроить protected release environment и безопасную передачу signing secrets в CI, если
   автоматический release действительно понадобится.
-- Перед возможной публичностью выбрать лицензию, проверить trademark/disclaimer и исключить
-  все private research/data.
+- Перед сменой visibility повторно проверить disclaimer/repository hygiene. Лицензию
+  выбрать только по явному решению владельца; пока `LICENSE` отсутствует, права не
+  предоставлены автоматически.
 
-## Выполненный baseline
+## Реализовано в source
+
+Пункты C-008 в этом списке не становятся verified runtime автоматически; актуальный уровень
+evidence указан в `PROJECT_STATE.md`.
 
 - Native Android TV shell и launcher tile.
 - Детерминированный TV branding с одобренной официальной иконкой, надписями
@@ -118,20 +153,64 @@ HTTP/1.1 и безопасным полным transaction retry, а невиди
 - DLE/xSort session работает по HTTP/1.1; неоднозначный сетевой сбой допускает один
   безопасный полный retry от `clearallfields`, без повторения отдельной toggle-команды.
 - Search debounce 750 ms, immediate submit с закрытием клавиатуры и graphical voice action.
+- Search возвращает query/results/focused stable ID после Details; до 10 последних
+  подтверждённых OK/voice/chip запросов хранятся локально и показываются одной
+  TV-строкой; промежуточные debounce-строки в history не попадают.
 - Live catalog, top-level sections, text/voice search и early preload.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.
 - Account credentials + automatic re-login.
 - Server statuses/favorite with local outbox.
-- Local episode/position history and legacy ID recovery.
-- Native Media3 player and selection matrix.
-- Cinemar/Collaps native adapters, direct media и explicit provider Web fallback.
+- Local episode/position history and legacy ID recovery; checkpoint queue, generation guard,
+  monotonic timestamps, unit activation at `0` и newest-completed suppression защищают
+  exact resume от late writes и возврата к старой серии.
+- Native Media3 player and selection matrix; desired quality сохраняется между
+  сериями и выбирает exact, затем highest `<=` cap, иначе lowest above cap.
+- Cinemar/Collaps native adapters, включая lazy selected-leaf Cinemar grant через
+  `/api/playlist/load`, direct media и explicit provider Web fallback.
+- Current authenticated exact-host Cinemar runtime player document отделён от strict
+  `/embed/...` discovery; KIVI подтвердил selector и Media3 S2E5 >15 секунд.
+- True Back и exact non-first focus подтверждены на KIVI для второй History card и второго
+  Search result; query/results и recent-query row сохранились.
+- Web fallback сохраняет first-party same-profile PlayerJS state: выход выполняет
+  `pause`, фиксирует cookies только internal WebView profile и затем выполняет dispose,
+  но не обещает native/cross-device sync.
 - Compact HUD, bottom episode row и timeline focus after hidden seek.
 - White timeline focus marker, центральный buffering state, cross-season Previous/Next и
   возврат в details после естественного окончания Media3.
-- Compact details/source/settings: крупный постер, видимая серия до старта и OK-only settings.
+- Compact details/source/settings: крупный постер, видимая серия до старта, Switch и D-pad
+  dropdown settings. Fresh detail cache оставляет «Смотреть» доступной после player Back.
 - Persistent TV settings and exit confirmation.
+- Буфер 5/10/15/20/30 с с default/fallback 15 с подключён к `DefaultLoadControl`:
+  `min=max=target`, start `clamp(target/3, 1–2,5 с)`, rebuffer
+  `clamp(target/2, 2–5 с)`, time-priority.
+- Все совместимые сезоны развёрнуты в один Media3 playlist; in-memory
+  `PreloadConfiguration` загружает immediate-next item на 2–5 с, включая границу
+  сезона, без disk cache и отдельного resolver warmup.
 - Startup crash/stall diagnostics.
 - API 28 minimum and stable update signing.
+- Two-step same-origin DLE registration: explicit rules acceptance, remember-only sensitive
+  input, bounded user-solved image CAPTCHA и явный отказ от обхода interactive challenges.
+- Unsigned bounded remote mirror bootstrap, который добавляет только quarantined discovery
+  candidates; текущий snapshot содержит четыре origin, включая `kinogo.family`.
+- Проверяемый GitHub Release updater с exact signer validation и обязательным Android OS
+  confirmation.
+- Initial rail focus, Switch/dropdown Settings и newest applicable resume policy;
+  updater controls собраны в конце, obsolete arrow-cycle settings path удалён.
+- Buffer-aware one-shot fresh playback source recovery с cross-screen loop guard, forced
+  new player generation и порогами initial `max(20,target)`, rebuffer `clamp(target,5–10)`,
+  `READY` without progress 15 с. Ручная native refresh-кнопка удалена; повтор идёт
+  через Details → «Смотреть».
+- About dialog как первая крупная Settings card и focusable rail-logo action, unchanged
+  owner-supplied donation QR, exact external URL allowlist и
+  public-repository disclaimer.
+- Signed multi-endpoint update manifest с installed-signer verification, bounded expiry/download
+  mirrors и GitHub Release API fallback; Pages/jsDelivr deployment ещё pending.
+- GitHub Actions clean-clone workflow (первый remote green run pending).
+- Local C-006 integration pass: 75 suites / 348 tests, lint 0 errors / 19 warnings / 2 hints,
+  debug/androidTest/release assembly; verified stable-signed artifact и X96 final release
+  install/cold smoke.
+- Recovery-loop guards: consumed budget до launch, discard dead player на early exit,
+  explicit missing content/mirror error и exact same-unit position.
 
 ## Осознанно не делаем
 

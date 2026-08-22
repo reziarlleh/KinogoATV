@@ -36,6 +36,11 @@ internal enum class PlaybackPauseCompletion {
     CHECKPOINT_AND_EXIT,
 }
 
+internal enum class PlaybackErrorRecoveryDecision {
+    REFRESH_SOURCES,
+    SHOW_ERROR,
+}
+
 /**
  * pauseAtEndOfMediaItems stops on the completed item and emits a play-when-ready callback instead
  * of changing the current playlist item. This is the primary natural-end signal when auto-next is
@@ -44,10 +49,28 @@ internal enum class PlaybackPauseCompletion {
 internal fun playbackPauseCompletion(
     playWhenReady: Boolean,
     mediaItemEnded: Boolean,
+    autoNextEpisode: Boolean,
 ): PlaybackPauseCompletion = when {
     playWhenReady -> PlaybackPauseCompletion.IGNORE
-    mediaItemEnded -> PlaybackPauseCompletion.CHECKPOINT_AND_EXIT
+    mediaItemEnded && !autoNextEpisode -> PlaybackPauseCompletion.CHECKPOINT_AND_EXIT
+    mediaItemEnded -> PlaybackPauseCompletion.IGNORE
     else -> PlaybackPauseCompletion.CHECKPOINT
+}
+
+/**
+ * A content/season/episode unit gets at most one automatic fresh-source request across replacement
+ * sessions. The owner carries the attempted-unit set into the replacement player so the same
+ * failing provider cannot form an inter-screen retry loop.
+ */
+internal fun playbackErrorRecoveryDecision(
+    refreshCallbackAvailable: Boolean,
+    refreshAlreadyRequested: Boolean,
+): PlaybackErrorRecoveryDecision = if (
+    refreshCallbackAvailable && !refreshAlreadyRequested
+) {
+    PlaybackErrorRecoveryDecision.REFRESH_SOURCES
+} else {
+    PlaybackErrorRecoveryDecision.SHOW_ERROR
 }
 
 internal data class CompletedPlaybackCheckpoint(

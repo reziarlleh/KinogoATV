@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **29 июля 2026 года**.
+Последнее обновление: **21 августа 2026 года**.
 
 ## Модель угроз
 
@@ -14,6 +14,7 @@ providers. Любой origin, redirect, iframe, media URL и subtitle URL счи
 - SSRF через DNS, redirect или media manifest;
 - утечка credentials/cookies на другой origin;
 - утечка transient media token через log, crash report или persisted state;
+- подмена remote mirror manifest или APK GitHub Release;
 - произвольная navigation/permission из WebView;
 - потеря signing key и невозможность обновления установленного APK;
 - публикация пользовательских фото, APK или декомпилированного стороннего кода.
@@ -63,6 +64,32 @@ Manual/discovered origin не активируется только потому
 
 CAPTCHA, geo block, 401/403 и DRM не обходятся перебором доменов.
 
+Remote `config/mirrors.json` загружается только с exact GitHub raw path, без redirect, и
+проходит strict schema/size/count/expiry проверки. У него нет отдельной криптографической
+подписи, поэтому даже корректный manifest не наделяет origin доверием. Кандидат остаётся
+`DISCOVERY + QUARANTINED` до независимой HTTPS/public-DNS/fingerprint-проверки.
+Текущий четырёхадресный snapshot включает `kinogo.family`, но этот факт сам по себе не
+является live validation или повышением trust.
+
+## Registration CAPTCHA
+
+Registration hidden fields, CAPTCHA text и bitmap живут только в памяти текущей same-origin
+формы и скрыты из `toString`. Изображение ограничено 512 KiB и проверяется по
+magic bytes/content type. Пользователь решает challenge сам; приложение не передаёт
+картинку/ответ third-party recognition service и не имитирует обход reCAPTCHA/hCaptcha/Turnstile.
+
+DLE rules gate является отдельным первым шагом. Без явного OK пользователя не отправляется
+`dle_rules_accept`; default focus находится на `Не принимаю`. Account fields используют
+`remember`, но не `rememberSaveable`, поэтому чувствительный ввод не сериализуется при
+dismiss/recreation. Load/rules/submit responses защищены generation+exact-origin guard:
+устаревший ответ не может примениться после retry, dismiss либо смены зеркала.
+
+512 KiB wire-limit не является единственной защитой bitmap allocation. До decode UI
+проверяет границы 4096 px на сторону и 8 млн pixels, затем использует bounded downsample к
+840×256/RGB_565. Final hardware D-pad instrumentation `OK (1)` подтвердил rules
+default-decline, explicit accept и безопасный выход из нижней границы scroll; test package
+удалён. Live account submit остаётся pending.
+
 ## SSRF и destination validation
 
 `NetworkDestinationValidator`, `SafeHtmlClient`, `ProviderEmbedDocumentClient` и
@@ -93,6 +120,8 @@ Provider WebView допускается только для отдельного
 - popup/multiple windows запрещены;
 - download, geolocation и runtime permissions запрещены;
 - third-party cookies выключены;
+- first-party cookies и DOM storage остаются только во внутреннем профиле WebView и не
+  экспортируются в DLE/OkHttp/native player;
 - external navigation блокируется;
 - JavaScript включён только потому, что он нужен самому provider player.
 
@@ -112,6 +141,23 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 `PreparedPlaybackSession`, resolved source и related models должны redacted-форматировать
 `toString`. Fixtures содержат только синтетические или очищенные значения.
 
+Cinemar deferred token дополнительно не помещается в media URI. Он хранится только в
+session-owned `PlaybackMediaUrlResolver`. Три адресные политики намеренно разделены:
+
+- discovery нового Cinemar offer — только exact HTTPS `cinemar.cc` `/embed/...`;
+- already discovered player document — exact host, non-root/non-`/api/`, без
+  query/fragment/userinfo и нестандартного порта;
+- grant — отдельно сконструированный fixed same-origin `/api/playlist/load`.
+
+Grant POST вызывается без cookies/redirect/retry, с лимитом 512 KiB и повторной
+HTTPS/public-DNS validation результата. Single-flight future кеширует один success/failure
+исход на leaf и исчезает вместе с media plan. Расширение player-document path не расширяет
+discovery, не допускает API paths и не наследует subdomains.
+
+Диагностика rejection может записать только provider id, тип исключения и bounded
+address shape (host, route-class, наличие query/fragment). Точный runtime path, query,
+token, iframe/media URL и cookies не логируются.
+
 ## Android backup
 
 Обычные настройки и история могут участвовать в backup по platform policy. Auth DataStore
@@ -130,6 +176,47 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 - Release без стабильного ключа должен завершаться явной ошибкой.
 - Debug build без ключа допустим только для чистого clone/emulator и не сможет обновить
   установленную stable-signed версию.
+
+## Обновления APK
+
+Встроенный updater использует два независимых по доступности, но одну signing identity по
+доверию канала.
+
+Основной канал — signed manifest, загружаемый максимум с четырёх явно заданных HTTPS
+endpoints. В `0.5.1` по умолчанию используются GitHub Pages и jsDelivr для metadata;
+полностью независимый operator-owned endpoint остаётся отдельной инфраструктурной задачей:
+
+- envelope подписан RSA/ECDSA public key сертификата уже установленного APK;
+- подписанные поля фиксируют version/name/size/SHA-256, срок не более 90 дней и до четырёх
+  HTTPS download locations;
+- metadata endpoints опрашиваются параллельно с 20-second bound, redirect запрещён;
+- APK redirect ограничен четырьмя hops, каждый host проходит public-only DNS;
+- manifest replay после expiry и конфликт одинакового versionCode отклоняются.
+
+GitHub Release остаётся compatibility fallback:
+
+- metadata запрашивается по exact `api.github.com/repos/reziarlleh/KinogoATV/releases/latest`;
+- draft/prerelease отклоняются; tag, versionName, versionCode и имя
+  `KinogoATV-<version>-code<code>.apk` должны совпасть;
+- asset не может быть больше 200 MiB и обязан иметь GitHub `sha256:` digest;
+- initial download URL должен быть exact release path; разрешено не более четырёх
+  ручных redirect только на заданные GitHub CDN hosts; public-DNS policy сохраняется;
+- до открытия installer сверяются длина, SHA-256, package name, version name/code, рост
+  versionCode и полное совпадение signing certificate с установленным приложением;
+- APK передаётся системному Android Package Installer через non-exported `FileProvider`.
+
+Ни TLS/CDN, ни manifest сами по себе не заменяют финальную проверку APK: общий verifier
+сверяет length, SHA-256, package, version и точную signing certificate identity.
+
+Provider WebView при выходе выполняет PlayerJS `pause`, затем
+`CookieManager.flush()`. Это сохраняет состояние только во внутреннем профиле WebView;
+cookie-данные не экспортируются в native/OkHttp, updater или журналы.
+
+Updater не может установить APK тихо. Если permission unknown-sources не выдан, Android
+сначала открывает системные настройки. В любом случае финальная установка требует
+явного OS confirmation пользователя. Final local canonical pass для `0.5.1` —
+82 suites / 393 tests, 0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
+Newer-version download и runtime-прогон Package Installer на TV ещё pending.
 
 ## Repository hygiene
 
@@ -151,6 +238,25 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 - пользовательские DataStore, logs и crash reports.
 
 APK публикуются как GitHub Release assets с SHA-256, а не как Git blobs.
+
+### About и поддержка автора
+
+`app/src/main/res/drawable-nodpi/donate_qr.png` предоставлен непосредственно владельцем
+репозитория и сохранён без изменений. Зафиксированный SHA-256:
+`C8DCA7846A344DC83563BA338AB6691286C482A3E612C3083F0CB2D6D042BEEE`.
+Это provenance конкретного asset, а не доверие к медиа-источникам.
+
+External actions из About принимают не произвольный URL, а только exact allowlist:
+`https://donate.stream/donate_6a60559cd9e35` и
+`https://github.com/reziarlleh/KinogoATV`. Donation необязателен, не разблокирует функции и
+не передаёт в Donate.Stream account, cookies или историю просмотра.
+На KIVI обе ссылки открылись во внешнем Yandex TV browser; это подтверждает intent routing,
+но не расширяет allowlist и не наделяет browser дополнительным доверием.
+
+Публичный README обязан явно говорить, что KinogoATV — неофициальный неаффилированный
+клиент, а репозиторий не хранит/не раздаёт видео. Пока нет явно выбранного
+`LICENSE`, публикация source не должна называться open-source лицензией и не предоставляет
+прав на копирование/изменение/распространение.
 
 Перед первым commit и каждым release:
 

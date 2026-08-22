@@ -162,7 +162,7 @@ class SafeHtmlClient internal constructor(
     }
 
     private companion object {
-        const val USER_AGENT = "KinogoTV/0.2 (Android TV; native catalog)"
+        const val USER_AGENT = "KinogoATV/0.5 (Android TV; native catalog)"
     }
 }
 

@@ -98,6 +98,20 @@ data class SettingUiModel(
     val description: String,
     val value: String,
     val enabled: Boolean = true,
+    val control: SettingControlUi = SettingControlUi.VALUE,
+    val selectedOptionId: String? = null,
+    val options: List<SettingOptionUiModel> = emptyList(),
+)
+
+enum class SettingControlUi {
+    VALUE,
+    SWITCH,
+    DROPDOWN,
+}
+
+data class SettingOptionUiModel(
+    val id: String,
+    val label: String,
 )
 
 data class SettingSectionUiModel(
@@ -267,6 +281,12 @@ object KinogoFixtures {
                 SettingUiModel("quality", "Качество по умолчанию", "Автовыбор по экрану и скорости сети", "Авто"),
                 SettingUiModel("next", "Следующая серия", "Запускать после короткого обратного отсчёта", "Вкл."),
                 SettingUiModel("seek", "Шаг перемотки", "Короткое нажатие Left или Right", "10 сек"),
+                SettingUiModel(
+                    "playback_buffer",
+                    "Буфер воспроизведения",
+                    "Запас видео для устойчивого воспроизведения",
+                    "15 сек",
+                ),
             ),
         ),
         SettingSectionUiModel(
@@ -276,6 +296,18 @@ object KinogoFixtures {
                 SettingUiModel("contrast", "Высокий контраст", "Усиленные контуры и подписи", "Выкл."),
                 SettingUiModel("motion", "Уменьшить анимацию", "Меньше масштабирования и переходов", "Выкл."),
                 SettingUiModel("captions", "Субтитры", "Использовать системный стиль Android TV", "Системные"),
+            ),
+        ),
+        SettingSectionUiModel(
+            id = "updates",
+            title = "Обновления",
+            items = listOf(
+                SettingUiModel(
+                    "auto_check_updates",
+                    "Проверять обновления автоматически",
+                    "Проверять новую версию при запуске приложения",
+                    "Вкл.",
+                ),
             ),
         ),
     )

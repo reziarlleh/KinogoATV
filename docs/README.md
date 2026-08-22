@@ -4,7 +4,7 @@
 Документы разделены по назначению, чтобы не смешивать пользовательское описание, текущее
 состояние, архитектурные контракты и исторические исследования.
 
-Последняя ревизия индекса: **1 августа 2026 года**.
+Последняя ревизия индекса: **23 августа 2026 года**.
 
 ## Быстрый старт для нового чата
 
@@ -16,7 +16,7 @@
 3. Профильный документ задачи:
    - компоновка, цвета, launcher assets и D-pad-навигация —
      [`UI_DESIGN.md`](UI_DESIGN.md);
-   - сеть, зеркала, каталог, авторизация и закладки —
+   - сеть, зеркала, каталог, регистрация/авторизация и закладки —
      [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md);
    - извлечение источников и плеер — [`PLAYBACK.md`](PLAYBACK.md);
    - защита данных и сетевые границы — [`SECURITY.md`](SECURITY.md);
@@ -39,12 +39,12 @@
 | [`PROJECT_STATE.md`](PROJECT_STATE.md) | Текущий проверенный снимок проекта | При изменении версии, функций или validation evidence |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Слои, зависимости, entry points и data flow | При изменении границ модулей или потока данных |
 | [`UI_DESIGN.md`](UI_DESIGN.md) | Текущий визуальный контракт, launcher assets и D-pad-навигация | При изменении компоновки, цветов, фокуса или TV-брендинга |
-| [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md) | HTML-протокол, зеркала, аккаунт и закладки | При изменении сетевого контракта или парсеров |
+| [`SERVICE_INTEGRATION.md`](SERVICE_INTEGRATION.md) | HTML-протокол, зеркала, registration/account и закладки | При изменении сетевого контракта или парсеров |
 | [`PLAYBACK.md`](PLAYBACK.md) | Discovery, адаптеры, Media3, Web fallback и resume | При любом изменении воспроизведения |
-| [`SECURITY.md`](SECURITY.md) | Секреты, SSRF, WebView, signing и repository hygiene | При изменении trust boundary |
+| [`SECURITY.md`](SECURITY.md) | Секреты, SSRF, CAPTCHA, updater, signing и repository hygiene | При изменении trust boundary |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | Подготовка окружения и команды Gradle/ADB | При обновлении toolchain или процесса сборки |
 | [`TESTING.md`](TESTING.md) | Автотесты, TV-матрица и безопасная работа с данными | При появлении новых проверок или устройств |
-| [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | Версия, подпись, упаковка и публикация | При каждом выпуске |
+| [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md) | Версия, подпись, updater contract, упаковка и публикация | При каждом выпуске |
 | [`DECISIONS.md`](DECISIONS.md) | Ключевые архитектурные и продуктовые решения | При новом решении или пересмотре старого |
 | [`REGRESSION_LOG.md`](REGRESSION_LOG.md) | Симптомы, причины, исправления и rollback baselines | При каждом обнаруженном или исправленном сбое |
 | [`ROADMAP.md`](ROADMAP.md) | Предстоящая работа и приоритеты | После планирования и завершения пунктов |
@@ -59,7 +59,7 @@
 
 | Файл | Статус |
 | --- | --- |
-| [`AUTH_AND_SYNC.md`](AUTH_AND_SYNC.md) | Снимок HTML-протокола авторизации, закладок и границ синхронизации |
+| [`AUTH_AND_SYNC.md`](AUTH_AND_SYNC.md) | Registration/login HTML-протокол, CAPTCHA, закладки и границы синхронизации |
 | [`OFFICIAL_APP_RESEARCH.md`](OFFICIAL_APP_RESEARCH.md) | Clean-room исследование официального APK и закрытого JSON-шлюза |
 | [`LAZYMEDIA_DELUXE_RESEARCH.md`](LAZYMEDIA_DELUXE_RESEARCH.md) | UX-референс и архитектурные выводы без заимствования кода |
 | [`NATIVE_PROVIDER_ADAPTERS.md`](NATIVE_PROVIDER_ADAPTERS.md) | Спецификация и ограничения provider adapters |
@@ -101,3 +101,10 @@ Git. В репозитории остаются только clean-room выво
 
 Планы, отказавшиеся идеи, внутренние риски и протокольные ограничения хранятся здесь, а не в
 пользовательском `README.md`.
+
+Аппаратная проверка в этой матрице означает отдельный уровень evidence, а не обязательное
+действие каждого агента. Сначала выполняются code review и автоматические тесты. Подключаться
+к реальному TV через ADB, устанавливать APK или запускать smoke разрешено только после
+предварительного явного согласия владельца на конкретный узкий сценарий, результат которого
+нельзя надёжно установить без устройства. Если такого разрешения не было, документ честно
+фиксирует hardware evidence как `PENDING`, не заменяя его предположением.

@@ -1,6 +1,7 @@
 package com.kinogo.atv.ui.screens
 
 import com.kinogo.atv.domain.PlaybackMediaPlan
+import com.kinogo.atv.player.PlaybackQualityPolicy
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 
 /**
@@ -139,8 +140,7 @@ internal object PlaybackSourceSelectionModel {
         )
         return if (
             state.quality !in declared &&
-            declared.any(::isAutomaticQuality) &&
-            state.quality.isFixedVideoQuality()
+            PlaybackQualityPolicy.height(state.quality) != null
         ) {
             listOf(state.quality) + declared
         } else {
@@ -161,8 +161,8 @@ internal object PlaybackSourceSelectionModel {
         require(plan.sourceOptions.any { it.id == sourceId }) {
             "Unknown playback source"
         }
-        return PlaybackMediaPlan(
-            plan.variants.filter { it.sourceId == sourceId } +
+        return plan.copy(
+            variants = plan.variants.filter { it.sourceId == sourceId } +
                 plan.variants.filterNot { it.sourceId == sourceId },
         )
     }
@@ -201,8 +201,7 @@ internal object PlaybackSourceSelectionModel {
             .toList()
         val quality = when {
             desiredQuality in qualities -> desiredQuality
-            qualities.any(::isAutomaticQuality) && desiredQuality.isFixedVideoQuality() ->
-                desiredQuality
+            PlaybackQualityPolicy.height(desiredQuality) != null -> desiredQuality
             else -> qualities.first()
         }
         return PlaybackSourceSelectionState(
@@ -221,14 +220,3 @@ internal fun PlaybackSelectionUiModel.isSamePlaybackUnitAs(
     contentId == other.contentId &&
         season == other.season &&
         episode == other.episode
-
-private fun isAutomaticQuality(value: String): Boolean =
-    value.trim().let { normalized ->
-        normalized.equals("Авто", ignoreCase = true) ||
-            normalized.startsWith("Авто ·", ignoreCase = true) ||
-            normalized.equals("Auto", ignoreCase = true) ||
-            normalized.startsWith("Auto ·", ignoreCase = true)
-    }
-
-private fun String.isFixedVideoQuality(): Boolean =
-    matches(Regex("""\s*[1-9]\d{2,3}\s*p?\s*""", RegexOption.IGNORE_CASE))

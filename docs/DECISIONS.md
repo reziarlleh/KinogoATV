@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **1 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -259,3 +259,317 @@ controls во время замены и при transient failure. Search и cro
 Следствие: нельзя возвращать hidden warm-up, raw retry одиночного xSort POST, параллельные
 xSort-команды одной cookie-сессии либо переносить HTTP/1.1-ограничение на playback без
 отдельного аппаратного доказательства.
+
+## D-019 — Первый фокус принадлежит navigation rail
+
+- Дата: 15 августа 2026 года
+- Статус: принято; C-006 debug TV smoke passed
+
+При cold start selected rail item получает первый focus. Разделы не запрашивают свой
+initial focus до явной активации контента. Focused и selected-unfocused состояния визуально
+различаются; enum Settings открываются dropdown, boolean — Switch, Left/Right остаются
+навигацией.
+
+В C-008 удалены неиспользуемые `SettingCycleDirection`, `TvPreferences.cycle` и
+`TvPreferencesStore.cycle`. Единственный mutation contract — stable
+`settingId + optionId` через `TvPreferencesStore.set`; неизвестный или устаревший option ID
+игнорируется, а не сбрасывает сохранённое значение. Это же относится к dropdown target
+буфера `5/10/15/20/30` секунд.
+
+Следствие: нельзя возвращать конкурирующие initial requests экранов либо скрытые циклические
+значения Settings без явного D-pad popup/focus-return контракта. Left/Right не меняют
+настройку побочным эффектом навигации.
+
+## D-020 — Resume и source refresh ограничены unit key
+
+- Дата: 15 августа 2026 года
+- Статус: unit-key часть действует; resume selection уточнена D-030 для C-008,
+  source-recovery runtime pending
+
+Первоначальный контракт выбирал newest unfinished eligible checkpoint content ID. D-030
+уточняет текущую policy: сначала выбирается newest активная unit, включая explicit completed
+и нулевую episodic activation; completed newest suppresses более старую unfinished. Details
+показывает S/E/position. Playback error допускает одну полную fresh details/provider
+preparation на `content/season/episode`; attempted set переживает replacement player.
+Автоматическое восстановление position запускается только если normalized fresh selection
+совпадает с исходной exact unit; иначе пользователь возвращается в selector с нулевой
+позицией, чтобы другая серия не стартовала незаметно.
+
+Следствие: нельзя предпочитать completed default episode более новому unfinished либо
+повторять один transient URL/сбрасывать retry guard при remap source/quality.
+
+## D-021 — Updater проверяет GitHub Release, но установку подтверждает Android
+
+- Дата: 15 августа 2026 года
+- Статус: частично superseded решением D-028; финальная проверка APK и
+  системное подтверждение остаются действующими
+
+Updater принимает только stable Release этого repository с exact tag/asset/digest,
+проверяет package/version/code и полное совпадение signer с installed app. APK передаётся
+non-exported FileProvider системному Package Installer.
+
+Следствие: silent install, произвольный download URL, signer mismatch и автоматическое
+нажатие системного подтверждения запрещены. Unknown-sources permission и финальная установка
+остаются явными действиями пользователя.
+
+## D-022 — Регистрация повторяет same-origin форму и не обходит CAPTCHA
+
+- Дата: 15 августа 2026 года
+- Статус: принято; rules D-pad instrumentation passed, live submit pending
+
+Flow разделяет DLE rules page и account form. Rules POST выполняется только после явного OK,
+а безопасный default focus — `Не принимаю`. Поля/hidden state/image CAPTCHA берутся из
+browser-visible same-origin form и живут в памяти; sensitive UI input использует
+`remember`, не `rememberSaveable`. CAPTCHA решает пользователь; refresh получает форму
+заново. Wire-size и bitmap dimensions/pixels/decode bounded. Generation+origin guard
+отбрасывает late response. Интерактивные reCAPTCHA/hCaptcha/Turnstile явно unsupported.
+
+Следствие: нельзя подключать распознавание CAPTCHA, переносить её third party либо ослаблять
+origin/cookie boundary ради регистрации.
+
+## D-023 — Unsigned remote manifest только обнаруживает кандидатов
+
+- Дата: 15 августа 2026 года
+- Статус: принято
+
+Bounded `config/mirrors.json` с exact GitHub raw path/schema/expiry получает provenance от
+repository/TLS, но не криптографическое trust. Любой origin входит только как
+`DISCOVERY + QUARANTINED` и проходит существующий health/fingerprint flow.
+Текущий snapshot содержит четыре кандидата, включая `kinogo.family`; состав manifest не
+является списком trusted/official mirrors.
+
+Следствие: адрес из manifest нельзя сразу делать active/official; если потребуется более
+сильная гарантия, вводится отдельная подпись/revocation, а не скрытое повышение trust.
+
+## D-024 — Публичность не означает аффилиацию и не выбирает лицензию автоматически
+
+- Дата: 15 августа 2026 года
+- Статус: принято по прямому требованию владельца
+
+Public README сообщает только релевантный пользователю unofficial/non-affiliation/no-hosting
+status; он не обязан публиковать внутренний license-status проекта. Выбор лицензии остаётся
+отдельным явным решением владельца. Пока такое решение не оформлено соответствующим файлом,
+агент не объявляет исходники open source и не предполагает предоставленные права.
+
+About открывает только exact GitHub и Donate.Stream allowlist. `donate_qr.png` предоставлен
+владельцем репозитория и добавлен без изменений (SHA-256
+`C8DCA7846A344DC83563BA338AB6691286C482A3E612C3083F0CB2D6D042BEEE`); donation
+не меняет функции продукта. На KIVI оба exact intent открылись во внешнем Yandex TV
+browser.
+
+Следствие: агент не выбирает лицензию без отдельного разрешения, не расширяет URL allowlist
+и не заменяет QR перерисованной/сжатой версией.
+
+## D-025 — Back возвращает в исходный раздел с его состоянием
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards и KIVI History/Search non-first evidence passed
+
+Details/player flow не сбрасывает shell в Home: исходный `TvDestination`
+поднимается в root и снова передаётся как `initialDestination`. Для поиска root
+дополнительно владеет строкой, выдачей и stable ID последнего сфокусированного
+постера. Stable focused ID также хранится отдельно для Home, Catalog, Bookmarks и History;
+смена identity/filter сбрасывает только соответствующий target. До десяти подтверждённых
+поисковых запросов хранятся локально в DataStore
+и показываются одной горизонтальной TV-строкой. Запись в history происходит только
+после явного commit: OK/Enter, принятого голосового результата или выбора recent-query
+chip. Промежуточные debounce-строки могут обновлять выдачу, но не history.
+
+Следствие: Back из Details не может выбрасывать в Home, а append/recomposition поиска не
+может подменять сохранённый focus первой карточкой. История запросов ограничена,
+дедуплицирована без учёта регистра и не содержит результатов/сетевых адресов.
+На KIVI подтверждены вторая History card и второй Search result после возврата; query/results
+Search сохранились, recent-query row доступна.
+
+## D-026 — Cinemar deferred grant разрешается только для выбранного leaf
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards и real KIVI native playback passed
+
+Текущий browser-visible Cinemar отдаёт leaf с `data`, а конечный HLS — только
+после same-origin JSON-string POST на exact `/api/playlist/load`. Parser сохраняет
+непрозрачный grant в redacted model, но не запрашивает все leaf заранее. Каждый playback
+plan владеет отдельным bounded registry: `MediaItem` видит только случайную
+`kinogo-cinemar://grant/...` ссылку, а `ResolvingDataSource` обменивает её на HTTPS HLS
+непосредственно при открытии. Повторные/конкурентные открытия одного leaf имеют
+один in-flight/result в рамках текущей сессии.
+
+Следствие: grant token, iframe и конечный media URL не попадают в логи, persistence и
+локальную MediaItem URI. Grant client не переносит cookies, не следует redirect,
+сохраняет HTTPS/public-DNS/exact-origin границы и fail-closed отклоняет не-HLS ответ.
+Текущий exact-host Cinemar runtime document подтверждён на KIVI: selector показал
+озвучки/сезоны 1–4/серии, Media3 S2E5 воспроизводился более 15 секунд.
+
+## D-027 — Web fallback сохраняет provider state только в своём WebView profile
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guard passed, provider/device verification pending
+
+Для выбранного explicit Cinemar Web fallback разрешены first-party cookies и DOM
+storage точного provider origin; third-party cookies запрещены. При выходе приложение
+сначала отправляет PlayerJS `pause`, ждёт callback, вызывает `CookieManager.flush()` для
+внутреннего WebView profile и только затем dispose; bounded grace
+не даёт зависшему renderer заблокировать Back. `stop` не используется, так как он
+сбрасывает provider checkpoint. Стабильный `cuid`/playlist item остаются механизмом самого
+PlayerJS.
+
+Следствие: это web-to-web resume внутри одного профиля приложения, а не синхронизация
+с сайтом/другим устройством и не перенос checkpoint между native Media3 и WebView. Cookies
+не экспортируются, не логируются и не копируются в HTML-сессию каталога.
+`flush()` закрепляет только internal profile state и не является cookie sync API.
+
+## D-028 — Updater использует signed multi-endpoint manifest, GitHub API — fallback
+
+- Дата: 21 августа 2026 года
+- Статус: принято; final local canonical guards/manifest passed, Pages/jsDelivr deployment
+  и live updater pending
+
+Первичный update channel читает до четырёх HTTPS manifest endpoints параллельно. Exact
+UTF-8 payload в envelope подписан RSA/ECDSA ключом той же signing identity, что и
+установленный APK. Payload жёстко задаёт version/name/code, size, SHA-256, срок не более
+90 дней и до четырёх download URLs. Несогласованные manifest с одинаковым максимальным
+versionCode отклоняются. Default metadata endpoints — GitHub Pages и jsDelivr:
+`https://reziarlleh.github.io/KinogoATV/update/manifest.json` и
+`https://cdn.jsdelivr.net/gh/reziarlleh/KinogoATV@main/update/manifest.json`. Их deployment/
+live-доступность не считаются доказанной до проверки после release. jsDelivr — отдельный
+CDN-транспорт, но он по-прежнему берёт manifest из GitHub repository. Дополнительные зашитые в APK
+адреса задаются `KINOGO_UPDATE_MANIFEST_URLS`; при недоступности всех подписанных
+каналов сохранён strict GitHub Release API fallback.
+
+Следствие: TLS/host сам по себе не даёт update trust; manifest без валидной
+подписи installed identity отклоняется. Каждая загрузка по-прежнему проходит
+size/SHA/package/version/signer verification и только затем передаётся системному Android
+Package Installer. GitHub Pages может быть заменён другим HTTPS CDN без обновления
+клиентской trust model, если payload подписан тем же ключом.
+Включаемые в signed payload proxy URLs остаются недоверенным best-effort transport:
+криптографическую целостность даёт не прокси, а signed size/SHA-256 и final APK signer check.
+Operator-owned non-GitHub storage остаётся отдельной pending-задачей.
+
+Для первого merge C-008 старый signed code 15 `update/manifest.json` намеренно удалён.
+Final code 16 manifest создаётся только после появления exact v0.5.2 Release asset; иначе
+Pages workflow мог бы развернуть устаревший payload рядом с новым application source.
+
+## D-029 — Cinemar discovery и already discovered player document имеют разные policy
+
+- Дата: 21 августа 2026 года
+- Статус: принято; unit/contract и KIVI current-runtime evidence passed
+
+Новый Cinemar offer принимается только как exact HTTPS `cinemar.cc` `/embed/...` на
+стандартном порту. Authenticated Kinogo detail, однако, может уже содержать player document
+на непрозрачном runtime route того же exact host. Для этой второй стадии
+`validatedPlayerDocumentUri` допускает только non-root/non-`/api/` path без
+query/fragment/userinfo и нестандартного порта. Subdomains и arbitrary API routes не
+наследуют доверие. При безопасном same-origin redirect native config остаётся привязан к
+исходному уже проверенному offer, а explicit Web fallback использует validated resolved URL.
+
+Grant route не извлекается из runtime path: endpoint всегда отдельно конструируется как
+fixed same-origin `/api/playlist/load`. POST не получает cookies, не следует redirect и не
+повторяется после неоднозначного transport failure. Это исправляет
+`INVALID_EMBED_ADDRESS`, не превращая exact provider host в общий URL allowlist.
+
+Локальная evidence-граница C-007 для этих решений: canonical command SUCCESS за 4 мин 27 с,
+82 suites / 393 tests, 0 failures/errors/skips; lint — 0 errors / 22 warnings / 2 hints;
+все assemblies green. Exact release APK — 38 304 478 bytes, SHA-256
+`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`, package
+`com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK label verified,
+zipalign OK, v2 true,
+certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Exact local
+manifest — 1 273 bytes, SHA-256
+`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, issued
+`1787294465`, expires `1794984054` (18 ноября 2026 года, 06:40:54 UTC), четыре URLs.
+KIVI подтвердил current Cinemar native playback и History/Search non-first Back/focus.
+Final commit, CI, publication/Pages, Web fallback resume и extended TV evidence остаются
+**PENDING**.
+
+## D-030 — Recovery пересоздаёт Media3, checkpoint и quality intent живут отдельно
+
+- Дата: 23 августа 2026 года
+- Статус: принято для C-008 / `0.5.2`; аппаратная проверка pending
+
+D-020 сохраняет unit-key boundary, а C-008 уточняет механизм. Fresh recovery запускается
+не только по Media3 error, но и по чистому watchdog. Для выбранного buffer target `T` это
+`max(20, T)` секунд initial buffering, `T.coerceIn(5, 10)` секунд rebuffering после
+замеченного progress или 15 секунд `READY` без движения. Явная source/load error во время
+buffering запускает recovery немедленно. Pause,
+`playWhenReady=false`, playback suppression и неактивные `IDLE`/`ENDED` исключены, однако
+само приближение к duration не означает completion: near-end `READY`/`BUFFERING` без
+прогресса остаётся recoverable до фактического `ENDED`. Watchdog выдаёт только один сигнал,
+а attempted set по-прежнему
+разрешает ровно одну автоматическую fresh preparation на
+`contentId/season/episode`.
+
+Replacement всегда получает новую `ActivePlaybackSession.generation`, которая входит в
+identity player host. Даже структурно равный свежий `PlaybackMediaPlan` поэтому создаёт
+новый Media3/ExoPlayer и не наследует зависший instance. Позиция восстанавливается только
+для exact той же playback unit. Отдельная ручная кнопка refresh в native HUD удалена: после
+исчерпания bounded attempt новый discovery доступен через «Смотреть» в Details.
+
+`PlaybackCheckpoint` передаёт explicit `playbackEnded`; новая серия получает checkpoint с
+position 0 сразу при активации. Root принимает callback только от активной generation,
+публикует его в UI до disposal и сериализует DataStore writes через одну очередь.
+Монотонный timestamp и timestamp-aware `upsert` не позволяют позднему callback затереть
+новую запись. Resume сначала выбирает newest активную unit; если она completed, более
+старая unfinished запись намеренно не используется.
+
+Desired quality хранится отдельно от actual plan variant/Media3 track и сохраняется между
+сериями. Fixed запрос разрешается против объединения adaptive tracks и fixed variants:
+exact → highest not above cap → lowest above cap, если более низкой альтернативы нет.
+Фактический fallback не переписывает desired cap; `Auto` остаётся отдельным намерением.
+
+Следствие: нельзя имитировать fresh recovery повторным prepare того же ExoPlayer, сбрасывать
+attempted set при replacement, вычислять completion только по позиции, принимать callback
+старой generation либо сохранять конкретный fallback stream как новое предпочтение
+качества. Нельзя возвращать ручной native refresh control как обход автоматического
+контракта.
+
+C-007 остаётся историческим evidence для current Cinemar playback/Back, но не доказывает
+новые C-008 recovery/resume/quality ветви. Для них TV evidence **PENDING**. Подключение ADB,
+установка APK и аппаратный smoke возможны только после отдельного явного разрешения
+владельца на конкретный узкий тест, когда code review и автоматических проверок
+недостаточно.
+
+## D-031 — Buffer target управляет LoadControl, prefetch ограничен следующей coordinate
+
+- Дата: 23 августа 2026 года
+- Статус: принято для C-008 / `0.5.2`; аппаратная проверка pending
+
+Пользователь выбирает target `T ∈ {5, 10, 15, 20, 30}` секунд, default — 15. Это реальная
+настройка Media3, а не отображаемая подсказка:
+
+```text
+targetMs = T * 1000
+minBufferMs = maxBufferMs = targetMs
+bufferForPlaybackMs = (targetMs / 3).coerceIn(1000, 2500)
+bufferForPlaybackAfterRebufferMs = (targetMs / 2).coerceIn(2000, 5000)
+nextEpisodePreloadMs = (targetMs / 2).coerceIn(2000, 5000)
+targetPreloadDurationUs = nextEpisodePreloadMs * 1000
+prioritizeTimeOverSizeThresholds = true
+```
+
+Значение хранится как stable TV preference и входит в identity `TvPlayerScreen`; его смена
+пересоздаёт Media3/ExoPlayer с новым `DefaultLoadControl`. Watchdog использует тот же `T`
+по формулам D-030, поэтому recovery window согласован с выбранной глубиной буфера.
+
+`PlaybackMediaPlan.episodeCoordinatesFor` разворачивает все реальные coordinate совместимых
+сезонов текущих source/voiceover в один playlist. `ExoPlayer.PreloadConfiguration`
+предзагружает только immediate next item: 2,5 с при `T=5`, иначе 5 с. Gate требует episodic
+auto-next, активное несупрессированное воспроизведение, remaining `<= T` и buffered end не
+раньше `duration - 500 ms`. Pause, suppression, close/transition и backward seek отключают
+ранний open; после seek назад rearm возможен лишь при возврате к прежней позиции. Поэтому
+переход сезона не получает отдельной ветки: используется тот же playlist и тот же
+session-owned resolver/data-source factory. Resolver warmup вне Media3 и disk cache не
+используются. Prefetch не сохраняет и не логирует iframe, grant, token или конечный media
+URL и не меняет выбранную playback unit.
+
+Для Cinemar current leaf разрешается при обычном playback open, immediate-next — только
+оппортунистически после gate. Нефатальная future load error лишь disarm-ит preload и не
+расходует recovery текущей серии. Terminal future error вызывает fresh recovery лишь после
+того, как exact playlist generation/index/variant стала текущей; stale и unrelated events
+игнорируются.
+
+Следствие: нельзя подменять target произвольным размером кэша, применять preference только
+k UI, менять его без пересоздания player identity, включать disk cache, запускать отдельный
+resolver fan-out или выносить opaque result за пределы текущей playback session. C-007 не является hardware
+evidence для этой ветви; C-008 buffer/prefetch TV pass остаётся **PENDING** и требует
+отдельного разрешения владельца перед ADB-проверкой.

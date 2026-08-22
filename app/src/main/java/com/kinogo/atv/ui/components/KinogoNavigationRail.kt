@@ -17,10 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -44,7 +46,9 @@ import com.kinogo.atv.ui.model.TvDestination
 fun KinogoNavigationRail(
     selected: TvDestination,
     onSelected: (TvDestination) -> Unit,
+    onAboutRequested: () -> Unit = {},
     modifier: Modifier = Modifier,
+    requestInitialFocus: Boolean = false,
 ) {
     val destinations = TvDestination.entries
     val itemFocusRequesters = remember(destinations.size) {
@@ -52,6 +56,17 @@ fun KinogoNavigationRail(
     }
     val selectedFocusRequester =
         itemFocusRequesters[preferredRailFocusIndex(selected, destinations)]
+
+    LaunchedEffect(requestInitialFocus) {
+        if (requestInitialFocus) {
+            repeat(5) {
+                withFrameNanos { }
+                if (runCatching { selectedFocusRequester.requestFocus() }.getOrDefault(false)) {
+                    return@LaunchedEffect
+                }
+            }
+        }
+    }
 
     Surface(
         modifier = modifier
@@ -73,7 +88,7 @@ fun KinogoNavigationRail(
                 .padding(vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
-            RailBrand()
+            RailBrand(onClick = onAboutRequested)
             Spacer(Modifier.height(5.dp))
             destinations.forEachIndexed { index, destination ->
                 NavigationRailItem(
@@ -90,38 +105,49 @@ fun KinogoNavigationRail(
 }
 
 @Composable
-private fun RailBrand() {
-    Row(
+private fun RailBrand(onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = RAIL_ABOUT_CONTENT_DESCRIPTION },
+        shape = RectangleShape,
+        color = if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_kinogo_original),
-            contentDescription = null,
-            modifier = Modifier.size(38.dp),
-        )
-        Column {
-            Text(
-                text = "KINOGO",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_kinogo_original),
+                contentDescription = null,
+                modifier = Modifier.size(38.dp),
             )
-            Text(
-                text = "for Android TV",
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-            )
+            Column {
+                Text(
+                    text = "KINOGO",
+                    color = if (focused) Color(0xFF10272D) else Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                )
+                Text(
+                    text = "for Android TV",
+                    color = if (focused) Color(0xFF10272D) else MaterialTheme.colorScheme.primary,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
+
+internal const val RAIL_ABOUT_CONTENT_DESCRIPTION = "О программе"
 
 @Composable
 private fun NavigationRailItem(
@@ -132,13 +158,13 @@ private fun NavigationRailItem(
 ) {
     var focused by remember { mutableStateOf(false) }
     val background = when {
-        selected -> MaterialTheme.colorScheme.primary
-        focused -> Color(0xFF34525E)
+        focused -> MaterialTheme.colorScheme.primary
+        selected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.34f)
         else -> Color.Transparent
     }
     val foreground = when {
-        selected -> Color(0xFF10272D)
-        focused -> MaterialTheme.colorScheme.primary
+        focused -> Color(0xFF10272D)
+        selected -> Color.White
         else -> Color.White
     }
 
@@ -157,10 +183,24 @@ private fun NavigationRailItem(
         color = background,
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = 7.dp),
+            modifier = Modifier.padding(start = 5.dp, end = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
         ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(28.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (focused) {
+                    Surface(
+                        modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                        color = Color.White,
+                    ) {}
+                }
+            }
             Box(
                 modifier = Modifier.size(22.dp),
                 contentAlignment = Alignment.Center,

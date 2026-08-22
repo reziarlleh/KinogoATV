@@ -4,6 +4,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import com.kinogo.atv.data.playback.CinemarEmbedUrlPolicy
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
@@ -21,6 +22,16 @@ internal sealed interface CinemarConfigParseResult {
     data class Rejected(
         val code: CinemarNativeFailureCode,
     ) : CinemarConfigParseResult
+}
+
+internal sealed interface CinemarGrantParseResult {
+    data class Parsed(
+        val stream: CinemarStream,
+    ) : CinemarGrantParseResult
+
+    data class Rejected(
+        val code: CinemarNativeFailureCode,
+    ) : CinemarGrantParseResult
 }
 
 /**
@@ -93,6 +104,75 @@ internal class CinemarPublicConfigParser {
             CinemarConfigParseResult.Rejected(CinemarNativeFailureCode.MALFORMED_CONFIG)
         } catch (_: RuntimeException) {
             CinemarConfigParseResult.Rejected(CinemarNativeFailureCode.MALFORMED_CONFIG)
+        }
+    }
+
+    /**
+     * Hydrates exactly one already selected deferred leaf from the bounded same-origin grant
+     * response. No opaque token or returned media location is retained outside the resulting
+     * in-memory stream.
+     */
+    fun parseGrant(
+        rawEmbedUrl: String,
+        stream: CinemarStream,
+        responseJson: String,
+    ): CinemarGrantParseResult {
+        val embedUri = parseEmbedUri(rawEmbedUrl)
+            ?: return CinemarGrantParseResult.Rejected(
+                CinemarNativeFailureCode.INVALID_EMBED_ADDRESS,
+            )
+        if (stream.grantToken == null) {
+            return CinemarGrantParseResult.Rejected(
+                CinemarNativeFailureCode.MALFORMED_CONFIG,
+            )
+        }
+        if (responseJson.length > MAX_GRANT_JSON_CHARS || !hasBoundedJsonDepth(responseJson)) {
+            return CinemarGrantParseResult.Rejected(
+                CinemarNativeFailureCode.DOCUMENT_TOO_LARGE,
+            )
+        }
+
+        return try {
+            val response = JsonParser.parseString(responseJson).asJsonObject
+            if (response.get("success")?.isJsonPrimitive == true &&
+                response.get("success").asJsonPrimitive.isBoolean &&
+                !response.get("success").asBoolean
+            ) {
+                return CinemarGrantParseResult.Rejected(
+                    CinemarNativeFailureCode.MALFORMED_CONFIG,
+                )
+            }
+            val grant = response.get("data")
+                ?.takeIf(JsonElement::isJsonObject)
+                ?.asJsonObject
+                ?: response
+            val mediaVariants = parseMediaVariants(grant.string("file"), embedUri, stream.id)
+            if (mediaVariants.isEmpty()) {
+                CinemarGrantParseResult.Rejected(
+                    CinemarNativeFailureCode.NO_PLAYABLE_STREAMS,
+                )
+            } else {
+                val durationMs = grant.positiveLong("duration")
+                    ?.takeIf { it <= MAX_DURATION_SECONDS }
+                    ?.times(1_000L)
+                    ?: stream.durationMs
+                CinemarGrantParseResult.Parsed(
+                    stream.copy(
+                        durationMs = durationMs,
+                        mediaVariants = mediaVariants,
+                        subtitles = parseSubtitles(
+                            rawSubtitles = grant.string("subtitle"),
+                            embedUri = embedUri,
+                            streamId = stream.id,
+                        ),
+                        grantToken = null,
+                    ),
+                )
+            }
+        } catch (_: IllegalStateException) {
+            CinemarGrantParseResult.Rejected(CinemarNativeFailureCode.MALFORMED_CONFIG)
+        } catch (_: RuntimeException) {
+            CinemarGrantParseResult.Rejected(CinemarNativeFailureCode.MALFORMED_CONFIG)
         }
     }
 
@@ -314,10 +394,14 @@ internal class CinemarPublicConfigParser {
     private fun parseEmbedUri(rawUrl: String): URI? {
         val uri = structurallySafeHttpsUri(rawUrl) ?: return null
         val path = uri.rawPath ?: return null
-        if (!path.startsWith(EMBED_PATH_PREFIX) || path.length == EMBED_PATH_PREFIX.length) {
-            return null
-        }
-        return uri
+        val publicEmbed = path.startsWith(EMBED_PATH_PREFIX) &&
+            path.length > EMBED_PATH_PREFIX.length
+        if (publicEmbed) return uri
+
+        // Authenticated Kinogo pages can receive an already routed exact-origin Cinemar player
+        // document. It no longer has an `/embed/` path, but still contains the same bounded public
+        // config. Never generalize this exception to another host or Cinemar's API namespace.
+        return CinemarEmbedUrlPolicy.validatedPlayerDocumentUri(rawUrl)
     }
 
     private fun embedVideoIdMatches(
@@ -391,7 +475,8 @@ internal class CinemarPublicConfigParser {
             folderPath: List<CinemarFolderPathEntry>,
         ): CinemarStream? {
             val mediaVariants = parseMediaVariants(node.string("file"), embedUri, nodeId)
-            if (mediaVariants.isEmpty()) return null
+            val grantToken = parseGrantToken(node.string("data"))
+            if (mediaVariants.isEmpty() && grantToken == null) return null
             val title = cleanLabel(node.string("title"), "Перевод")
             val contextTitle = node.string("title2")
                 ?.let { cleanLabel(it, "") }
@@ -410,6 +495,7 @@ internal class CinemarPublicConfigParser {
                 folderPath = folderPath,
                 mediaVariants = mediaVariants,
                 subtitles = parseSubtitles(node.string("subtitle"), embedUri, nodeId),
+                grantToken = grantToken,
             )
         }
 
@@ -443,6 +529,11 @@ internal class CinemarPublicConfigParser {
                 url = CinemarTransientUrl(endpoint.first),
             )
         }
+    }
+
+    private fun parseGrantToken(rawValue: String?): CinemarGrantToken? {
+        val value = rawValue ?: return null
+        return runCatching { CinemarGrantToken(value) }.getOrNull()
     }
 
     private fun parseSubtitles(
@@ -634,6 +725,7 @@ internal class CinemarPublicConfigParser {
         const val MAX_PACKED_CHARS = 1 * 1_024 * 1_024
         const val MAX_BASE64_CHARS = 1 * 1_024 * 1_024
         const val MAX_DECODED_BYTES = 2 * 1_024 * 1_024
+        const val MAX_GRANT_JSON_CHARS = 512 * 1_024
         const val MAX_URL_LIST_CHARS = 128 * 1_024
         const val MAX_URL_CHARS = 8 * 1_024
         const val MAX_JSON_DEPTH = 24
