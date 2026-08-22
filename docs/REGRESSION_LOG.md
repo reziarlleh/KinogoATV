@@ -33,9 +33,9 @@
 
 ### C-008 — 0.5.2 validation
 
-- Статус: application source, local canonical tests/lint и exact stable-signed APK verified;
-  CI, signed manifest, PR/Release/Pages/jsDelivr/live publication и hardware evidence —
-  **PENDING**
+- Статус: application source, local canonical tests/lint, exact stable-signed APK, CI,
+  signed manifest, regular Release, Pages/jsDelivr metadata и все заявленные APK transports
+  verified; hardware playback и in-app updater runtime — **PENDING**
 - Metadata in source: version code 16, version `0.5.2`, minSdk 28, targetSdk 37
 - Application source commit: `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`
 - APK: `dist/KinogoATV-0.5.2-code16.apk`, 38 353 630 bytes, SHA-256
@@ -60,10 +60,23 @@
   assembleRelease` — SUCCESS за 5 мин 20 с; 87 suites / 441 tests, 0 failures, 0 errors,
   0 skipped; lint 0 errors / 22 warnings / 2 hints. Post-commit
   `assembleRelease --rerun-tasks` — SUCCESS за 5 мин 29 с.
-- Publication: допустима как validation release для ручной проверки updater владельцем
-  после CI verification; это не baseline tag и не hardware claim. Final signed code 16
-  manifest ещё pending; старый code 15 `update/manifest.json` намеренно удалён перед первым
-  merge C-008, чтобы Pages workflow не развернул устаревший payload.
+- Publication: public repository [reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV);
+  application source вошёл первым merge `08c90c9`, tag `v0.5.2` указывает на этот validation
+  release. [Regular latest Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.2)
+  (`draft=false`, `prerelease=false`) содержит exact
+  [asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk)
+  `KinogoATV-0.5.2-code16.apk` и lowercase GitHub digest, совпадающий с SHA-256 выше.
+- Signed update manifest: merge `367bcf288dd5b3ad729af94d9b21308e5c96354c`, 1 273 bytes,
+  SHA-256 `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+  `2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре Pages/ghfast/ghproxy/direct
+  APK URL. Старый code 15 manifest до первого merge C-008 намеренно удалялся, чтобы Pages
+  workflow не развернул stale payload.
+- Remote evidence: Android CI run `32598900494` — SUCCESS для `367bcf2`; Pages run
+  `32598900503` — SUCCESS. Exact bytes подтверждены для Pages manifest+APK, jsDelivr
+  manifest и ghfast/ghproxy/direct APK. Это транспортное разнообразие вокруг GitHub asset,
+  а не доказательство независимого operator-owned hosting.
+- Publication level: это validation release для ручной проверки владельцем, не baseline tag
+  и не hardware claim.
 - Runtime: не выполнялся и не будет выполняться агентом без предварительного явного
   разрешения владельца на конкретный узкий непредсказуемый сценарий.
 - Rollback: C-007 / `8b0be72` для предыдущего integration state; B-001 /

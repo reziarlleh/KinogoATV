@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 ## Требования
 
@@ -118,22 +118,27 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
 
-Текущий final local snapshot C-007: canonical command
+Текущий final local snapshot C-008 для application source
+`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`: canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
-SUCCESS за 4 мин 27 с; 82 suites / 393 tests, 0 failures/errors/skips; lint —
-0 errors / 22 warnings / 2 hints. Exact `dist/KinogoATV-0.5.1-code15.apk` —
-38 304 478 bytes, SHA-256
-`3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`, package
-`com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK launcher/label
-`KinogoATV`, zipalign OK, v2 true,
-certificate SHA-256
-`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Final local
-`update/manifest.json` — 1 273 bytes, SHA-256
-`3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, issued
-`1787294465`, expires `1794984054` (18 ноября 2026 года, 06:40:54 UTC), четыре URLs.
-Это evidence рабочего дерева: final commit, CI, publication/Pages и TV остаются
-**PENDING**. После любого production change snapshot недействителен до полного повторного
-прогона, пересборки APK и manifest.
+SUCCESS за 5 мин 20 с; 87 suites / 441 tests, 0 failures/errors/skips; lint —
+0 errors / 22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
+5 мин 29 с. Exact `dist/KinogoATV-0.5.2-code16.apk` — 38 353 630 bytes, SHA-256
+`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`, package
+`com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
+launcher/banner, zipalign OK, v2 true, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
+`4cfa7ac`.
+
+Application source вошёл первым merge `08c90c9`, tag/release — `v0.5.2`, final manifest/main
+merge — `367bcf288dd5b3ad729af94d9b21308e5c96354c`. Android CI run `32598900494` и Pages run
+`32598900503` завершились SUCCESS. Опубликованный `update/manifest.json` — 1 273 bytes,
+SHA-256 `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+`2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре URLs. Exact live bytes
+подтверждены для Pages manifest+APK, jsDelivr manifest и ghfast/ghproxy/direct APK.
+Аппаратная playback-приёмка и runtime updater на TV остаются **PENDING**; публикация C-008
+не делает его playback baseline. После любого production change snapshot недействителен до
+полного повторного прогона, пересборки APK и manifest.
 
 Debug APK:
 
@@ -145,7 +150,7 @@ Release build выполняйте только по [`RELEASE_PROCESS.md`](RELE
 
 ### Update manifest endpoints
 
-Code 15 имеет два default signed-manifest transports: GitHub Pages и jsDelivr. Client
+Code 16 имеет два default signed-manifest transports: GitHub Pages и jsDelivr. Client
 допускает максимум четыре distinct metadata endpoints всего, поэтому к двум default можно
 добавить не более двух новых URL. Они зашиваются в APK Gradle property с разделителем `|`:
 
@@ -160,6 +165,8 @@ Code 15 имеет два default signed-manifest transports: GitHub Pages и js
 публичные HTTPS URL, но не secrets/tokens. Host не становится trusted: client требует
 envelope signature installed APK identity, strict schema/expiry/agreement, а затем повторяет
 APK size/SHA/package/version/signer checks. GitHub API остаётся последним fallback.
+Pages/jsDelivr/proxy/direct дают транспортное разнообразие вокруг GitHub publication, но не
+заменяют operator-owned non-GitHub endpoint для инфраструктурной независимости.
 Создание и публикация manifest описаны только в
 [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md); development build не должен создавать его автоматически.
 

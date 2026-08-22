@@ -71,9 +71,17 @@
   `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
   launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
-- Финальный signed code 16 manifest, CI, PR/merge, Release, Pages/jsDelivr и live updater
-  остаются **PENDING**. Старый code 15 `update/manifest.json` намеренно удалён до первого
-  merge C-008, чтобы не публиковать устаревший payload новым Pages workflow.
+- Репозиторий переведён в public. Application/docs merged как `08c90c9`; tag `v0.5.2`
+  опубликован regular latest Release (`draft=false`, `prerelease=false`) с exact APK и
+  lowercase GitHub digest, совпадающим с SHA-256 выше.
+- Final signed code 16 `update/manifest.json` опубликован merge
+  `367bcf288dd5b3ad729af94d9b21308e5c96354c`: 1 273 bytes, SHA-256
+  `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+  `2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре download URLs.
+- Android CI run `32598900494` и Pages run `32598900503` завершены SUCCESS. Live exact bytes
+  подтверждены для Pages manifest+APK, jsDelivr manifest и APK через ghfast, ghproxy,
+  direct GitHub. Эти каналы дают transport diversity, но operator-owned независимый host
+  остаётся **PENDING**.
 - APK 0.5.2 на TV не устанавливался. Hardware playback и runtime updater validation
   **PENDING** по выбору владельца; C-007 / `0.5.1` evidence к C-008 не переносится.
 
