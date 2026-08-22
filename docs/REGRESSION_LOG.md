@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,47 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-008 — 0.5.2 validation
+
+- Статус: application source, local canonical tests/lint и exact stable-signed APK verified;
+  CI, signed manifest, PR/Release/Pages/jsDelivr/live publication и hardware evidence —
+  **PENDING**
+- Metadata in source: version code 16, version `0.5.2`, minSdk 28, targetSdk 37
+- Application source commit: `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`
+- APK: `dist/KinogoATV-0.5.2-code16.apk`, 38 353 630 bytes, SHA-256
+  `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
+  `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
+  launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`
+- Source scope: watchdog recovery при зависании без Media3 error; новое поколение player
+  после refresh; fresh Details и доступное Play/Continue после exit/failure;
+  сериализованные generation-scoped checkpoints с zero-position activation; единая
+  политика fixed-quality cap для adaptive tracks и fixed variants; configurable Media3
+  buffer reserve 5/10/15/20/30 секунд с общей recovery policy; bounded in-memory preload
+  только следующей episode item через границы сезонов; update controls в конце Settings;
+  удаление ручной native HUD-кнопки refresh.
+- Protective source evidence: `PlaybackSourceRefreshTest`, `KinogoAppRootResumeTest`,
+  `PlaybackProgressCodecTest`, `PlaybackQualityPolicyTest`,
+  `PlaybackBufferPolicyTest`, `PlaybackMediaPlanTest`, `PlaybackPlaylistNavigationTest`,
+  `PlaybackQualitySwitchGuardTest`, `PlaybackPreloadFailurePolicyTest`,
+  `PlaybackSourceSelectionModelTest`, `TvPreferencesTest`, `TvPreferencesStoreTest`,
+  `TvPreferencesUiMapperTest`.
+- Automated: canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+  assembleRelease` — SUCCESS за 5 мин 20 с; 87 suites / 441 tests, 0 failures, 0 errors,
+  0 skipped; lint 0 errors / 22 warnings / 2 hints. Post-commit
+  `assembleRelease --rerun-tasks` — SUCCESS за 5 мин 29 с.
+- Publication: допустима как validation release для ручной проверки updater владельцем
+  после CI verification; это не baseline tag и не hardware claim. Final signed code 16
+  manifest ещё pending; старый code 15 `update/manifest.json` намеренно удалён перед первым
+  merge C-008, чтобы Pages workflow не развернул устаревший payload.
+- Runtime: не выполнялся и не будет выполняться агентом без предварительного явного
+  разрешения владельца на конкретный узкий непредсказуемый сценарий.
+- Rollback: C-007 / `8b0be72` для предыдущего integration state; B-001 /
+  `baseline-0.3.3-dev` для полного playback baseline.
+
+C-008 нельзя назначать known-good baseline по green build или публикации. Все exact числа и
+runtime-утверждения разделяются по фактическому evidence; данные C-007 не переносятся.
 
 ### C-007 — 0.5.1 validation
 
@@ -236,14 +277,14 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Статус: Resolved before B-001
 - Наблюдалось: 22 июля 2026 года
 - Симптом: focus был виден, но Left/Right/OK не меняли значения либо значение не сохранялось.
-- Исправление до B-001: единый `TvPreferences.cycle`, `SettingCycleDirection`, DataStore
-  codec/store и D-pad row handling.
-- Уточнение 0.4.0-dev: значение меняется только по OK через
-  `SettingCycleDirection.NEXT`; Left/Right больше не перехватываются строкой и остаются
-  навигационными клавишами, включая выход в rail.
+- Исправление до B-001: DataStore codec/store и D-pad row handling. Текущий контракт C-008
+  использует явный `set(settingId, optionId)`: boolean меняется Switch по OK, enum выбирается
+  из dropdown, включая запас буфера `5/10/15/20/30 сек` (default `15`). Старые
+  неиспользуемые `TvPreferences.cycle` и `SettingCycleDirection` удалены; Left/Right не
+  перехватываются строкой и остаются навигационными клавишами, включая выход в rail.
 - Guards: `TvPreferencesTest`, `TvPreferencesStoreTest`, `TvPreferencesUiMapperTest`,
   `SettingsScreenDpadTest`.
-- При повторе: отдельно проверить pure cycle, persistence и Compose key routing.
+- При повторе: отдельно проверить explicit option mapping, persistence и Compose key routing.
 
 ### R-004 — «Нативный источник недоступен / Не удалось загрузить данные источника»
 
@@ -488,8 +529,10 @@ C-002 нельзя переименовывать в B-002 и помечать b
   эпизодами одного сериала.
 - Причина: entrypoint сначала искал checkpoint default episode и мог получить completed
   запись раньше нового unfinished episode.
-- Исправление: единая `preferredResumeProgress` выбирает newest unfinished eligible
-  checkpoint content ID; Details показывает season/episode/time.
+- Исправление: единая `preferredResumeProgress` сначала выбирает newest активную unit
+  content ID среди eligible/explicit-completed/нулевой episodic activation и только затем
+  проверяет completion. Если newest unit завершена, Continue отсутствует и более старая
+  unfinished серия не подставляется; Details показывает season/episode/time.
 - Protective test: `KinogoAppRootResumeTest` и существующие `WatchProgressTest`.
 - Runtime verification: basic same-unit checkpoint подтверждён на KIVI: после ~14 секунд
   native playback Back вернул Details с focused `Продолжить с 0:14`. Выбор между несколькими
@@ -498,7 +541,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-017 — Переход в следующий сезон мог остановиться после конца серии
 
-- Статус: source fix in C-006; TV verification pending; уточняет R-009.
+- Статус: source fix in C-006, bounded preload hardening in C-008; final automated и TV
+  verification pending; уточняет R-009.
 - Обнаружено: 15 августа 2026 года при разборе end-of-item state transition.
 - Affected/first-bad: C-002–C-005 completion flow; exact first-bad неизвестен, потому что
   cross-season natural end не был аппаратно закрыт.
@@ -506,8 +550,22 @@ C-002 нельзя переименовывать в B-002 и помечать b
   replacement items наследовали `playWhenReady=false` завершившейся серии.
 - Исправление: при включённом auto-next end pause передаётся completion policy; переход на
   первую совместимую серию следующего сезона создаётся с явным force-play. При отключённом
-  auto-next возврат в Details сохранён.
-- Protective test: `PlaybackCompletionPolicyTest`.
+  auto-next возврат в Details сохранён. В C-008 все совместимые sparse coordinates выбранных
+  source + voiceover разворачиваются в один ordered Media3 playlist через границы сезонов.
+  `ExoPlayer.PreloadConfiguration` прогревает в памяти только непосредственно следующую item:
+  2,5 с для buffer 5 с, иначе 5 с. Gate требует episodic auto-next, активное
+  несупрессированное воспроизведение, remaining не больше target buffer и buffered end не
+  раньше `duration - 500 ms`; pause/suppression/close/transition и backseek disarm-ят его.
+  Cinemar current leaf разрешается при обычном open, immediate-next — лишь
+  оппортунистически после gate; весь сезон, disk cache и отдельный resolver warmup не
+  создаются. Нефатальная future load error не запускает recovery current item, а terminal
+  failure учитывается только когда exact generation/index/variant стала текущей; stale
+  events игнорируются.
+- Protective tests: `PlaybackCompletionPolicyTest`, `PlaybackMediaPlanTest` для flattened
+  cross-season coordinates, `PlaybackBufferPolicyTest` для exact gate/duration и
+  `PlaybackPreloadFailurePolicyTest` для future-error isolation.
+  Эти классы входят в успешный C-008 canonical pass: 87 suites / 441 tests без
+  failures/errors/skips.
 - Runtime verification: **PENDING** — natural end последней серии сезона и фактический
   старт следующего сезона обычным пультом.
 - Rollback point: B-001 / `baseline-0.3.3-dev`.
@@ -528,8 +586,10 @@ C-002 нельзя переименовывать в B-002 и помечать b
   показывают явную ошибку; Back из неё возвращает в Details и не resurrect-ит старую
   Media3 session.
   Позиция применяется автоматически только при exact same-unit recovery; если свежий plan
-  нормализовал другую серию, приложение возвращает selector с позицией 0. После одной
-  ошибки остаётся user-visible manual retry; inter-screen loop запрещён.
+  нормализовал другую серию, приложение возвращает selector с позицией 0. В C-008 native
+  HUD больше не содержит отдельный manual refresh: после исчерпания автоматической попытки
+  пользователь возвращается в Details и запускает новую fresh preparation действием
+  `Смотреть`/`Продолжить`; inter-screen loop запрещён.
 - Protective tests: `PlaybackSourceRefreshTest` и три pure safety guards в
   `KinogoAppRootResumeTest`: consumed attempts + discard, ordinary-launch budget unchanged,
   explicit errors для missing content/mirror. Отдельный guard запрещает применять position
@@ -657,6 +717,117 @@ C-002 нельзя переименовывать в B-002 и помечать b
   Межустройственную/native-to-web синхронизацию smoke не доказывает.
 - Rollback point: C-006 возвращает affected `stop`; для native playback откатываться к
   B-001.
+
+### R-024 — Воспроизведение зависало без Media3 error и не восстанавливалось само
+
+- Статус: source fix и local automated verification passed in C-008; hardware verification
+  **PENDING**.
+- Обнаружено: 22 августа 2026 года по пользовательскому наблюдению длительного визуального
+  зависания, после которого seek либо ручное обновление источника возобновляли просмотр.
+- Affected: C-007 / `0.5.1` и прежний error-only recovery path.
+- Last-known-good: отсутствует для stall recovery без явного Media3 exception; B-001
+  подтверждает обычный playback, но не этот failure mode.
+- Воспроизведение: player мог оставаться в initial/rebuffering либо READY без продвижения
+  позиции и не вызывать `onPlayerError`, поэтому существующий error callback не запускал
+  fresh preparation.
+- Причина: recovery был привязан к Media3 error и не имел ограниченного progress watchdog.
+- Исправление: `PlaybackStallWatchdog` отслеживает только actively-playing unit и запускает
+  один fresh-source request. `PlaybackBufferPolicy` связывает watchdog с выбранным запасом
+  `S`: initial timeout = `max(20, S)` секунд, rebuffer timeout = `clamp(S, 5, 10)` секунд,
+  READY-no-progress = 15 секунд. Pause, playback suppression и ended не считаются stall;
+  near-end `READY`/`BUFFERING` без прогресса остаётся recoverable до реального `ENDED`;
+  failing player при refresh останавливается, а attempted-unit budget остаётся одноразовым.
+  Exact checkpoint position автоматически переносится только если fresh normalization
+  сохранила тот же content/season/episode; remap открывает selector с позицией 0.
+  Та же pure policy задаёт Media3 min/max target `S`, start threshold
+  `clamp(target/3, 1 с, 2,5 с)`, rebuffer-start `clamp(target/2, 2 с, 5 с)` и
+  `prioritizeTimeOverSizeThresholds=true`.
+- Protective tests: `PlaybackSourceRefreshTest` для timeout/progress/pause/suppression/end и
+  one-shot budget; `PlaybackBufferPolicyTest` для exact 5/10/15/20/30 target mapping,
+  fallback 15 и recovery thresholds; preferences/store/UI mapper tests для explicit option
+  и persistence. Все входят в C-008 canonical pass: 87 suites / 441 tests без
+  failures/errors/skips, lint 0 errors.
+- Runtime verification: **PENDING**; не инициировать искусственное зависание на TV без
+  отдельного явного разрешения владельца.
+- Rollback point: C-007 возвращает error-only recovery; B-001 остаётся полным playback
+  baseline.
+
+### R-025 — После выхода или failed recovery действие «Смотреть» оставалось недоступным
+
+- Статус: source fix и local automated verification passed in C-008; hardware verification
+  **PENDING**.
+- Обнаружено: 22 августа 2026 года по повторному пользовательскому наблюдению: после выхода
+  из player кнопку нельзя было активировать до закрытия и повторного открытия Details.
+- Affected: C-007 / `0.5.1`; exact first-bad неизвестен.
+- Last-known-good: C-006 short playback smoke показывал focused `Продолжить с 0:14`, но не
+  охватывал failed refresh и session replacement.
+- Причина: после fresh preparation root не всегда публиковал обновлённую detail model в
+  открытой карточке, а structurally equal replacement plan мог сохранить прежний Media3
+  instance.
+- Исправление: свежая detail page обновляет live Details cache; playback session получает
+  generation, входящий в identity player, поэтому refresh создаёт новый Media3 instance.
+  Back/error очищает dead session и возвращает в ту же карточку с доступным
+  `Смотреть`/`Продолжить`.
+- Protective test: `KinogoAppRootResumeTest`, source/session generation guards и Details
+  focus contract. Финальный C-008 canonical pass успешен: 87 suites / 441 tests без
+  failures/errors/skips.
+- Runtime verification: **PENDING**; C-006 evidence остаётся историческим и не переносится.
+- Rollback point: C-007 / `8b0be72`; для полного playback — B-001.
+
+### R-026 — Поздний checkpoint возвращал старую серию и терял новый SEEK/переход
+
+- Статус: source fix и local automated verification passed in C-008; hardware verification
+  **PENDING**.
+- Обнаружено: 22 августа 2026 года по симптомам случайного продолжения с первой либо уже
+  просмотренной серии и сомнениям в сохранении последней позиции.
+- Affected: C-007 / `0.5.1`; race существовал в asynchronous checkpoint callbacks, точный
+  first-bad неизвестен.
+- Last-known-good: B-001 подтверждает одиночный exact checkpoint, но не concurrent writes,
+  manual episode change или cross-season transition.
+- Причина: независимые writes старого и replacement player могли завершиться не по порядку;
+  новая episodic unit с позицией `0` не всегда становилась newest unfinished checkpoint, а
+  manual SEEK/episode mutation мог изменить координаты до фиксации старой unit.
+- Исправление: checkpoint writes сериализованы, имеют monotonic timestamp и playback-session
+  generation guard; store отклоняет позднюю старую запись. Перед ручной сменой серии и
+  transition фиксируется предыдущая unit, затем явно записывается activation новой unit,
+  включая `positionMs=0`; history snapshot объединяется с progress store. Resume ждёт
+  очередь записи и выбирает newest active exact coordinates; если newest unit завершена,
+  Continue отсутствует и policy не возвращается к старой unfinished серии.
+- Protective tests: `KinogoAppRootResumeTest` и `PlaybackProgressCodecTest` для ordering,
+  generation, zero-position/newest-unit, ended state и merge; source transition guards для
+  manual SEEK и cross-season activation. Финальный C-008 canonical pass успешен:
+  87 suites / 441 tests без failures/errors/skips.
+- Runtime verification: **PENDING** — multi-episode restart, manual SEEK и natural
+  cross-season не проверялись на C-008.
+- Rollback point: B-001 для одиночного checkpoint; C-007 для предыдущего integration state.
+
+### R-027 — Выбранный предел качества подменялся фактическим вариантом или Auto
+
+- Статус: source fix и local automated verification passed in C-008; hardware verification
+  **PENDING**.
+- Обнаружено: 22 августа 2026 года по пользовательскому сомнению, что выбранное качество
+  реально применяется и сохраняется для следующих серий.
+- Affected: C-007 / `0.5.1`; exact first-bad неизвестен.
+- Last-known-good: отсутствует для cap policy через adaptive manifest и отдельные fixed
+  media variants.
+- Причина: selection смешивал пользовательское пожелание с фактически выбранным вариантом и
+  мог предпочесть `Auto` до появления Media3 track list, игнорируя отдельный fixed source
+  ниже заданного предела.
+- Исправление: desired quality хранится отдельно от active variant. `Авто` оставляет
+  adaptive selection; fixed preference выбирает точное качество, иначе максимальное
+  доступное не выше предела, а при отсутствии такого — минимальное доступное выше него.
+  Policy сравнивает adaptive tracks и fixed variants в одной матрице, трактует `4K` как
+  2160p и переносит исходный предел на следующие серии, не заменяя его fallback-значением.
+  Любая смена intent также пересчитывает fixed MediaItems будущих серий до preload, сохраняя
+  exact current variant/reference, индекс, позицию и play state и инвалидируя stale generations.
+- Protective tests: `PlaybackQualityPolicyTest`, `PlaybackSourceSelectionModelTest` и
+  `PlaybackPlaylistNavigationTest`/`PlaybackQualitySwitchGuardTest` с
+  exact/lower/only-higher, 4K, mixed adaptive+fixed, next-episode и
+  E1-only-720/E2-720+1080 playlist rebuild cases. Финальный C-008 canonical pass успешен:
+  87 suites / 441 tests без failures/errors/skips.
+- Runtime verification: **PENDING**; без отдельного разрешения не измерять фактические
+  tracks на TV.
+- Rollback point: C-007 / `8b0be72`; аппаратно подтверждённого quality-cap baseline нет.
 
 ## Шаблон новой записи
 

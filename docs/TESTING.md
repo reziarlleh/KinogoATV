@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 ## Принцип доказательств
 
@@ -12,6 +12,13 @@
 4. Реальный TV доказывает запуск, D-pad, media keys, сеть и фактическое воспроизведение.
 
 Успешный `assembleDebug` не равен успешному просмотру фильма.
+
+Порядок проверки всегда начинается с code review, pure/unit/contract tests, lint и сборки.
+Подключение к реальному TV через ADB, установка APK, instrumentation и аппаратный smoke не
+являются автоматическим продолжением этой цепочки. Они допустимы только после
+предварительного явного разрешения владельца на конкретный узкий сценарий, когда результат
+нельзя надёжно предсказать по коду и автоматическим проверкам. Без такого разрешения
+hardware-результат остаётся `PENDING`; агент не выполняет даже диагностическое ADB-подключение.
 
 ## Unit и contract tests
 
@@ -66,6 +73,82 @@ lint — **0 errors / 22 warnings / 2 hints**.
 Результат привязан к application source commit
 `8b0be72cf32d6807f0dc4ff5c5e21da95e847874`; remote CI ещё **PENDING**.
 
+Для C-008 / `0.5.2` (code 16) добавлены или расширены следующие защитные контракты:
+
+- `PlaybackSourceRefreshTest` — watchdog для длительного initial buffering, rebuffering и
+  состояния READY без продвижения позиции, включая near-end stall; только реальный `ENDED`,
+  pause и suppression исключаются, recovery остаётся одноразовым для playback unit;
+- `KinogoAppRootResumeTest` — сериализация checkpoint-записей, generation guard, возврат
+  свежей Details, newest-active resume с подавлением старого unfinished после более нового
+  completed checkpoint, same-unit position guard и нулевая позиция новой episodic unit;
+- `PlaybackProgressCodecTest` — поздняя более старая запись не перезаписывает новый
+  checkpoint, а merge persistent history не теряет прогресс;
+- `PlaybackQualityPolicyTest` — единая матрица выбора между adaptive tracks и отдельными
+  fixed variants, распознавание 2160/4K и перенос пользовательского предела между сериями;
+- `PlaybackBufferPolicyTest` — pure mapping пяти значений запаса в Media3 LoadControl и
+  связанные с ним bounded recovery deadlines, exact gate и длительность preload следующей серии;
+- `PlaybackMediaPlanTest` — упорядоченная sparse-матрица совместимых episode coordinates
+  разворачивается в один playlist через границы сезонов;
+- `PlaybackSourceSelectionModelTest` — нормализация dependent choices не заменяет
+  фиксированное пожелание качества фактически выбранным вариантом;
+- `PlaybackPlaylistNavigationTest` и `PlaybackQualitySwitchGuardTest` — cross-season playlist,
+  checkpoint transition и rebuild будущих MediaItems при смене quality intent с сохранением
+  текущих reference/index/position/play state;
+- `PlaybackPreloadFailurePolicyTest` — только exact immediate-next window активной playlist
+  generation может быть помечена failed; stale/unrelated event не запускает recovery;
+- `TvPreferencesTest`, `TvPreferencesStoreTest` и `TvPreferencesUiMapperTest` — явные
+  option IDs `5/10/15/20/30`, fallback `15`, сохранение buffer value после recreation и
+  фактический `set(settingId, optionId)` вместо удалённого неиспользуемого cycle API.
+
+Для application source
+`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1` final canonical
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
+**SUCCESS за 5 мин 20 с**, **87 suites / 441 tests**, 0 failures, 0 errors, 0 skipped;
+lint — **0 errors / 22 warnings / 2 hints**. Post-commit `assembleRelease --rerun-tasks` —
+**SUCCESS за 5 мин 29 с**. Remote CI остаётся **PENDING**.
+
+### Buffer policy C-008
+
+В source зафиксирована одна pure `PlaybackBufferPolicy`, чтобы UI, Media3 и stall recovery
+не расходились. Значение — секунды, допустимы только `5`, `10`, `15`, `20`, `30`, default и
+fallback — `15`. Для выбранного `S`:
+
+```text
+targetBufferMs = minBufferMs = maxBufferMs = S * 1000
+bufferForPlaybackMs = clamp(targetBufferMs / 3, 1000, 2500)
+bufferForPlaybackAfterRebufferMs = clamp(targetBufferMs / 2, 2000, 5000)
+nextEpisodePreloadMs = clamp(targetBufferMs / 2, 2000, 5000)
+prioritizeTimeOverSizeThresholds = true
+initialBufferingRecoveryMs = max(20, S) * 1000
+rebufferingRecoveryMs = clamp(S, 5, 10) * 1000
+readyNoProgressRecoveryMs = 15000
+```
+
+Иными словами, target reserve точно равен выбранным 5/10/15/20/30 секундам; initial
+watchdog составляет 20 секунд для 5–20 и 30 секунд для 30, rebuffer watchdog — 5 секунд
+для 5 и 10 секунд для 10–30. Target preload непосредственно следующей Media3 playlist item
+равен 2,5 секунды при запасе 5 и 5 секундам при запасе 10–30; миллисекунды переводятся в
+microseconds только при создании `ExoPlayer.PreloadConfiguration`.
+
+Preload gate требует одновременно: episodic media, `autoNextEpisode=true`, наличие
+следующей item, `playWhenReady=true`, отсутствие suppression, remaining `<= S` и
+`bufferedPosition >= duration - 500 ms`. Pause, suppression, close/transition и backward
+seek disarm-ят preload; после seek назад minimum rearm position не позволяет сразу открыть
+future leaf повторно. Нефатальная load error immediate-next item не вызывает recovery
+current item. Terminal future error принимается только для exact generation/index/variant и
+запускает recovery после фактического перехода на эту item; stale/unrelated events
+игнорируются.
+
+`PlaybackMediaPlan.episodeCoordinatesFor` разворачивает все реально совместимые координаты
+выбранных source + voiceover, включая sparse следующие сезоны, в один упорядоченный Media3
+playlist. Media3 держит in-memory preload только непосредственно следующей item, поэтому тот
+же механизм работает на границе сезона, но не прогревает все серии, не создаёт disk cache и
+не запускает отдельный resolver warmup. `PlaybackBufferPolicyTest` фиксирует exact targets,
+fallback, start/recovery/preload mapping; `PlaybackMediaPlanTest` — flattened sparse season
+coordinates; `PlaybackPreloadFailurePolicyTest` — future-error isolation;
+preferences/store/UI tests — dropdown и persistence. Эти классы входят в зелёный final
+canonical результат C-008 выше.
+
 ## Lint и сборка
 
 ```powershell
@@ -91,7 +174,20 @@ certificate verification; значения находятся в `PROJECT_STATE.
 certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Final local `update/manifest.json` имеет 1 273 bytes, SHA-256
+Для C-008 локально проверен exact release APK `dist/KinogoATV-0.5.2-code16.apk`:
+38 353 630 bytes, SHA-256
+`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
+`com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
+launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Артефакт
+связан с exact application source
+`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.
+
+Final signed code 16 `update/manifest.json` ещё **PENDING**: старый code 15 manifest
+намеренно удалён перед первым merge C-008, чтобы Pages workflow не развернул устаревший
+payload. Release/Pages/jsDelivr/live updater и hardware runtime не проверены.
+
+Исторический C-007 final local `update/manifest.json` имеет 1 273 bytes, SHA-256
 `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
 `0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
 (18 ноября 2026 года, 06:40:54 UTC), четыре URLs и exact APK size/hash. Локальная
@@ -124,9 +220,17 @@ connectedDebugAndroidTest
 на телевизоре с реальным аккаунтом и историей. Managed Gradle workflow может установить,
 удалить или заменить target application и стереть его данные.
 
+Кроме того, без предварительного явного разрешения владельца на конкретный узкий сценарий
+запрещены любое ADB-подключение к реальному TV, `adb install -r`, ручная установка test APK,
+instrumentation и runtime smoke. Сам факт, что устройство уже было авторизовано для этого
+компьютера, не является новым разрешением. Сначала исчерпываются review и автоматические
+тесты; разрешение запрашивается только для поведения, которое действительно нельзя надёжно
+установить без аппаратуры.
+
 ### Точечный безопасный запуск
 
-Только если Android-specific test действительно нужен:
+Команды ниже являются справочным шаблоном и выполняются только после отдельного явного
+разрешения владельца на названный test class и устройство:
 
 ```powershell
 .\gradlew.bat assembleDebug assembleDebugAndroidTest `
@@ -148,7 +252,9 @@ adb shell pm uninstall com.kinogo.atv.test
 
 ## Реальный Android TV
 
-Подключение по Ethernet/Wi-Fi ADB возможно после включения network debugging:
+Раздел ниже описывает evidence, которое может понадобиться перед назначением baseline, но не
+разрешает подключение. Подключение по Ethernet/Wi-Fi ADB возможно только после явного
+разрешения владельца именно на текущий узкий сценарий и после включения network debugging:
 
 ```powershell
 adb connect <TV_IP>:5555
@@ -157,6 +263,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 `install -r` сохраняет данные только если applicationId и подпись совпадают.
+
+Для C-008 владелец выбрал ручную проверку updater. Поэтому агент не устанавливает кандидат
+на TV и не выполняет smoke без нового отдельного разрешения; публикация validation release
+может состояться на основании final automated/artifact evidence, но без baseline tag и без
+утверждений о hardware validation.
 
 ### Smoke matrix
 
@@ -172,7 +283,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 | Account | Login, process restart, expired-session reconnect |
 | Registration | Separate rules gate/default decline; same-origin form, bounded image CAPTCHA/refresh/rejection; unsupported interactive challenge |
 | Library | Status/favorite mutation, pending indicator, sync |
-| History | Correct title/poster; newest unfinished episode/position совпадает с Catalog/Search/Details |
+| History | Correct title/poster; newest active unit/position совпадает с Catalog/Search/Details; completed newest не откатывается к старой unfinished |
 | Selection | Source/voice/season/episode/quality dependencies |
 | Native player | Start, pause, seek, timeline focus, selectors, subtitles |
 | Remote | Simple D-pad and available media/digit keys |
@@ -223,9 +334,37 @@ end, live updater/Package Installer и остальные пункты матр�
 - Next с последней доступной серии сезона выбирает первую совместимую серию следующего
   сезона, пропуская отсутствующие координаты;
 - auto-next использует тот же cross-season порядок для выбранных source/voiceover;
+- все compatible episode coordinates выбранных source/voiceover образуют один ordered
+  Media3 playlist через границы сезонов; in-memory preload ограничен только непосредственно
+  следующей item и target duration 2–5 секунд из buffer policy, без disk cache и отдельного
+  resolver warmup;
 - естественное окончание фильма, последней доступной серии или любого эпизода при
   отключённом auto-next возвращает в details;
-- exit/player error writes checkpoint without transient URL.
+- exit/player error writes checkpoint without transient URL;
+- initial buffering дольше `max(20, выбранный запас)` секунд, повторная буферизация дольше
+  `clamp(запас, 5, 10)` секунд и READY с `playWhenReady=true` без продвижения позиции
+  дольше 15 секунд запускают не более одного fresh-source recovery для текущей
+  content/season/episode unit даже без Media3 error;
+- пауза, suppression, завершившаяся единица и нормально продвигающаяся позиция не создают
+  ложный watchdog recovery; near-end `READY`/`BUFFERING` без прогресса остаётся recoverable;
+  во время refresh старый player больше не продолжает играть;
+- после обычного Back и после failed recovery Details содержит свежую карточку и активное
+  действие `Смотреть`/`Продолжить`, а повторный запуск создаёт новое поколение Media3 session;
+- checkpoint writes сериализованы и generation-scoped: поздний callback предыдущего player
+  не может перезаписать новую серию, ручной SEEK сохраняется перед выбором другой серии, а
+  manual/automatic переход через сезон сначала фиксирует старую unit и затем активирует
+  новую, включая позицию `0`;
+- завершение и новая unit не восстанавливают случайную ранее просмотренную серию; история
+  объединяет persistent progress со snapshot вместо замены одного другим;
+- `Авто` оставляет адаптивный выбор Media3. Для фиксированного пожелания применяется точное
+  качество, если оно доступно; иначе выбирается максимальное доступное не выше предела; если
+  все варианты выше — минимальное доступное. Политика сравнивает adaptive manifest tracks и
+  отдельные fixed variants вместе, распознаёт `4K` как 2160p и сохраняет исходный предел для
+  следующих серий, не подменяя его фактическим fallback-вариантом. Отдельный
+  `PlaybackPlaylistNavigationTest` фиксирует смену intent `1080p → 720p`: current E1 с
+  единственным 720p остаётся тем же объектом, а future E2 меняется с 1080p на 720p до preload;
+- native HUD не содержит ручной кнопки refresh: recovery автоматический, а после его
+  исчерпания новый fresh attempt запускается из Details действием `Смотреть`/`Продолжить`.
 
 ### Catalog/focus regression matrix 0.4.3-dev
 
@@ -262,7 +401,29 @@ server sorts — дата, рейтинг, топ за 3 дня, просмот�
 выдачу. В финальном logcat нет catalog error, fatal exception или ANR. Combinations
 подборки/года/страны и длинная Home/Catalog/Search-пагинация требуют дальнейшего TV smoke.
 
-### Integration matrix 0.5.1
+### Integration matrix 0.5.2
+
+| Контракт | Protective source evidence | Evidence C-008 |
+| --- | --- | --- |
+| Stall recovery без Media3 error | `PlaybackSourceRefreshTest` watchdog cases | Local canonical **PASS**; TV pending |
+| Новый player generation после fresh source | `PlaybackSourceRefreshTest`, root session guards | Local canonical **PASS**; TV pending |
+| Активное Play/Continue после exit/failed recovery | `KinogoAppRootResumeTest` + Details fresh-cache guard | Local canonical **PASS**; TV pending |
+| Serialized/generation-scoped checkpoint | `KinogoAppRootResumeTest`, `PlaybackProgressCodecTest` | Local canonical **PASS**; TV pending |
+| Manual SEEK, cross-season и zero-position activation | `KinogoAppRootResumeTest`, player transition guards | Local canonical **PASS**; TV pending |
+| Fixed quality cap across adaptive/fixed candidates и future playlist rebuild | `PlaybackQualityPolicyTest`, `PlaybackSourceSelectionModelTest`, `PlaybackPlaylistNavigationTest`, `PlaybackQualitySwitchGuardTest` | Local canonical **PASS**; actual tracks on TV pending |
+| Buffer dropdown/LoadControl/recovery mapping | `PlaybackBufferPolicyTest`, preferences/store/UI mapper tests | Local canonical **PASS**; TV pending |
+| Next episode bounded cross-season preload + future-error isolation | `PlaybackMediaPlanTest`, `PlaybackBufferPolicyTest`, `PlaybackPreloadFailurePolicyTest` | Local canonical **PASS**; network/TV pending |
+| Settings update controls grouped last | source/UI contract review | Source review **PASS**; TV focus pending |
+| Native HUD manual refresh removed | source/UI contract review | Source review **PASS**; TV pending |
+| Updater 0.5.1 → 0.5.2 до OS confirmation | signed manifest/artifact verification | Exact APK local **PASS**; signed manifest/publication/runtime **PENDING** |
+
+C-008 имеет version code 16 / version name `0.5.2`; exact commit, local tests/lint и APK
+зафиксированы выше. CI URL, signed manifest, publication status и hardware behavior ещё
+неизвестны. Кандидат может быть опубликован как validation release для ручной проверки
+updater владельцем, но это не создаёт baseline tag и не разрешает утверждать, что плеер или
+TV UX аппаратно проверены.
+
+### Historical integration matrix 0.5.1
 
 | Контракт | Automated guard в source | Финальное/TV evidence C-007 |
 | --- | --- | --- |

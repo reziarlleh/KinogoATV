@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 ## Виды сборок
 
@@ -8,14 +8,20 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-007 / `0.5.1` (code 15, minSdk 28, targetSdk 37) остаётся validation candidate.
-Final local canonical run, exact stable-signed APK/signed manifest и focused KIVI
-native/navigation runtime проверены и application source зафиксирован как `8b0be72`.
-Ещё **PENDING**: CI, GitHub
-Release, Pages/jsDelivr deployment и расширенный TV/runtime pass.
-Числа, hash и device evidence C-006 не переносятся на C-007.
+Текущий C-008 / `0.5.2` (code 16, minSdk 28, targetSdk 37) — validation candidate для
+исправлений recovery/resume/quality, настраиваемого запаса буфера, bounded preload следующей
+серии и ручной проверки встроенного updater владельцем.
+Application commit, local canonical tests/lint и exact stable-signed APK/hash уже
+зафиксированы. CI, PR/merge, signed manifest, Release, Pages/jsDelivr/live publication и
+hardware evidence пока **PENDING**. C-008 не получает baseline tag и не считается
+аппаратно проверенным только из-за локальной сборки или публикации.
 
-Локальный canonical result:
+C-007 / `0.5.1` (code 15) остаётся историческим integration rollback point. Его final local
+canonical run, exact stable-signed APK/signed manifest и focused KIVI native/navigation
+runtime проверены для application source `8b0be72`; эти числа, hash и device evidence нельзя
+переносить на C-008.
+
+Исторический локальный canonical result C-007:
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
 SUCCESS за 4 мин 27 с; 82 suites / 393 tests, 0 failures/errors/skips; lint
 0 errors / 22 warnings / 2 hints. Exact APK `dist/KinogoATV-0.5.1-code15.apk`:
@@ -144,6 +150,18 @@ source изменится.
 CI ещё **PENDING**. При любом следующем production change полную команду нужно
 повторить.
 
+Для C-008 полный canonical набор обязан включать
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`.
+Для application source
+`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1` этот набор завершён **SUCCESS за 5 мин 20 с**:
+87 suites / 441 tests, 0 failures, 0 errors, 0 skipped; lint 0 errors / 22 warnings / 2 hints.
+Post-commit `assembleRelease --rerun-tasks` — **SUCCESS за 5 мин 29 с**. В green run входят
+`PlaybackSourceRefreshTest`, `KinogoAppRootResumeTest`, `PlaybackProgressCodecTest`,
+`PlaybackQualityPolicyTest`, `PlaybackBufferPolicyTest`, `PlaybackMediaPlanTest`,
+`PlaybackPlaylistNavigationTest`, `PlaybackQualitySwitchGuardTest`,
+`PlaybackPreloadFailurePolicyTest`, `PlaybackSourceSelectionModelTest` и preferences tests.
+Remote CI run для exact commit ещё **PENDING**.
+
 `.github/workflows/android.yml` повторяет canonical unit/lint/assembleDebug на push в
 `main` и pull request. Official Actions закреплены полными commit SHA актуальных Node 24
 релизов. Перед release сохранить URL/result run для exact source commit. Workflow не содержит
@@ -199,6 +217,14 @@ Get-FileHash <apk> -Algorithm SHA256
 - имя файла точно совпадает с updater contract;
 - APK package/version/code/signer совпадают с metadata Release и установленным приложением.
 
+Для C-008 локально проверен exact `dist/KinogoATV-0.5.2-code16.apk`: 38 353 630 bytes,
+SHA-256 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`, package
+`com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
+launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Он связан с
+application source `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`; значения C-007 в эту строку не
+копировались.
+
 Для C-007 локально проверен exact `dist/KinogoATV-0.5.1-code15.apk`: 38 304 478 bytes,
 SHA-256 `3166898FDFA882DB9A637ECDA6CDA612A5AF0B5F70D30580FD1449A906EBF875`, package
 `com.kinogo.atv`, code 15 / `0.5.1`, minSdk 28, targetSdk 37, LEANBACK launcher/label
@@ -209,7 +235,14 @@ published asset и installed-TV identity match остаются **PENDING**.
 
 ## 6. Обновление на TV
 
-Не удалять старую версию:
+Этот раздел не разрешает агенту подключаться к устройству. Сначала выполняются review,
+автоматические тесты и artifact verification. Любое ADB-подключение к реальному TV,
+`install -r`, instrumentation или hardware smoke допустимы только после предварительного
+явного разрешения владельца на конкретный узкий сценарий, результат которого нельзя
+надёжно установить иначе. Ранее выданная ADB-авторизация устройства не заменяет такое
+разрешение.
+
+После полученного разрешения не удалять старую версию:
 
 ```powershell
 adb install -r <apk>
@@ -231,6 +264,11 @@ adb install -r <apk>
 9. дождаться естественного Media3-окончания фильма либо последней серии и подтвердить
    возврат в details;
 10. удалить только созданные тестовые записи точечным store API.
+
+Для C-008 владелец намеренно оставляет проверку автообновления за собой. Агент не
+устанавливает `0.5.2` на TV и не выполняет smoke без отдельного нового разрешения. В release
+evidence это фиксируется как `hardware PENDING (owner manual validation)`, а не как failure
+и не как подтверждённое поведение.
 
 Для C-006 / `0.5.0` расширенный focus/resume/source-refresh/update/registration checklist и
 полный playback pass закрыты лишь частично. Debug runtime уже подтвердил cold rail
@@ -301,18 +339,25 @@ digest. Затем из той же локальной stable-signed копии 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.AddDays(30)
 .\scripts\New-SignedUpdateManifest.ps1 `
-  -ApkPath .\dist\KinogoATV-0.5.1-code15.apk `
-  -VersionName 0.5.1 -VersionCode 15 -ExpiresAt $expires `
+  -ApkPath .\dist\KinogoATV-0.5.2-code16.apk `
+  -VersionName 0.5.2 -VersionCode 16 -ExpiresAt $expires `
   -DownloadUrl @(
-    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.1-code15.apk',
-    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.1/KinogoATV-0.5.1-code15.apk',
-    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.1/KinogoATV-0.5.1-code15.apk',
-    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.1/KinogoATV-0.5.1-code15.apk'
+    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.2-code16.apk',
+    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk',
+    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk',
+    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk'
   )
 ```
 
-Команда выше — воспроизводимый C-007 пример. В рабочем дереве создан final local release
-manifest candidate `update/manifest.json`: 1 273 bytes, file SHA-256
+Команда выше — воспроизводимый C-008 пример для уже проверенного exact final APK. Final
+code 16 manifest size/hash, timestamps, подпись, commit, Release asset и Pages/jsDelivr
+deployment ещё **PENDING**. Старый code 15 `update/manifest.json` намеренно удалён перед
+первым merge C-008: до появления exact v0.5.2 Release asset Pages workflow не должен
+разворачивать устаревший payload. Нельзя подписывать manifest до Release asset и нельзя
+использовать hash промежуточной сборки.
+
+Исторический C-007 local release manifest candidate `update/manifest.json`: 1 273 bytes,
+file SHA-256
 `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, payload code 15 /
 `0.5.1`, `issuedAtEpochSeconds=1787294465`, `expiresAtEpochSeconds=1794984054`
 (18 ноября 2026 года, 06:40:54 UTC), четыре download URLs и exact APK SHA-256
@@ -331,7 +376,7 @@ file дополнительно проверить Python verifier, которы
 py -3 .\scripts\verify_update_manifest.py self-test
 ```
 
-Два default metadata transports в code 15:
+Два default metadata transports, начиная с code 15:
 
 - `https://reziarlleh.github.io/KinogoATV/update/manifest.json`;
 - `https://cdn.jsdelivr.net/gh/reziarlleh/KinogoATV@main/update/manifest.json`.
@@ -356,45 +401,54 @@ download fallback и приложения до Android OS confirmation. Пере
 1. Commit исходников и документации.
 2. Push в repository; перед публичностью повторно проверить hygiene/disclaimer/no-license
    status.
-3. Для аппаратно подтверждённого known-good dev APK создать annotated baseline tag
-   `baseline-<version>`.
+3. Только для аппаратно подтверждённого known-good APK создать annotated baseline tag
+   `baseline-<version>`; validation release без hardware evidence такой tag не получает.
 4. Для законченного распространяемого выпуска отдельно создать release tag `v<version>` и
    GitHub Release.
 5. Прикрепить APK и `SHA256SUMS.txt` как Release assets.
 6. В release notes перечислить только фактические пользовательские изменения и validation.
 
-Пример baseline tag после полного подтверждения `0.5.1`:
+Пример baseline tag только после полного подтверждения версии:
 
 ```powershell
-git tag -a baseline-0.5.1 -m "KinogoATV 0.5.1 known-good baseline"
-git push origin baseline-0.5.1
+git tag -a baseline-<version> -m "KinogoATV <version> known-good baseline"
+git push origin baseline-<version>
 ```
 
-Пример stable GitHub Release после аппаратного подтверждения и вычисления exact digest:
+Обычный распространяемый release желательно создавать после аппаратного подтверждения.
+Допустимое исключение — validation release для ручной проверки updater владельцем: canonical
+tests/lint, exact stable-signed artifact, manifest и CI всё равно обязательны, release notes
+явно называют hardware validation pending, baseline tag не создаётся и никакое TV-поведение
+не объявляется подтверждённым. Updater не принимает GitHub `prerelease`, поэтому такой
+validation release может быть технически regular Release, но его evidence-классификация
+остаётся validation, а не baseline.
+
+Пример C-008 validation GitHub Release после вычисления exact digest:
 
 ```powershell
-gh release create v0.5.1 `
-  dist/KinogoATV-0.5.1-code15.apk `
+gh release create v0.5.2 `
+  dist/KinogoATV-0.5.2-code16.apk `
   dist/SHA256SUMS.txt `
-  --title "KinogoATV 0.5.1" `
+  --title "KinogoATV 0.5.2" `
   --notes-file <release-notes.md>
 ```
 
 После создания проверить, что GitHub API отдаёт asset `digest` с тем же SHA-256. Не
-создавать tag/release до аппаратной проверки соответствующего APK; draft/prerelease не
-обслуживаются updater как stable update.
+создавать обычный known-good release до аппаратной проверки соответствующего APK;
+единственное исключение описано выше для явно обозначенной validation-публикации.
+Draft/prerelease не обслуживаются updater как stable update.
 
 ## Release checklist
 
-- [ ] Version code увеличен.
-- [x] Application source commit записан: `8b0be72`.
+- [x] Version code увеличен до 16, version name — `0.5.2`.
+- [x] Application source commit C-008 записан: `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.
 - [ ] GitHub Actions run на final documentation/release commit зелёный.
-- [ ] Changelog/state/docs актуальны.
-- [ ] Unit tests зелёные.
-- [ ] Lint без errors.
-- [ ] APK собран stable key.
-- [ ] Metadata, alignment, signature и certificate проверены.
-- [ ] SHA-256 записан.
+- [x] Changelog/state/docs актуальны локально; publication commit ещё pending.
+- [x] Unit tests зелёные: 87 suites / 441 tests без failures/errors/skips.
+- [x] Lint без errors: 22 warnings / 2 hints оценены.
+- [x] APK собран stable key.
+- [x] Metadata, alignment, signature и certificate проверены.
+- [x] SHA-256 записан.
 - [ ] Release tag, versionName/code, exact asset name и GitHub `sha256:` digest совпадают.
 - [ ] Signed manifest создан из того же APK, его installed-signer signature, exact
       payload/expiry и download URLs проверены.
@@ -402,13 +456,15 @@ gh release create v0.5.1 `
       сети, а Pages не объявлен fully independent от всей GitHub infrastructure.
 - [ ] Каждый best-effort APK transport либо реально проверен, либо удалён из
       payload; trust основан на signed size/SHA и final signer/package checks.
-- [ ] `adb install -r` сохранил данные.
-- [ ] Cold launch и реальный playback проверены.
-- [ ] D-pad/media key regressions проверены.
-- [ ] Previous/Next и auto-next через границу сезона проверены на TV.
-- [ ] Natural end последнего материала вернул в details.
-- [ ] Cold initial rail focus и Settings dropdown focus-return проверены на TV.
-- [ ] Newest-unfinished resume и bounded source refresh проверены на TV.
+- [ ] Hardware validation либо выполнена после отдельного явного разрешения, либо явно
+      оставлена `PENDING`; для C-008 владелец проверяет updater вручную.
+- [ ] Если разрешено: `adb install -r` сохранил данные.
+- [ ] Если разрешено: cold launch и реальный playback проверены.
+- [ ] Если разрешено: D-pad/media key regressions проверены.
+- [ ] Если разрешено: Previous/Next и auto-next через границу сезона проверены на TV.
+- [ ] Если разрешено: natural end последнего материала вернул в details.
+- [ ] Если разрешено: cold initial rail focus и Settings dropdown focus-return проверены.
+- [ ] Если разрешено: newest-unfinished resume и bounded source refresh проверены на TV.
 - [ ] Registration rules default-decline/explicit-accept, remember-only input,
       generation guard, bounded CAPTCHA и remote mirror quarantine проверены без обхода
       protection.

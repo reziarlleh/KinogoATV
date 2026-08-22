@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -270,15 +270,25 @@ initial focus до явной активации контента. Focused и se
 различаются; enum Settings открываются dropdown, boolean — Switch, Left/Right остаются
 навигацией.
 
-Следствие: нельзя возвращать конкурирующие initial requests экранов либо скрытые циклические
-значения Settings без явного D-pad popup/focus-return контракта.
+В C-008 удалены неиспользуемые `SettingCycleDirection`, `TvPreferences.cycle` и
+`TvPreferencesStore.cycle`. Единственный mutation contract — stable
+`settingId + optionId` через `TvPreferencesStore.set`; неизвестный или устаревший option ID
+игнорируется, а не сбрасывает сохранённое значение. Это же относится к dropdown target
+буфера `5/10/15/20/30` секунд.
 
-## D-020 — Resume выбирает newest unfinished, source refresh ограничен unit key
+Следствие: нельзя возвращать конкурирующие initial requests экранов либо скрытые циклические
+значения Settings без явного D-pad popup/focus-return контракта. Left/Right не меняют
+настройку побочным эффектом навигации.
+
+## D-020 — Resume и source refresh ограничены unit key
 
 - Дата: 15 августа 2026 года
-- Статус: принято; basic resume-return passed, source-recovery runtime pending
+- Статус: unit-key часть действует; resume selection уточнена D-030 для C-008,
+  source-recovery runtime pending
 
-History/Catalog/Search выбирают newest unfinished eligible checkpoint content ID, а Details
+Первоначальный контракт выбирал newest unfinished eligible checkpoint content ID. D-030
+уточняет текущую policy: сначала выбирается newest активная unit, включая explicit completed
+и нулевую episodic activation; completed newest suppresses более старую unfinished. Details
 показывает S/E/position. Playback error допускает одну полную fresh details/provider
 preparation на `content/season/episode`; attempted set переживает replacement player.
 Автоматическое восстановление position запускается только если normalized fresh selection
@@ -435,6 +445,10 @@ Package Installer. GitHub Pages может быть заменён другим 
 криптографическую целостность даёт не прокси, а signed size/SHA-256 и final APK signer check.
 Operator-owned non-GitHub storage остаётся отдельной pending-задачей.
 
+Для первого merge C-008 старый signed code 15 `update/manifest.json` намеренно удалён.
+Final code 16 manifest создаётся только после появления exact v0.5.2 Release asset; иначе
+Pages workflow мог бы развернуть устаревший payload рядом с новым application source.
+
 ## D-029 — Cinemar discovery и already discovered player document имеют разные policy
 
 - Дата: 21 августа 2026 года
@@ -467,3 +481,95 @@ manifest — 1 273 bytes, SHA-256
 KIVI подтвердил current Cinemar native playback и History/Search non-first Back/focus.
 Final commit, CI, publication/Pages, Web fallback resume и extended TV evidence остаются
 **PENDING**.
+
+## D-030 — Recovery пересоздаёт Media3, checkpoint и quality intent живут отдельно
+
+- Дата: 23 августа 2026 года
+- Статус: принято для C-008 / `0.5.2`; аппаратная проверка pending
+
+D-020 сохраняет unit-key boundary, а C-008 уточняет механизм. Fresh recovery запускается
+не только по Media3 error, но и по чистому watchdog. Для выбранного buffer target `T` это
+`max(20, T)` секунд initial buffering, `T.coerceIn(5, 10)` секунд rebuffering после
+замеченного progress или 15 секунд `READY` без движения. Явная source/load error во время
+buffering запускает recovery немедленно. Pause,
+`playWhenReady=false`, playback suppression и неактивные `IDLE`/`ENDED` исключены, однако
+само приближение к duration не означает completion: near-end `READY`/`BUFFERING` без
+прогресса остаётся recoverable до фактического `ENDED`. Watchdog выдаёт только один сигнал,
+а attempted set по-прежнему
+разрешает ровно одну автоматическую fresh preparation на
+`contentId/season/episode`.
+
+Replacement всегда получает новую `ActivePlaybackSession.generation`, которая входит в
+identity player host. Даже структурно равный свежий `PlaybackMediaPlan` поэтому создаёт
+новый Media3/ExoPlayer и не наследует зависший instance. Позиция восстанавливается только
+для exact той же playback unit. Отдельная ручная кнопка refresh в native HUD удалена: после
+исчерпания bounded attempt новый discovery доступен через «Смотреть» в Details.
+
+`PlaybackCheckpoint` передаёт explicit `playbackEnded`; новая серия получает checkpoint с
+position 0 сразу при активации. Root принимает callback только от активной generation,
+публикует его в UI до disposal и сериализует DataStore writes через одну очередь.
+Монотонный timestamp и timestamp-aware `upsert` не позволяют позднему callback затереть
+новую запись. Resume сначала выбирает newest активную unit; если она completed, более
+старая unfinished запись намеренно не используется.
+
+Desired quality хранится отдельно от actual plan variant/Media3 track и сохраняется между
+сериями. Fixed запрос разрешается против объединения adaptive tracks и fixed variants:
+exact → highest not above cap → lowest above cap, если более низкой альтернативы нет.
+Фактический fallback не переписывает desired cap; `Auto` остаётся отдельным намерением.
+
+Следствие: нельзя имитировать fresh recovery повторным prepare того же ExoPlayer, сбрасывать
+attempted set при replacement, вычислять completion только по позиции, принимать callback
+старой generation либо сохранять конкретный fallback stream как новое предпочтение
+качества. Нельзя возвращать ручной native refresh control как обход автоматического
+контракта.
+
+C-007 остаётся историческим evidence для current Cinemar playback/Back, но не доказывает
+новые C-008 recovery/resume/quality ветви. Для них TV evidence **PENDING**. Подключение ADB,
+установка APK и аппаратный smoke возможны только после отдельного явного разрешения
+владельца на конкретный узкий тест, когда code review и автоматических проверок
+недостаточно.
+
+## D-031 — Buffer target управляет LoadControl, prefetch ограничен следующей coordinate
+
+- Дата: 23 августа 2026 года
+- Статус: принято для C-008 / `0.5.2`; аппаратная проверка pending
+
+Пользователь выбирает target `T ∈ {5, 10, 15, 20, 30}` секунд, default — 15. Это реальная
+настройка Media3, а не отображаемая подсказка:
+
+```text
+targetMs = T * 1000
+minBufferMs = maxBufferMs = targetMs
+bufferForPlaybackMs = (targetMs / 3).coerceIn(1000, 2500)
+bufferForPlaybackAfterRebufferMs = (targetMs / 2).coerceIn(2000, 5000)
+nextEpisodePreloadMs = (targetMs / 2).coerceIn(2000, 5000)
+targetPreloadDurationUs = nextEpisodePreloadMs * 1000
+prioritizeTimeOverSizeThresholds = true
+```
+
+Значение хранится как stable TV preference и входит в identity `TvPlayerScreen`; его смена
+пересоздаёт Media3/ExoPlayer с новым `DefaultLoadControl`. Watchdog использует тот же `T`
+по формулам D-030, поэтому recovery window согласован с выбранной глубиной буфера.
+
+`PlaybackMediaPlan.episodeCoordinatesFor` разворачивает все реальные coordinate совместимых
+сезонов текущих source/voiceover в один playlist. `ExoPlayer.PreloadConfiguration`
+предзагружает только immediate next item: 2,5 с при `T=5`, иначе 5 с. Gate требует episodic
+auto-next, активное несупрессированное воспроизведение, remaining `<= T` и buffered end не
+раньше `duration - 500 ms`. Pause, suppression, close/transition и backward seek отключают
+ранний open; после seek назад rearm возможен лишь при возврате к прежней позиции. Поэтому
+переход сезона не получает отдельной ветки: используется тот же playlist и тот же
+session-owned resolver/data-source factory. Resolver warmup вне Media3 и disk cache не
+используются. Prefetch не сохраняет и не логирует iframe, grant, token или конечный media
+URL и не меняет выбранную playback unit.
+
+Для Cinemar current leaf разрешается при обычном playback open, immediate-next — только
+оппортунистически после gate. Нефатальная future load error лишь disarm-ит preload и не
+расходует recovery текущей серии. Terminal future error вызывает fresh recovery лишь после
+того, как exact playlist generation/index/variant стала текущей; stale и unrelated events
+игнорируются.
+
+Следствие: нельзя подменять target произвольным размером кэша, применять preference только
+k UI, менять его без пересоздания player identity, включать disk cache, запускать отдельный
+resolver fan-out или выносить opaque result за пределы текущей playback session. C-007 не является hardware
+evidence для этой ветви; C-008 buffer/prefetch TV pass остаётся **PENDING** и требует
+отдельного разрешения владельца перед ADB-проверкой.

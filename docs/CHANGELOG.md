@@ -7,6 +7,76 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [0.5.2] — 2026-08-23 (validation candidate)
+
+### Автоматическое восстановление плеера
+
+- Добавлен one-shot watchdog зависания, связанный с выбранным target buffer: initial
+  timeout равен `max(20 с, target)`, rebuffer timeout — `clamp(target, 5–10 с)`, а `READY` без
+  продвижения — 15 с.
+  Попытка не запускается при паузе, suppression или состоянии `ENDED`; близость позиции к
+  известному duration не маскирует реальный near-end `READY`/`BUFFERING` stall.
+- Ошибка или watchdog запрашивают свежий source plan и увеличивают generation сессии,
+  поэтому Media3 точно создаётся заново даже при структурно том же media plan.
+  Восстановление сохраняет exact unit и позицию и имеет ограничение в одну попытку.
+- Удалена ручная кнопка «Обновить источник» из native HUD. Если одна автопопытка
+  не помогла, явный повтор выполняется через Back → Details → «Смотреть».
+- `PlaybackMediaPlan.episodeCoordinatesFor` разворачивает все совместимые сезоны в один
+  Media3 playlist. Preload immediate-next включается только для сериала с auto-next при
+  активном несупрессированном воспроизведении: до конца осталось не больше target buffer, а
+  конец уже загружен как минимум до `duration - 500 ms`. Target равен 2,5 с при buffer 5 с и
+  5 с при 10–30 с, в том числе на границе сезонов. Pause/suppression/close/transition и seek
+  назад отключают ранний open; disk media cache и отдельный token/resolver warmup не добавлялись.
+- Нефатальная ошибка предзагрузки будущей серии лишь отключает её раннюю загрузку и не
+  расходует recovery текущей. Terminal failure обрабатывается только когда exact следующая
+  window действительно стала текущей; события прежней playlist generation игнорируются.
+
+### Resume, checkpoint и карточка
+
+- Записи checkpoint сериализованы очередью. Session generation и монотонное время
+  не дают запоздалой записи старого player instance перетереть более новый progress.
+- Переход к новой серии или сезону сразу фиксирует активную unit даже на позиции
+  `0`, чтобы при возврате не выбиралась ранее просмотренная серия. Более новый completed
+  checkpoint подавляет устаревшую unfinished-запись.
+- Локальные history и progress сливаются по newest timestamp вместо перезаписи одного
+  множества другим.
+- Свежая detail page сохраняется в root cache, поэтому после выхода из плеера
+  кнопка «Смотреть» остаётся доступной без повторного выхода из карточки.
+
+### Качество и настройки
+
+- Desired quality отделено от фактического media variant и сохраняется при смене серии.
+  Выбор: exact quality, иначе highest available `<=` заданного, а если все варианты выше —
+  lowest available above. Политика одинаково сравнивает адаптивные треки и отдельные fixed URLs.
+- При смене quality intent episodic playlist пересчитывает fixed variants будущих серий до
+  preload/перехода. Текущие variant, индекс, позиция и play state сохраняются; opaque grant
+  текущей серии не запрашивается повторно.
+- Добавлен dropdown «Буфер воспроизведения»: 5/10/15/20/30 с, default 15 с. Media3
+  `DefaultLoadControl` получает `minBuffer=maxBuffer=target`, playback start — `target/3`
+  с clamp 1–2,5 с, rebuffer start — `target/2` с clamp 2–5 с; включён time-priority.
+- Пункты проверки и автопроверки обновлений собраны в конце Settings.
+- Удалён неиспользуемый arrow-cycle path настроек; рабочий контракт остаётся Switch либо
+  D-pad dropdown с выбором по `OK`.
+
+### Validation status
+
+- Source metadata: code 16 / `0.5.2`, minSdk 28, targetSdk 37.
+- Application source:
+  `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`. Canonical
+  `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
+  SUCCESS за 5 мин 20 с: 87 suites / 441 tests, 0 failures/errors/skips; lint 0 errors /
+  22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за 5 мин 29 с.
+- Exact stable-signed APK `dist/KinogoATV-0.5.2-code16.apk`: 38 353 630 bytes, SHA-256
+  `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
+  `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
+  launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+- Финальный signed code 16 manifest, CI, PR/merge, Release, Pages/jsDelivr и live updater
+  остаются **PENDING**. Старый code 15 `update/manifest.json` намеренно удалён до первого
+  merge C-008, чтобы не публиковать устаревший payload новым Pages workflow.
+- APK 0.5.2 на TV не устанавливался. Hardware playback и runtime updater validation
+  **PENDING** по выбору владельца; C-007 / `0.5.1` evidence к C-008 не переносится.
+
 ## [0.5.1] — 2026-08-21 (validation candidate)
 
 ### Native playback и Web fallback
