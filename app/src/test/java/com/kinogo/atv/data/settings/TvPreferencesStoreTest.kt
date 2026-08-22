@@ -3,7 +3,6 @@ package com.kinogo.atv.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
-import com.kinogo.atv.domain.SettingCycleDirection
 import com.kinogo.atv.domain.SubtitlePreference
 import com.kinogo.atv.domain.TvSettingIds
 import com.kinogo.atv.domain.VideoQualityPreference
@@ -22,12 +21,13 @@ class TvPreferencesStoreTest {
         val persistedDataStore = InMemoryPreferencesDataStore()
         val firstProcess = TvPreferencesStore(persistedDataStore)
 
-        firstProcess.cycle(TvSettingIds.QUALITY, SettingCycleDirection.NEXT)
-        firstProcess.cycle(TvSettingIds.SEEK_STEP, SettingCycleDirection.NEXT)
-        firstProcess.cycle(TvSettingIds.SUBTITLES, SettingCycleDirection.PREVIOUS)
-        firstProcess.cycle(TvSettingIds.AUTO_NEXT_EPISODE, SettingCycleDirection.NEXT)
-        firstProcess.cycle(TvSettingIds.HIGH_CONTRAST, SettingCycleDirection.NEXT)
-        firstProcess.cycle(TvSettingIds.REDUCE_MOTION, SettingCycleDirection.NEXT)
+        firstProcess.set(TvSettingIds.QUALITY, "2160p")
+        firstProcess.set(TvSettingIds.SEEK_STEP, "15")
+        firstProcess.set(TvSettingIds.PLAYBACK_BUFFER, "30")
+        firstProcess.set(TvSettingIds.SUBTITLES, "disabled")
+        firstProcess.set(TvSettingIds.AUTO_NEXT_EPISODE, "false")
+        firstProcess.set(TvSettingIds.HIGH_CONTRAST, "true")
+        firstProcess.set(TvSettingIds.REDUCE_MOTION, "true")
         firstProcess.set(TvSettingIds.AUTO_CHECK_UPDATES, "false")
 
         // Recreating the repository models Activity/process recreation: there is no Compose
@@ -36,6 +36,7 @@ class TvPreferencesStoreTest {
 
         assertEquals(VideoQualityPreference.UHD, afterRestart.defaultQuality)
         assertEquals(15, afterRestart.seekStepSeconds)
+        assertEquals(30, afterRestart.playbackBufferSeconds)
         assertEquals(SubtitlePreference.DISABLED, afterRestart.subtitles)
         assertFalse(afterRestart.autoNextEpisode)
         assertEquals(true, afterRestart.highContrast)

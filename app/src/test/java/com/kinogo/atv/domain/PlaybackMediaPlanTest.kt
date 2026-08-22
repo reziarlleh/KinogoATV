@@ -233,6 +233,14 @@ class PlaybackMediaPlanTest {
         )
         assertNull(plan.previousEpisodeCoordinate("provider", 1, 2, "Дубляж"))
         assertNull(plan.nextEpisodeCoordinate("provider", 3, 7, "Дубляж"))
+        assertEquals(
+            listOf(
+                PlaybackEpisodeCoordinate(seasonNumber = 1, episodeNumber = 2),
+                PlaybackEpisodeCoordinate(seasonNumber = 3, episodeNumber = 4),
+                PlaybackEpisodeCoordinate(seasonNumber = 3, episodeNumber = 7),
+            ),
+            plan.episodeCoordinatesFor("provider", "Дубляж"),
+        )
     }
 
     @Test

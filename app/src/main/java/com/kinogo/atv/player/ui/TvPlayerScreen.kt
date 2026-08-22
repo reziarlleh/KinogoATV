@@ -82,25 +82,35 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.session.MediaSession
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.kinogo.atv.domain.PlaybackMediaPlan
 import com.kinogo.atv.domain.PlaybackMediaVariant
+import com.kinogo.atv.domain.PlaybackEpisodeCoordinate
 import com.kinogo.atv.domain.TvPreferences
 import com.kinogo.atv.player.EpisodeDirection
 import com.kinogo.atv.player.EpisodeNumberInput
 import com.kinogo.atv.player.Media3PlayerController
 import com.kinogo.atv.player.Media3PlayerHost
 import com.kinogo.atv.player.PlaybackCompletionDecision
+import com.kinogo.atv.player.PlaybackBufferConfiguration
+import com.kinogo.atv.player.PlaybackBufferPolicy
 import com.kinogo.atv.player.PlaybackErrorRecoveryDecision
 import com.kinogo.atv.player.PlaybackItemTransitionCompletion
 import com.kinogo.atv.player.PlaybackPauseCompletion
+import com.kinogo.atv.player.PlaybackQualityCandidate
+import com.kinogo.atv.player.PlaybackQualityPolicy
 import com.kinogo.atv.player.PlayerDrawer
 import com.kinogo.atv.player.PlayerHudFocusTarget
 import com.kinogo.atv.player.PlayerHudState
@@ -119,17 +129,20 @@ import com.kinogo.atv.player.VisibleHudKeyKind
 import com.kinogo.atv.player.completedPlaybackCheckpoint
 import com.kinogo.atv.player.playbackItemTransitionCompletion
 import com.kinogo.atv.player.playbackPauseCompletion
+import com.kinogo.atv.player.preferredForQuality
 import com.kinogo.atv.player.shouldDispatchVisibleHudKeyAtRoot
 import com.kinogo.atv.player.playbackCompletionDecision
 import com.kinogo.atv.player.playbackErrorRecoveryDecision
 import com.kinogo.atv.player.toPlayerReducerConfig
 import com.kinogo.atv.player.withSubtitlePreference
+import com.kinogo.atv.player.withVideoQualityIntent
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 private const val CHECKPOINT_INTERVAL_MS = 10_000L
 private const val TIMELINE_REFRESH_MS = 500L
@@ -143,15 +156,11 @@ fun TvPlayerScreen(
     selection: PlaybackSelectionUiModel,
     mediaPlan: PlaybackMediaPlan,
     initialPositionMs: Long,
-    onCheckpoint: (
-        selection: PlaybackSelectionUiModel,
-        positionMs: Long,
-        durationMs: Long,
-    ) -> Unit,
+    onCheckpoint: (PlaybackCheckpoint) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    playbackSessionGeneration: Long = 0L,
     onWebFallbackRequested: ((PlaybackSelectionUiModel) -> Unit)? = null,
-    onRefreshSourceRequested: ((PlaybackSelectionUiModel) -> Unit)? = null,
     automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey> = emptySet(),
     onAutomaticSourceRefreshRequested: ((PlaybackSourceRefreshRequest) -> Unit)? = null,
     title: String = selection.contentId,
@@ -179,6 +188,20 @@ fun TvPlayerScreen(
     val reducerConfig = remember(preferences.seekStepMs) {
         preferences.toPlayerReducerConfig()
     }
+    val bufferConfiguration = remember(preferences.playbackBufferSeconds) {
+        PlaybackBufferPolicy.forSeconds(preferences.playbackBufferSeconds)
+    }
+    val loadControl = remember(bufferConfiguration) {
+        DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                bufferConfiguration.targetBufferMs,
+                bufferConfiguration.targetBufferMs,
+                bufferConfiguration.playbackStartBufferMs,
+                bufferConfiguration.rebufferStartBufferMs,
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+    }
     val mediaSourceFactory = remember(mediaPlan.mediaUrlResolver) {
         DefaultMediaSourceFactory(
             SafePlaybackDataSources.createFactory(mediaPlan.mediaUrlResolver),
@@ -188,26 +211,35 @@ fun TvPlayerScreen(
     // Do not key by initialPositionMs: checkpoint persistence may update that value while this
     // screen is composed and must never recreate the player mid-playback.
     val player = remember(
+        playbackSessionGeneration,
         selection.contentId,
         selection.season,
         selection.episode,
         mediaPlan,
         preferences.seekStepMs,
+        preferences.playbackBufferSeconds,
         preferences.autoNextEpisode,
         preferences.subtitles,
         systemCaptionsEnabled,
     ) {
         ExoPlayer.Builder(appContext)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .setSeekBackIncrementMs(preferences.seekStepMs)
             .setSeekForwardIncrementMs(preferences.seekStepMs)
             .build()
             .apply {
                 pauseAtEndOfMediaItems = !preferences.autoNextEpisode
-                trackSelectionParameters = trackSelectionParameters.withSubtitlePreference(
-                    preference = preferences.subtitles,
-                    systemCaptionsEnabled = systemCaptionsEnabled,
-                )
+                // A deferred provider grant must not be opened near the beginning of a long
+                // episode. TvPlayerRuntime arms one-item preloading only after the current end is
+                // demonstrably inside Media3's buffer.
+                setPreloadConfiguration(ExoPlayer.PreloadConfiguration.DEFAULT)
+                trackSelectionParameters = trackSelectionParameters
+                    .withSubtitlePreference(
+                        preference = preferences.subtitles,
+                        systemCaptionsEnabled = systemCaptionsEnabled,
+                    )
+                    .withVideoQualityIntent(selection.quality)
             }
     }
     val runtime = remember(player) {
@@ -223,6 +255,8 @@ fun TvPlayerScreen(
             initialAutomaticSourceRefreshAttempts = automaticSourceRefreshAttempts,
             automaticSourceRefreshCallback = onAutomaticSourceRefreshRequested,
             reducerConfig = reducerConfig,
+            bufferConfiguration = bufferConfiguration,
+            initialPlaylistGeneration = playbackSessionGeneration,
             initialSubtitlesEnabled = textTracksEnabled,
             autoNextEpisode = preferences.autoNextEpisode,
         )
@@ -342,7 +376,6 @@ fun TvPlayerScreen(
                 subtitlesFocus = subtitlesFocus,
                 sourceFocus = sourceFocus,
                 onWebFallbackRequested = onWebFallbackRequested,
-                onRefreshSourceRequested = onRefreshSourceRequested,
             )
         }
 
@@ -375,7 +408,6 @@ private fun PlayerHud(
     subtitlesFocus: FocusRequester,
     sourceFocus: FocusRequester,
     onWebFallbackRequested: ((PlaybackSelectionUiModel) -> Unit)?,
-    onRefreshSourceRequested: ((PlaybackSelectionUiModel) -> Unit)?,
 ) {
     val state = runtime.state
     val duration = runtime.durationMs
@@ -545,18 +577,6 @@ private fun PlayerHud(
                                 runtime.dispatch(PlayerIntent.OpenDrawer(PlayerDrawer.SEASONS))
                             },
                             modifier = Modifier.focusRequester(seasonFocus),
-                        )
-                    }
-                }
-                if (runtime.errorMessage != null && onRefreshSourceRequested != null) {
-                    item(key = "refresh-source") {
-                        PlayerControlButton(
-                            text = "Обновить источник",
-                            primary = true,
-                            onClick = {
-                                runtime.checkpoint()
-                                onRefreshSourceRequested(runtime.selectionForHandoff())
-                            },
                         )
                     }
                 }
@@ -1194,11 +1214,13 @@ private class TvPlayerRuntime(
     private val mediaPlan: PlaybackMediaPlan,
     title: String,
     initialPositionMs: Long,
-    checkpointCallback: (PlaybackSelectionUiModel, Long, Long) -> Unit,
+    checkpointCallback: (PlaybackCheckpoint) -> Unit,
     exitCallback: () -> Unit,
     initialAutomaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey>,
     automaticSourceRefreshCallback: ((PlaybackSourceRefreshRequest) -> Unit)?,
     reducerConfig: PlayerReducerConfig,
+    bufferConfiguration: PlaybackBufferConfiguration,
+    initialPlaylistGeneration: Long,
     initialSubtitlesEnabled: Boolean,
     private val autoNextEpisode: Boolean,
 ) : Media3PlayerHost {
@@ -1213,8 +1235,23 @@ private class TvPlayerRuntime(
     private var completionHandled = false
     private val automaticSourceRefreshAttempts =
         initialAutomaticSourceRefreshAttempts.toMutableSet()
+    private val stallWatchdog = PlaybackStallWatchdog(
+        initialBufferingTimeoutMs = bufferConfiguration.initialBufferingRecoveryMs,
+        rebufferingTimeoutMs = bufferConfiguration.rebufferingRecoveryMs,
+        readyNoProgressTimeoutMs = bufferConfiguration.readyNoProgressRecoveryMs,
+    )
+    private var automaticSourceRefreshInFlight = false
     private var skipCloseCheckpoint = false
     private val hudRevealKeyReleaseGuard = PlayerKeyReleaseGuard()
+    private val nextEpisodePreloadConfiguration = ExoPlayer.PreloadConfiguration(
+        bufferConfiguration.nextEpisodePreloadMs * 1_000L,
+    )
+    private val preloadHorizonMs = bufferConfiguration.targetBufferMs.toLong()
+    private var preloadArmedForMediaItemIndex: Int? = null
+    private var preloadRearmPositionMs = 0L
+    private var pendingPreloadFailure: PlaybackPreloadFailure? = null
+    private var playlistGeneration = initialPlaylistGeneration
+    private var qualityGeneration = 0L
 
     private val baseSelection: PlaybackSelectionUiModel = selection
     private val initialSourceId: String = selection.sourceId
@@ -1241,7 +1278,7 @@ private class TvPlayerRuntime(
     } else {
         null
     }
-    private val initialVariant: PlaybackMediaVariant = mediaPlan.preferred(
+    private val initialVariant: PlaybackMediaVariant = mediaPlan.preferredForQuality(
         sourceId = initialSourceId,
         seasonNumber = initialSeasonNumber,
         episodeNumber = initialEpisodeNumber,
@@ -1270,20 +1307,24 @@ private class TvPlayerRuntime(
         } else {
             emptyList()
         }
+    private val playlistCoordinates: List<PlaybackEpisodeCoordinate>
+        get() = if (isEpisode) {
+            mediaPlan.episodeCoordinatesFor(selectedSourceId, selectedVoiceover)
+        } else {
+            emptyList()
+        }
     var selectedEpisode by mutableIntStateOf(initialEpisodeNumber ?: 1)
         private set
     var selectedVoiceover by mutableStateOf(initialVariant.voiceover)
         private set
-    var selectedQuality by mutableStateOf(initialVariant.quality)
-        private set
-    private var selectedVideoTrackLabel by mutableStateOf(
-        selection.quality.takeIf {
-            it != initialVariant.quality && qualityHeight(it) != null
-        },
-    )
+    /** User intent persisted to history and re-applied independently for every episode. */
+    private var desiredQuality by mutableStateOf(selection.quality)
+    /** Concrete plan variant currently loaded; it must never overwrite [desiredQuality]. */
+    private var activeVariantId = initialVariant.id
+    private var pendingQualitySwitchRequest: PlaybackQualitySwitchRequest? = null
     private var adaptiveVideoTracks by mutableStateOf(emptyList<AdaptiveVideoTrack>())
     val displayQuality: String
-        get() = selectedVideoTrackLabel ?: selectedQuality
+        get() = desiredQuality
     var subtitlesEnabled by mutableStateOf(initialSubtitlesEnabled)
         private set
     var selectedSubtitleOptionId by mutableStateOf<String?>(null)
@@ -1302,7 +1343,7 @@ private class TvPlayerRuntime(
     var state by mutableStateOf(TvPlayerState())
         private set
 
-    var checkpointCallback: (PlaybackSelectionUiModel, Long, Long) -> Unit = checkpointCallback
+    var checkpointCallback: (PlaybackCheckpoint) -> Unit = checkpointCallback
     var exitCallback: () -> Unit = exitCallback
     var automaticSourceRefreshCallback: ((PlaybackSourceRefreshRequest) -> Unit)? =
         automaticSourceRefreshCallback
@@ -1317,16 +1358,23 @@ private class TvPlayerRuntime(
                 episodeNumber = currentEpisodeNumber(),
                 voiceover = selectedVoiceover,
             )
-            return if (planOptions.any(::isAutoQuality) && adaptiveVideoTracks.isNotEmpty()) {
-                (planOptions + adaptiveVideoTracks.map(AdaptiveVideoTrack::label)).distinct()
-            } else {
-                planOptions
-            }
+            val available = (planOptions + adaptiveVideoTracks.map(AdaptiveVideoTrack::label))
+                .distinct()
+            return if (
+                desiredQuality !in available &&
+                (
+                    isAutoQuality(desiredQuality) ||
+                        PlaybackQualityPolicy.height(desiredQuality) != null
+                    )
+            ) {
+                listOf(desiredQuality) + available
+            } else available
         }
     val seekStepSeconds: Long = reducerConfig.seekStepMs / 1_000L
 
     private val playerListener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+            if (!playWhenReady) disarmNextEpisodePreload()
             when (
                 playbackPauseCompletion(
                     playWhenReady = playWhenReady,
@@ -1348,7 +1396,35 @@ private class TvPlayerRuntime(
             }
         }
 
+        override fun onPlaybackSuppressionReasonChanged(playbackSuppressionReason: Int) {
+            if (playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE) {
+                disarmNextEpisodePreload()
+            }
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            if (
+                reason == Player.DISCONTINUITY_REASON_SEEK &&
+                oldPosition.mediaItemIndex == newPosition.mediaItemIndex &&
+                newPosition.positionMs < oldPosition.positionMs
+            ) {
+                preloadRearmPositionMs = maxOf(
+                    preloadRearmPositionMs,
+                    oldPosition.positionMs,
+                )
+                disarmNextEpisodePreload()
+            }
+        }
+
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            // The previous one-item preload has either become current or is no longer relevant.
+            // Disable it before arming the following episode from its own near-end observation.
+            disarmNextEpisodePreload()
+            preloadRearmPositionMs = 0L
             when (
                 playbackItemTransitionCompletion(
                     automaticTransition =
@@ -1370,16 +1446,51 @@ private class TvPlayerRuntime(
                     return
                 }
             }
-            val variantId = mediaItem?.localConfiguration?.tag as? String
+            val previousSeason = currentSeasonNumber()
+            val previousEpisode = currentEpisodeNumber()
+            val variantId = mediaItem?.playbackTag()?.variantId
             mediaPlan.findById(variantId.orEmpty())?.let { variant ->
                 selectedSourceId = variant.sourceId
                 variant.effectiveSeasonNumber?.let { season = it }
                 variant.episodeNumber?.let { selectedEpisode = it }
                 selectedVoiceover = variant.voiceover
-                selectedQuality = variant.quality
+                activeVariantId = variant.id
+            }
+            if (
+                isEpisode &&
+                (previousSeason != currentSeasonNumber() ||
+                    previousEpisode != currentEpisodeNumber())
+            ) {
+                checkpointUnitActivation()
+            }
+            val preloadFailure = pendingPreloadFailure
+            val recoverFailedPreload = preloadFailure?.terminal == true &&
+                PlaybackPreloadFailurePolicy.matches(
+                    failure = preloadFailure,
+                    playlistGeneration = playlistGeneration,
+                    windowIndex = player.currentMediaItemIndex,
+                    variantId = variantId,
+                )
+            if (
+                preloadFailure != null &&
+                PlaybackPreloadFailurePolicy.matches(
+                    failure = preloadFailure,
+                    playlistGeneration = playlistGeneration,
+                    windowIndex = player.currentMediaItemIndex,
+                    variantId = variantId,
+                )
+            ) {
+                pendingPreloadFailure = null
             }
             lastAppliedAudioVariantId = null
+            stallWatchdog.reset()
             refreshTimeline()
+            if (recoverFailedPreload) {
+                requestAutomaticSourceRefresh(
+                    fallbackMessage =
+                        "Предзагруженный источник недоступен. Обновите данные из карточки.",
+                )
+            }
         }
 
         override fun onTracksChanged(tracks: Tracks) {
@@ -1404,34 +1515,80 @@ private class TvPlayerRuntime(
             }
         }
 
-        override fun onPlayerError(error: PlaybackException) {
-            isBuffering = false
-            checkpoint()
-            dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
-            val refreshSelection = currentSelection().copy(resume = true)
-            val refreshUnit = refreshSelection.sourceRefreshUnitKey()
-            when (
-                playbackErrorRecoveryDecision(
-                    refreshCallbackAvailable = automaticSourceRefreshCallback != null,
-                    refreshAlreadyRequested = refreshUnit in automaticSourceRefreshAttempts,
+    }
+
+    private val analyticsListener = object : AnalyticsListener {
+        override fun onLoadError(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData,
+            error: IOException,
+            wasCanceled: Boolean,
+        ) {
+            if (wasCanceled) return
+            val eventTag = mediaTagAt(eventTime) ?: return
+            val identity = PlaybackPreloadFailurePolicy.futureWindowOrNull(
+                playlistGeneration = playlistGeneration,
+                armedForWindowIndex = preloadArmedForMediaItemIndex,
+                currentWindowIndex = eventTime.currentWindowIndex,
+                eventWindowIndex = eventTime.windowIndex,
+                eventVariantId = eventTag.variantId,
+            ) ?: return
+            val existing = pendingPreloadFailure
+            if (existing == null || !existing.terminal || existing.window != identity) {
+                pendingPreloadFailure = PlaybackPreloadFailure(identity, terminal = false)
+            }
+            // onLoadError is non-fatal. Never consume the current episode's recovery budget and
+            // never issue a second provider transaction here; only stop future-item preloading.
+            disarmNextEpisodePreload()
+        }
+
+        override fun onLoadCompleted(
+            eventTime: AnalyticsListener.EventTime,
+            loadEventInfo: LoadEventInfo,
+            mediaLoadData: MediaLoadData,
+        ) {
+            val pending = pendingPreloadFailure ?: return
+            val eventTag = mediaTagAt(eventTime) ?: return
+            if (
+                !pending.terminal &&
+                PlaybackPreloadFailurePolicy.matches(
+                    failure = pending,
+                    playlistGeneration = playlistGeneration,
+                    windowIndex = eventTime.windowIndex,
+                    variantId = eventTag.variantId,
                 )
             ) {
-                PlaybackErrorRecoveryDecision.REFRESH_SOURCES -> {
-                    automaticSourceRefreshAttempts += refreshUnit
-                    errorMessage = "Источник недоступен. Обновляем данные…"
-                    val request = PlaybackSourceRefreshRequest(
-                        selection = refreshSelection,
-                        positionMs = positionMs,
-                        attemptedUnits = automaticSourceRefreshAttempts.toSet(),
-                    )
-                    scope.launch {
-                        automaticSourceRefreshCallback?.invoke(request)
-                    }
-                }
-                PlaybackErrorRecoveryDecision.SHOW_ERROR -> {
-                    errorMessage = userSafePlaybackError(error)
-                }
+                pendingPreloadFailure = null
             }
+        }
+
+        override fun onPlayerError(
+            eventTime: AnalyticsListener.EventTime,
+            error: PlaybackException,
+        ) {
+            val eventIndex = eventTime.windowIndex
+            val eventTag = mediaTagAt(eventTime) ?: return
+            val eventVariantId = eventTag.variantId
+            val currentIndex = eventTime.currentWindowIndex
+            if (eventIndex == currentIndex && currentIndex == player.currentMediaItemIndex) {
+                if (eventTag != player.currentMediaItem?.playbackTag()) return
+                pendingPreloadFailure = null
+                isBuffering = false
+                requestAutomaticSourceRefresh(userSafePlaybackError(error))
+                return
+            }
+
+            if (eventIndex != currentIndex + 1) return
+            val identity = PlaybackWindowIdentity(
+                playlistGeneration = playlistGeneration,
+                windowIndex = eventIndex,
+                variantId = eventVariantId,
+            )
+            val alreadyObserved = pendingPreloadFailure?.window == identity
+            if (preloadArmedForMediaItemIndex != currentIndex && !alreadyObserved) return
+            pendingPreloadFailure = PlaybackPreloadFailure(identity, terminal = true)
+            disarmNextEpisodePreload()
         }
     }
 
@@ -1440,9 +1597,14 @@ private class TvPlayerRuntime(
             "Selection and playback plan must agree on episodic playback"
         }
         player.addListener(playerListener)
+        player.addAnalyticsListener(analyticsListener)
         controller.attach()
         val startPosition = if (selection.resume) initialPositionMs.coerceAtLeast(0L) else 0L
-        val startIndex = if (isEpisode) episodeNumbers.indexOf(selectedEpisode) else 0
+        val startIndex = if (isEpisode) {
+            playlistCoordinates.indexOf(currentEpisodeCoordinate())
+        } else {
+            0
+        }
         player.setMediaItems(mediaItems(), startIndex, startPosition)
         player.prepare()
         player.play()
@@ -1523,12 +1685,12 @@ private class TvPlayerRuntime(
         } else {
             null
         }
-        val variant = mediaPlan.preferred(
+        val variant = mediaPlan.preferredForQuality(
             sourceId = sourceId,
             seasonNumber = targetSeason,
             episodeNumber = targetEpisode,
             voiceover = targetVoiceover,
-            quality = selectedQuality,
+            quality = desiredQuality,
         )
         replacePlaybackContext(
             sourceId = sourceId,
@@ -1549,12 +1711,12 @@ private class TvPlayerRuntime(
         )
         val targetEpisode = selectedEpisode.takeIf { it in targetEpisodes }
             ?: targetEpisodes.first()
-        val variant = mediaPlan.preferred(
+        val variant = mediaPlan.preferredForQuality(
             sourceId = selectedSourceId,
             seasonNumber = seasonNumber,
             episodeNumber = targetEpisode,
             voiceover = selectedVoiceover,
-            quality = selectedQuality,
+            quality = desiredQuality,
         )
         replacePlaybackContext(
             sourceId = selectedSourceId,
@@ -1584,12 +1746,12 @@ private class TvPlayerRuntime(
         } else {
             null
         }
-        val variant = mediaPlan.preferred(
+        val variant = mediaPlan.preferredForQuality(
             sourceId = selectedSourceId,
             seasonNumber = targetSeason,
             episodeNumber = targetEpisode,
             voiceover = voiceover,
-            quality = selectedQuality,
+            quality = desiredQuality,
         )
         replacePlaybackContext(
             sourceId = selectedSourceId,
@@ -1602,34 +1764,42 @@ private class TvPlayerRuntime(
     }
 
     fun selectQuality(quality: String) {
-        val planQualities = mediaPlan.qualitiesFor(
+        if (
+            quality !in qualityOptions &&
+            !isAutoQuality(quality) &&
+            PlaybackQualityPolicy.height(quality) == null
+        ) return
+        val qualityChanged = desiredQuality != quality
+        if (qualityChanged) advanceQualityGeneration()
+        desiredQuality = quality
+        applyDesiredVideoConstraints()
+        val variant = mediaPlan.preferredForQuality(
             sourceId = selectedSourceId,
             seasonNumber = currentSeasonNumber(),
             episodeNumber = currentEpisodeNumber(),
             voiceover = selectedVoiceover,
+            quality = desiredQuality,
         )
-        if (quality !in planQualities && qualityHeight(quality) != null) {
-            selectedVideoTrackLabel = quality
-            lastAppliedVideoSelectionKey = null
-            applySelectedVideoTrack()
-            dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
-            return
-        }
-        if (isAutoQuality(quality) && adaptiveVideoTracks.isNotEmpty()) {
-            selectedVideoTrackLabel = null
-            lastAppliedVideoSelectionKey = null
-            applySelectedVideoTrack()
-        }
-        val variant = mediaPlan.find(
-            sourceId = selectedSourceId,
-            seasonNumber = currentSeasonNumber(),
-            episodeNumber = currentEpisodeNumber(),
-            voiceover = selectedVoiceover,
-            quality = quality,
-        ) ?: return
-        selectedVideoTrackLabel = null
         lastAppliedVideoSelectionKey = null
-        switchVariant(variant)
+        if (
+            variant.sourceId == selectedSourceId &&
+            variant.effectiveSeasonNumber == currentSeasonNumber() &&
+            variant.episodeNumber == currentEpisodeNumber() &&
+            variant.voiceover == selectedVoiceover &&
+            variant.id == activeVariantId
+        ) {
+            if (qualityChanged && isEpisode) {
+                // Future fixed MediaItems were chosen when the playlist was first built. Rebuild
+                // them before preload/transition even when this episode already uses the right
+                // concrete variant. The exact current opaque reference, index and position stay.
+                switchVariant(variant, rebuildEvenIfActive = true)
+            } else {
+                applySelectedVideoTrack()
+                dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+            }
+        } else {
+            switchVariant(variant)
+        }
     }
 
     fun selectSubtitlesEnabled(enabled: Boolean) {
@@ -1646,14 +1816,46 @@ private class TvPlayerRuntime(
         applySubtitleSelection()
     }
 
-    fun refreshTimeline() {
+    fun refreshTimeline(observeStall: Boolean = true) {
         positionMs = player.currentPosition.coerceAtLeast(0L)
         durationMs = player.duration.takeIf { it != C.TIME_UNSET && it > 0L } ?: 0L
+        // Deliberate checkpoint/replacement paths only sample the timeline. They must not arm a
+        // now-stale future item in the small window before that playlist is invalidated.
+        if (observeStall) updateNextEpisodePreload()
+        if (
+            observeStall &&
+            stallWatchdog.observe(
+                PlaybackStallObservation(
+                    nowMs = SystemClock.uptimeMillis(),
+                    playbackState = player.playbackStallState(),
+                    playWhenReady = player.playWhenReady,
+                    playbackSuppressed = player.playbackSuppressionReason !=
+                        Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+                    positionMs = positionMs,
+                    durationMs = durationMs,
+                ),
+            ) == PlaybackStallDecision.REFRESH_SOURCES
+        ) {
+            requestAutomaticSourceRefresh(
+                fallbackMessage =
+                    "Автоматическое обновление не помогло. Вернитесь в карточку и нажмите «Смотреть».",
+            )
+        }
     }
 
     fun checkpoint() {
-        refreshTimeline()
-        checkpointCallback(currentSelection(), positionMs, durationMs)
+        // Saving progress during Back, lifecycle pause, or source replacement must never start a
+        // new recovery flow after the user has deliberately left the player. Stall recovery is
+        // owned by the periodic timeline observer and explicit Media3 errors only.
+        refreshTimeline(observeStall = false)
+        checkpointCallback(
+            PlaybackCheckpoint(
+                selection = currentSelection(),
+                positionMs = positionMs,
+                durationMs = durationMs,
+                playbackEnded = false,
+            ),
+        )
     }
 
     fun selectionForHandoff(): PlaybackSelectionUiModel = currentSelection()
@@ -1665,9 +1867,12 @@ private class TvPlayerRuntime(
 
     fun close() {
         if (!skipCloseCheckpoint) checkpoint()
+        disarmNextEpisodePreload()
+        advancePlaylistGeneration()
         timeoutJobs.values.forEach { it.cancel() }
         timeoutJobs.clear()
         controller.detach()
+        player.removeAnalyticsListener(analyticsListener)
         player.removeListener(playerListener)
     }
 
@@ -1680,15 +1885,23 @@ private class TvPlayerRuntime(
     }
 
     override fun onEpisodeNumberRequested(episodeNumber: Int) {
-        val targetIndex = episodeNumbers.indexOf(episodeNumber)
+        val targetCoordinate = PlaybackEpisodeCoordinate(season, episodeNumber)
+        val targetIndex = playlistCoordinates.indexOf(targetCoordinate)
         if (!isEpisode || targetIndex < 0) {
             errorMessage = "Серия $episodeNumber недоступна"
             dispatch(PlayerIntent.EpisodeTransitionFinished)
             dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
             return
         }
+        // Keep the old unit explicit even when this method is called outside the reducer path.
+        // The reducer normally emits SaveProgress first, but changing selectedEpisode before a
+        // defensive checkpoint would store the old position under the new episode key.
+        checkpoint()
         val sameItem = player.currentMediaItemIndex == targetIndex
+        stallWatchdog.reset()
+        preloadRearmPositionMs = 0L
         selectedEpisode = episodeNumber
+        checkpointUnitActivation()
         player.seekTo(targetIndex, 0L)
         dispatch(PlayerIntent.Play(SystemClock.uptimeMillis()))
         if (sameItem) dispatch(PlayerIntent.EpisodeTransitionFinished)
@@ -1714,12 +1927,34 @@ private class TvPlayerRuntime(
             )
         }
         if (target != null) {
-            val variant = mediaPlan.preferred(
+            val coordinates = playlistCoordinates
+            val preparedTargetIndex = preparedEpisodePlaylistIndex(
+                coordinates = coordinates,
+                preparedCoordinates = preparedPlaylistCoordinates(),
+                target = target,
+            )
+            if (preparedTargetIndex != null) {
+                // The reducer normally saves first; keep this path correct for direct host calls.
+                checkpoint()
+                val shouldPlay = player.playWhenReady
+                stallWatchdog.reset()
+                preloadRearmPositionMs = 0L
+                season = target.seasonNumber
+                selectedEpisode = target.episodeNumber
+                checkpointUnitActivation()
+                player.seekTo(preparedTargetIndex, 0L)
+                player.playWhenReady = shouldPlay
+                if (shouldPlay) player.play()
+                errorMessage = null
+                dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+                return
+            }
+            val variant = mediaPlan.preferredForQuality(
                 sourceId = selectedSourceId,
                 seasonNumber = target.seasonNumber,
                 episodeNumber = target.episodeNumber,
                 voiceover = selectedVoiceover,
-                quality = selectedQuality,
+                quality = desiredQuality,
             )
             replacePlaybackContext(
                 sourceId = selectedSourceId,
@@ -1757,12 +1992,12 @@ private class TvPlayerRuntime(
         ) {
             is PlaybackCompletionDecision.Advance -> {
                 val target = decision.coordinate
-                val variant = mediaPlan.preferred(
+                val variant = mediaPlan.preferredForQuality(
                     sourceId = selectedSourceId,
                     seasonNumber = target.seasonNumber,
                     episodeNumber = target.episodeNumber,
                     voiceover = selectedVoiceover,
-                    quality = selectedQuality,
+                    quality = desiredQuality,
                 )
                 replacePlaybackContext(
                     sourceId = selectedSourceId,
@@ -1796,25 +2031,36 @@ private class TvPlayerRuntime(
         }
     }
 
-    private fun switchVariant(variant: PlaybackMediaVariant) {
+    private fun switchVariant(
+        variant: PlaybackMediaVariant,
+        rebuildEvenIfActive: Boolean = false,
+    ) {
         if (
-            variant.sourceId == selectedSourceId &&
-            variant.effectiveSeasonNumber == currentSeasonNumber() &&
-            variant.voiceover == selectedVoiceover &&
-            variant.quality == selectedQuality
+            variant.sourceId != selectedSourceId ||
+            variant.effectiveSeasonNumber != currentSeasonNumber() ||
+            variant.episodeNumber != currentEpisodeNumber() ||
+            variant.voiceover != selectedVoiceover
         ) {
             return
         }
+        if (variant.id == activeVariantId && !rebuildEvenIfActive) return
+        disarmNextEpisodePreload()
         checkpoint()
         val currentIndex = player.currentMediaItemIndex.coerceAtLeast(0)
         val currentPosition = player.currentPosition.coerceAtLeast(0L)
         val shouldPlay = player.playWhenReady
+        advancePlaylistGeneration()
         selectedVoiceover = variant.voiceover
-        selectedQuality = variant.quality
+        activeVariantId = variant.id
+        stallWatchdog.reset()
         lastAppliedAudioVariantId = null
         lastAppliedVideoSelectionKey = null
         lastAppliedSubtitleSelectionKey = null
-        player.setMediaItems(mediaItems(), currentIndex, currentPosition)
+        player.setMediaItems(
+            mediaItems(currentVariantOverride = variant),
+            currentIndex,
+            currentPosition,
+        )
         player.prepare()
         player.playWhenReady = shouldPlay
     }
@@ -1829,6 +2075,7 @@ private class TvPlayerRuntime(
         checkpointBeforeReplace: Boolean = true,
         forcePlay: Boolean = false,
     ) {
+        disarmNextEpisodePreload()
         if (checkpointBeforeReplace) checkpoint()
         val currentPosition = if (retainPosition) {
             player.currentPosition.coerceAtLeast(0L)
@@ -1836,21 +2083,72 @@ private class TvPlayerRuntime(
             0L
         }
         val shouldPlay = forcePlay || player.playWhenReady
+        advancePlaylistGeneration()
         selectedSourceId = sourceId
         if (seasonNumber != null) season = seasonNumber
         if (episodeNumber != null) selectedEpisode = episodeNumber
         selectedVoiceover = variant.voiceover
-        selectedQuality = variant.quality
+        activeVariantId = variant.id
+        if (isEpisode && !retainPosition) checkpointUnitActivation()
+        stallWatchdog.reset()
         lastAppliedAudioVariantId = null
         lastAppliedVideoSelectionKey = null
         lastAppliedSubtitleSelectionKey = null
-        val targetIndex = if (isEpisode) episodeNumbers.indexOf(selectedEpisode) else 0
-        player.setMediaItems(mediaItems(), targetIndex.coerceAtLeast(0), currentPosition)
+        val targetIndex = if (isEpisode) {
+            playlistCoordinates.indexOf(currentEpisodeCoordinate())
+        } else {
+            0
+        }
+        player.setMediaItems(
+            mediaItems(currentVariantOverride = variant),
+            targetIndex.coerceAtLeast(0),
+            currentPosition,
+        )
         player.prepare()
         player.playWhenReady = shouldPlay
         if (forcePlay) player.play()
         errorMessage = null
         if (revealHud) dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+    }
+
+    private fun updateNextEpisodePreload() {
+        val currentIndex = player.currentMediaItemIndex
+        val pendingFailure = pendingPreloadFailure
+        if (
+            pendingFailure != null &&
+            PlaybackPreloadFailurePolicy.matches(
+                failure = pendingFailure,
+                playlistGeneration = playlistGeneration,
+                windowIndex = currentIndex + 1,
+                variantId = mediaVariantIdAt(currentIndex + 1),
+            )
+        ) {
+            return
+        }
+        val shouldArm = PlaybackBufferPolicy.shouldArmNextEpisodePreload(
+            isEpisodic = isEpisode,
+            autoNextEpisode = autoNextEpisode,
+            currentMediaItemIndex = currentIndex,
+            mediaItemCount = player.mediaItemCount,
+            durationMs = durationMs,
+            currentPositionMs = positionMs,
+            bufferedPositionMs = player.bufferedPosition,
+            preloadHorizonMs = preloadHorizonMs,
+            playWhenReady = player.playWhenReady,
+            playbackSuppressed =
+                player.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE,
+            minimumRearmPositionMs = preloadRearmPositionMs,
+        )
+        if (shouldArm && preloadArmedForMediaItemIndex != currentIndex) {
+            player.setPreloadConfiguration(nextEpisodePreloadConfiguration)
+            preloadArmedForMediaItemIndex = currentIndex
+        }
+    }
+
+    private fun disarmNextEpisodePreload() {
+        if (preloadArmedForMediaItemIndex == null) return
+        preloadArmedForMediaItemIndex = null
+        player.setPreloadConfiguration(ExoPlayer.PreloadConfiguration.DEFAULT)
     }
 
     private fun checkpointCompletedSelection() {
@@ -1859,41 +2157,115 @@ private class TvPlayerRuntime(
             lastDurationMs = durationMs,
         )
         checkpointCallback(
-            currentSelection(),
-            completed.positionMs,
-            completed.durationMs,
+            PlaybackCheckpoint(
+                selection = currentSelection(),
+                positionMs = completed.positionMs,
+                durationMs = completed.durationMs,
+                playbackEnded = true,
+            ),
         )
     }
 
-    private fun mediaItems(): List<MediaItem> = if (isEpisode) {
-        episodeNumbers.map(::mediaItemForEpisode)
-    } else {
-        listOf(mediaItemForEpisode(null))
+    /** Records the chosen episode even before Media3 advances beyond position zero. */
+    private fun checkpointUnitActivation() {
+        if (!isEpisode) return
+        checkpointCallback(
+            PlaybackCheckpoint(
+                selection = currentSelection(),
+                positionMs = 0L,
+                durationMs = 0L,
+                playbackEnded = false,
+            ),
+        )
     }
 
-    private fun mediaItemForEpisode(episode: Int?): MediaItem {
-        val variant = mediaPlan.preferred(
+    private fun requestAutomaticSourceRefresh(fallbackMessage: String) {
+        if (automaticSourceRefreshInFlight) return
+        checkpoint()
+        // Keep this defensive guard even though checkpointing itself does not observe stalls.
+        if (automaticSourceRefreshInFlight) return
+        dispatch(PlayerIntent.ShowHud(SystemClock.uptimeMillis()))
+        val refreshSelection = currentSelection().copy(resume = true)
+        val refreshUnit = refreshSelection.sourceRefreshUnitKey()
+        val callback = automaticSourceRefreshCallback
+        when (
+            playbackErrorRecoveryDecision(
+                refreshCallbackAvailable = callback != null,
+                refreshAlreadyRequested = refreshUnit in automaticSourceRefreshAttempts,
+            )
+        ) {
+            PlaybackErrorRecoveryDecision.REFRESH_SOURCES -> {
+                automaticSourceRefreshAttempts += refreshUnit
+                automaticSourceRefreshInFlight = true
+                errorMessage = "Источник недоступен. Обновляем данные…"
+                val request = PlaybackSourceRefreshRequest(
+                    selection = refreshSelection,
+                    positionMs = positionMs,
+                    attemptedUnits = automaticSourceRefreshAttempts.toSet(),
+                )
+                // Stop consuming the stale stream while the root performs fresh details/provider
+                // preparation. The checkpoint above remains the exact restart position.
+                player.pause()
+                scope.launch {
+                    callback?.invoke(request)
+                }
+            }
+            PlaybackErrorRecoveryDecision.SHOW_ERROR -> {
+                errorMessage = fallbackMessage
+            }
+        }
+    }
+
+    private fun mediaItems(
+        currentVariantOverride: PlaybackMediaVariant? = null,
+    ): List<MediaItem> = if (isEpisode) {
+        val coordinates = playlistCoordinates
+        val variants = playlistVariantsForQuality(
+            mediaPlan = mediaPlan,
+            coordinates = coordinates,
             sourceId = selectedSourceId,
-            seasonNumber = currentSeasonNumber(),
+            voiceover = selectedVoiceover,
+            desiredQuality = desiredQuality,
+            currentVariantOverride = currentVariantOverride,
+        )
+        coordinates.zip(variants).map { (coordinate, variant) ->
+            mediaItemForEpisode(
+                seasonNumber = coordinate.seasonNumber,
+                episode = coordinate.episodeNumber,
+                variantOverride = variant,
+            )
+        }
+    } else {
+        listOf(mediaItemForEpisode(null, null, currentVariantOverride))
+    }
+
+    private fun mediaItemForEpisode(
+        seasonNumber: Int?,
+        episode: Int?,
+        variantOverride: PlaybackMediaVariant? = null,
+    ): MediaItem {
+        val variant = variantOverride ?: mediaPlan.preferredForQuality(
+            sourceId = selectedSourceId,
+            seasonNumber = seasonNumber,
             episodeNumber = episode,
             voiceover = selectedVoiceover,
-            quality = selectedQuality,
+            quality = desiredQuality,
         )
         val subtitle = if (episode != null) {
-            "Сезон $season, серия $episode"
+            "Сезон $seasonNumber, серия $episode"
         } else {
             "${variant.voiceover} • ${variant.quality}"
         }
         val builder = MediaItem.Builder()
             .setMediaId(
                 if (episode != null) {
-                    "$selectionTitle|$selectedSourceId|s$season|e$episode"
+                    "$selectionTitle|$selectedSourceId|s$seasonNumber|e$episode"
                 } else {
                     "$selectionTitle|$selectedSourceId"
                 },
             )
             .setUri(variant.mediaUrl)
-            .setTag(variant.id)
+            .setTag(PlaybackMediaItemTag(variant.id, playlistGeneration))
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(selectionTitle)
@@ -1921,7 +2293,7 @@ private class TvPlayerRuntime(
      * index. Apply that index only after Media3 has exposed the manifest's audio groups.
      */
     private fun applyPreferredAudioTrack(tracks: Tracks) {
-        val variantId = player.currentMediaItem?.localConfiguration?.tag as? String ?: return
+        val variantId = player.currentMediaItem?.playbackTag()?.variantId ?: return
         if (lastAppliedAudioVariantId == variantId) return
         val variant = mediaPlan.findById(variantId) ?: return
         val requestedIndex = variant.preferredAudioTrackIndex
@@ -2009,20 +2381,68 @@ private class TvPlayerRuntime(
     }
 
     private fun applySelectedVideoTrack() {
-        val variantId = player.currentMediaItem?.localConfiguration?.tag as? String ?: return
-        val requestedLabel = selectedVideoTrackLabel
-        val target = requestedLabel?.let { label ->
-            val requestedHeight = qualityHeight(label) ?: return@let null
-            adaptiveVideoTracks.minByOrNull { kotlin.math.abs(it.height - requestedHeight) }
+        val variantId = player.currentMediaItem?.playbackTag()?.variantId ?: return
+        val resolvedTarget = if (isAutoQuality(desiredQuality)) {
+            null
+        } else {
+            val fixedVariants = mediaPlan
+                .variantsFor(
+                    sourceId = selectedSourceId,
+                    seasonNumber = currentSeasonNumber(),
+                    episodeNumber = currentEpisodeNumber(),
+                )
+                .filter {
+                    it.voiceover == selectedVoiceover &&
+                        !isAutoQuality(it.quality)
+                }
+            val candidates = buildList<PlaybackQualityCandidate<ResolvedVideoQualityTarget>> {
+                adaptiveVideoTracks.forEach { track ->
+                    add(
+                        PlaybackQualityCandidate(
+                            value = ResolvedVideoQualityTarget.AdaptiveTrack(track),
+                            label = track.label,
+                        ),
+                    )
+                }
+                fixedVariants.forEach { variant ->
+                    add(
+                        PlaybackQualityCandidate(
+                            value = ResolvedVideoQualityTarget.PlanVariant(variant),
+                            label = variant.quality,
+                        ),
+                    )
+                }
+            }
+            PlaybackQualityPolicy.select(
+                desiredQuality = desiredQuality,
+                candidates = candidates,
+                preferAutomaticForMissingFixed = false,
+            )?.selected
         }
-        if (requestedLabel != null && target == null) return
-        val key = "$variantId:${target?.height ?: "auto"}"
+        if (!isAutoQuality(desiredQuality) && resolvedTarget == null) return
+        val targetTrack = when (resolvedTarget) {
+            is ResolvedVideoQualityTarget.AdaptiveTrack -> resolvedTarget.track
+            is ResolvedVideoQualityTarget.PlanVariant -> {
+                if (resolvedTarget.variant.id != activeVariantId) {
+                    requestQualityVariantSwitch(resolvedTarget.variant)
+                    return
+                }
+                null
+            }
+            null -> null
+        }
+        val targetKey = when (resolvedTarget) {
+            is ResolvedVideoQualityTarget.AdaptiveTrack -> "track:${resolvedTarget.track.height}"
+            is ResolvedVideoQualityTarget.PlanVariant -> "variant:${resolvedTarget.variant.id}"
+            null -> "auto"
+        }
+        val key = "$variantId:$desiredQuality:$targetKey"
         if (lastAppliedVideoSelectionKey == key) return
 
         val parameters = player.trackSelectionParameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
             .apply {
-                target?.let {
+                targetTrack?.let {
                     addOverride(
                         TrackSelectionOverride(
                             it.group.mediaTrackGroup,
@@ -2032,15 +2452,62 @@ private class TvPlayerRuntime(
                 }
             }
             .build()
-        selectedVideoTrackLabel = target?.label
         lastAppliedVideoSelectionKey = key
         if (parameters != player.trackSelectionParameters) {
             player.trackSelectionParameters = parameters
         }
     }
 
+    private fun applyDesiredVideoConstraints() {
+        val parameters = player.trackSelectionParameters.withVideoQualityIntent(desiredQuality)
+        lastAppliedVideoSelectionKey = null
+        if (parameters != player.trackSelectionParameters) {
+            player.trackSelectionParameters = parameters
+        }
+    }
+
+    private fun requestQualityVariantSwitch(variant: PlaybackMediaVariant) {
+        val request = PlaybackQualitySwitchRequest(
+            targetVariantId = variant.id,
+            context = currentQualitySwitchContext(),
+        )
+        if (pendingQualitySwitchRequest == request) return
+        pendingQualitySwitchRequest = request
+        scope.launch {
+            if (request.isApplicableTo(currentQualitySwitchContext())) {
+                switchVariant(variant)
+            }
+            if (pendingQualitySwitchRequest == request) pendingQualitySwitchRequest = null
+        }
+    }
+
+    private fun currentQualitySwitchContext(): PlaybackQualitySwitchContext =
+        PlaybackQualitySwitchContext(
+            sourceId = selectedSourceId,
+            voiceover = selectedVoiceover,
+            seasonNumber = currentSeasonNumber(),
+            episodeNumber = currentEpisodeNumber(),
+            currentMediaItemVariantId =
+                player.currentMediaItem?.playbackTag()?.variantId,
+            desiredQuality = desiredQuality,
+            playlistGeneration = playlistGeneration,
+            qualityGeneration = qualityGeneration,
+        )
+
+    private fun advancePlaylistGeneration() {
+        playlistGeneration++
+        preloadRearmPositionMs = 0L
+        pendingPreloadFailure = null
+        pendingQualitySwitchRequest = null
+    }
+
+    private fun advanceQualityGeneration() {
+        qualityGeneration++
+        pendingQualitySwitchRequest = null
+    }
+
     private fun applySubtitleSelection() {
-        val variantId = player.currentMediaItem?.localConfiguration?.tag as? String ?: return
+        val variantId = player.currentMediaItem?.playbackTag()?.variantId ?: return
         val selected = selectedSubtitleOptionId?.let { id ->
             selectableTextTracks.firstOrNull { it.id == id }
         }
@@ -2074,14 +2541,64 @@ private class TvPlayerRuntime(
 
     private fun currentEpisodeNumber(): Int? = if (isEpisode) selectedEpisode else null
 
+    private fun mediaVariantIdAt(windowIndex: Int): String? =
+        if (windowIndex in 0 until player.mediaItemCount) {
+            player.getMediaItemAt(windowIndex).playbackTag()
+                ?.takeIf { it.playlistGeneration == playlistGeneration }
+                ?.variantId
+        } else {
+            null
+        }
+
+    private fun preparedPlaylistCoordinates(): List<PlaybackEpisodeCoordinate?> =
+        List(player.mediaItemCount) { windowIndex ->
+            val variantId = mediaVariantIdAt(windowIndex) ?: return@List null
+            val variant = mediaPlan.findById(variantId) ?: return@List null
+            if (
+                variant.sourceId != selectedSourceId ||
+                variant.voiceover != selectedVoiceover
+            ) return@List null
+            val seasonNumber = variant.effectiveSeasonNumber ?: return@List null
+            val episodeNumber = variant.episodeNumber ?: return@List null
+            PlaybackEpisodeCoordinate(seasonNumber, episodeNumber)
+        }
+
+    private fun mediaTagAt(eventTime: AnalyticsListener.EventTime): PlaybackMediaItemTag? {
+        val windowIndex = eventTime.windowIndex
+        if (windowIndex !in 0 until eventTime.timeline.windowCount) return null
+        return eventTime.timeline
+            .getWindow(windowIndex, Timeline.Window())
+            .mediaItem
+            .playbackTag()
+            ?.takeIf { it.playlistGeneration == playlistGeneration }
+    }
+
+    private fun currentEpisodeCoordinate(): PlaybackEpisodeCoordinate =
+        PlaybackEpisodeCoordinate(seasonNumber = season, episodeNumber = selectedEpisode)
+
     private fun currentSelection(): PlaybackSelectionUiModel = baseSelection.copy(
         season = if (isEpisode) season else null,
         episode = if (isEpisode) selectedEpisode else null,
         voiceover = selectedVoiceover,
-        quality = displayQuality,
+        quality = desiredQuality,
         resume = true,
         sourceId = selectedSourceId,
     )
+}
+
+private data class PlaybackMediaItemTag(
+    val variantId: String,
+    val playlistGeneration: Long,
+)
+
+private fun MediaItem.playbackTag(): PlaybackMediaItemTag? =
+    localConfiguration?.tag as? PlaybackMediaItemTag
+
+private fun Player.playbackStallState(): PlaybackStallState = when (playbackState) {
+    Player.STATE_BUFFERING -> PlaybackStallState.BUFFERING
+    Player.STATE_READY -> PlaybackStallState.READY
+    Player.STATE_ENDED -> PlaybackStallState.ENDED
+    else -> PlaybackStallState.IDLE
 }
 
 private data class AudioTrackTarget(
@@ -2097,6 +2614,11 @@ private data class AdaptiveVideoTrack(
     val trackIndex: Int,
 )
 
+private sealed interface ResolvedVideoQualityTarget {
+    data class AdaptiveTrack(val track: AdaptiveVideoTrack) : ResolvedVideoQualityTarget
+    data class PlanVariant(val variant: PlaybackMediaVariant) : ResolvedVideoQualityTarget
+}
+
 private data class SelectableTextTrack(
     val id: String,
     val label: String,
@@ -2109,20 +2631,8 @@ private data class PlayerTextTrackOption(
     val label: String,
 )
 
-private fun qualityHeight(label: String): Int? =
-    Regex("""(?<!\d)([1-9]\d{2,3})\s*p?(?!\d)""", RegexOption.IGNORE_CASE)
-        .find(label)
-        ?.groupValues
-        ?.getOrNull(1)
-        ?.toIntOrNull()
-
 internal fun isAutoQuality(label: String): Boolean =
-    label.trim().let { normalized ->
-        normalized.equals("Авто", ignoreCase = true) ||
-            normalized.startsWith("Авто ·", ignoreCase = true) ||
-            normalized.equals("Auto", ignoreCase = true) ||
-            normalized.startsWith("Auto ·", ignoreCase = true)
-    }
+    PlaybackQualityPolicy.isAutomatic(label)
 
 private fun userSafePlaybackError(error: PlaybackException): String {
     val responseCode = generateSequence<Throwable>(error) { it.cause }
@@ -2131,7 +2641,7 @@ private fun userSafePlaybackError(error: PlaybackException): String {
         ?.responseCode
     return when {
         responseCode in setOf(401, 403, 404, 410) ->
-            "Ссылка источника устарела. Выберите «Обновить источник»."
+            "Ссылка источника устарела. Вернитесь в карточку и нажмите «Смотреть»."
         responseCode != null ->
             "Сервер источника ответил ошибкой $responseCode"
         error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||

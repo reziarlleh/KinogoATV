@@ -2,6 +2,7 @@ package com.kinogo.atv.player
 
 import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.kinogo.atv.domain.SubtitlePreference
 import com.kinogo.atv.domain.TvPreferences
 import org.junit.Assert.assertEquals
@@ -74,5 +75,27 @@ class TvPlayerPreferencesTest {
         assertFalse(C.TRACK_TYPE_TEXT in enabled.disabledTrackTypes)
         assertTrue(enabled.selectTextByDefault)
         assertTrue(enabled.selectUndeterminedTextLanguage)
+    }
+
+    @Test
+    fun `fixed quality intent applies playlist wide adaptive cap`() {
+        val fixed = DefaultTrackSelector.Parameters.DEFAULT
+            .withVideoQualityIntent("WEB-DL 1080p")
+
+        assertEquals(1080, fixed.maxVideoHeight)
+        assertEquals(Int.MAX_VALUE, fixed.maxVideoWidth)
+        assertTrue((fixed as DefaultTrackSelector.Parameters).exceedVideoConstraintsIfNecessary)
+    }
+
+    @Test
+    fun `automatic quality removes adaptive cap for following playlist items`() {
+        val automatic = DefaultTrackSelector.Parameters.DEFAULT
+            .withVideoQualityIntent("Авто")
+
+        assertEquals(Int.MAX_VALUE, automatic.maxVideoHeight)
+        assertEquals(Int.MAX_VALUE, automatic.maxVideoWidth)
+        assertTrue(
+            (automatic as DefaultTrackSelector.Parameters).exceedVideoConstraintsIfNecessary,
+        )
     }
 }

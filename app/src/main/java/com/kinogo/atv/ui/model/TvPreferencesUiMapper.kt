@@ -30,6 +30,7 @@ internal fun TvPreferences.labelFor(settingId: String): String? = when (settingI
     }
     TvSettingIds.AUTO_NEXT_EPISODE -> autoNextEpisode.enabledLabel()
     TvSettingIds.SEEK_STEP -> "$seekStepSeconds сек"
+    TvSettingIds.PLAYBACK_BUFFER -> "$playbackBufferSeconds сек"
     TvSettingIds.HIGH_CONTRAST -> highContrast.enabledLabel()
     TvSettingIds.REDUCE_MOTION -> reduceMotion.enabledLabel()
     TvSettingIds.SUBTITLES -> when (subtitles) {
@@ -45,6 +46,7 @@ internal fun TvPreferences.optionIdFor(settingId: String): String? = when (setti
     TvSettingIds.QUALITY -> defaultQuality.storageValue
     TvSettingIds.AUTO_NEXT_EPISODE -> autoNextEpisode.toString()
     TvSettingIds.SEEK_STEP -> seekStepSeconds.toString()
+    TvSettingIds.PLAYBACK_BUFFER -> playbackBufferSeconds.toString()
     TvSettingIds.HIGH_CONTRAST -> highContrast.toString()
     TvSettingIds.REDUCE_MOTION -> reduceMotion.toString()
     TvSettingIds.SUBTITLES -> subtitles.storageValue
@@ -60,6 +62,7 @@ private fun controlFor(settingId: String): SettingControlUi = when (settingId) {
     -> SettingControlUi.SWITCH
     TvSettingIds.QUALITY,
     TvSettingIds.SEEK_STEP,
+    TvSettingIds.PLAYBACK_BUFFER,
     TvSettingIds.SUBTITLES,
     -> SettingControlUi.DROPDOWN
     else -> SettingControlUi.VALUE
@@ -74,6 +77,9 @@ private fun optionsFor(settingId: String): List<SettingOptionUiModel> = when (se
         SettingOptionUiModel(VideoQualityPreference.SD.storageValue, "480p"),
     )
     TvSettingIds.SEEK_STEP -> TvPreferences.SEEK_STEP_SECONDS.map { seconds ->
+        SettingOptionUiModel(seconds.toString(), "$seconds сек")
+    }
+    TvSettingIds.PLAYBACK_BUFFER -> TvPreferences.PLAYBACK_BUFFER_SECONDS.map { seconds ->
         SettingOptionUiModel(seconds.toString(), "$seconds сек")
     }
     TvSettingIds.SUBTITLES -> listOf(

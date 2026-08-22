@@ -97,7 +97,7 @@ fun DetailsScreen(
         defaultQuality,
     ) {
         val firstAvailable = qualities.firstOrNull().orEmpty()
-        mutableStateOf(defaultQuality.resolve(firstAvailable, qualities))
+        mutableStateOf(defaultQuality.requestedLabel(firstAvailable))
     }
     val backFocus = remember(details.id) { FocusRequester() }
     val playbackFocus = remember(details.id) { FocusRequester() }

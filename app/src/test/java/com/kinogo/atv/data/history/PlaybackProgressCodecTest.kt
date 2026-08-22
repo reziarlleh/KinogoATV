@@ -97,6 +97,40 @@ class PlaybackProgressCodecTest {
     }
 
     @Test
+    fun `late older checkpoint cannot roll the same episode back`() {
+        val newer = progress(
+            content = "series",
+            season = "s2",
+            episode = "e5",
+            voice = "new-voice",
+            quality = "1080p",
+            position = 420_000,
+            updatedAt = 200,
+        )
+        val olderFinishingLater = progress(
+            content = "series",
+            season = "s2",
+            episode = "e5",
+            voice = "old-voice",
+            quality = "720p",
+            position = 180_000,
+            updatedAt = 100,
+            snapshot = CatalogItem(
+                id = "series",
+                relativePath = "/serialy/series.html",
+                title = "Series",
+            ),
+        )
+
+        val result = PlaybackProgressCollection.upsert(listOf(newer), olderFinishingLater)
+
+        assertEquals(420_000L, result.single().positionMs)
+        assertEquals(200L, result.single().updatedAtEpochMs)
+        assertEquals("new-voice", result.single().selection.voiceId)
+        assertEquals(olderFinishingLater.contentSnapshot, result.single().contentSnapshot)
+    }
+
+    @Test
     fun `snapshot enrichment preserves the newest checkpoint and enriches every episode`() {
         val snapshot = CatalogItem(
             id = "series",
@@ -164,6 +198,7 @@ class PlaybackProgressCodecTest {
         duration: Long? = 100_000,
         updatedAt: Long,
         snapshot: CatalogItem? = null,
+        ended: Boolean = false,
     ): WatchProgress =
         WatchProgress(
             selection =
@@ -177,6 +212,7 @@ class PlaybackProgressCodecTest {
             positionMs = position,
             durationMs = duration,
             updatedAtEpochMs = updatedAt,
+            playbackEnded = ended,
             contentSnapshot = snapshot,
         )
 }

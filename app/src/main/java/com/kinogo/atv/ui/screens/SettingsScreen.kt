@@ -234,21 +234,6 @@ fun SettingsScreen(
                     }
                 }
 
-                item(key = "application-update-heading") {
-                    Text(
-                        text = "Обновление приложения",
-                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Black,
-                    )
-                }
-                item(key = "application-update-card") {
-                    AppUpdateCard(
-                        state = appUpdate,
-                        onAction = onUpdateAction,
-                    )
-                }
                 regularSections.forEach { section ->
                     item(key = "section-${section.id}") {
                         Text(
@@ -269,6 +254,21 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+                item(key = "application-update-heading") {
+                    Text(
+                        text = "Обновление приложения",
+                        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+                item(key = "application-update-card") {
+                    AppUpdateCard(
+                        state = appUpdate,
+                        onAction = onUpdateAction,
+                    )
                 }
             }
         }

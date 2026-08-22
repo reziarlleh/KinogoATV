@@ -240,6 +240,16 @@ data class PlaybackMediaPlan(
         .sorted()
         .toList()
 
+    /** Flattened compatible playlist used for gapless episode and season-boundary playback. */
+    fun episodeCoordinatesFor(
+        sourceId: String,
+        voiceover: String,
+    ): List<PlaybackEpisodeCoordinate> = seasonNumbersFor(sourceId, voiceover).flatMap { season ->
+        episodeNumbersFor(sourceId, season, voiceover).map { episode ->
+            PlaybackEpisodeCoordinate(seasonNumber = season, episodeNumber = episode)
+        }
+    }
+
     /**
      * Previous playable episode for the selected source and translation.
      *
