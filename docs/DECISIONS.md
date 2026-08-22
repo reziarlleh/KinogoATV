@@ -421,8 +421,8 @@ PlayerJS.
 ## D-028 — Updater использует signed multi-endpoint manifest, GitHub API — fallback
 
 - Дата: 21 августа 2026 года
-- Статус: принято; final local canonical guards/manifest passed, Pages/jsDelivr deployment
-  и live updater pending
+- Статус: принято; final local/CI guards, code 16 manifest, Release и live transport
+  publication passed; in-app updater runtime pending
 
 Первичный update channel читает до четырёх HTTPS manifest endpoints параллельно. Exact
 UTF-8 payload в envelope подписан RSA/ECDSA ключом той же signing identity, что и
@@ -430,11 +430,12 @@ UTF-8 payload в envelope подписан RSA/ECDSA ключом той же si
 90 дней и до четырёх download URLs. Несогласованные manifest с одинаковым максимальным
 versionCode отклоняются. Default metadata endpoints — GitHub Pages и jsDelivr:
 `https://reziarlleh.github.io/KinogoATV/update/manifest.json` и
-`https://cdn.jsdelivr.net/gh/reziarlleh/KinogoATV@main/update/manifest.json`. Их deployment/
-live-доступность не считаются доказанной до проверки после release. jsDelivr — отдельный
-CDN-транспорт, но он по-прежнему берёт manifest из GitHub repository. Дополнительные зашитые в APK
-адреса задаются `KINOGO_UPDATE_MANIFEST_URLS`; при недоступности всех подписанных
-каналов сохранён strict GitHub Release API fallback.
+`https://cdn.jsdelivr.net/gh/reziarlleh/KinogoATV@main/update/manifest.json`. Для `0.5.2`
+deployment и live exact bytes подтверждены: Pages manifest+APK, jsDelivr manifest и
+ghfast/ghproxy/direct APK. jsDelivr — отдельный CDN-транспорт, но он по-прежнему берёт
+manifest из GitHub repository; proxy/direct URLs также ведут к опубликованному Release
+asset. Дополнительные зашитые в APK адреса задаются `KINOGO_UPDATE_MANIFEST_URLS`; при
+недоступности всех подписанных каналов сохранён strict GitHub Release API fallback.
 
 Следствие: TLS/host сам по себе не даёт update trust; manifest без валидной
 подписи installed identity отклоняется. Каждая загрузка по-прежнему проходит
@@ -445,9 +446,15 @@ Package Installer. GitHub Pages может быть заменён другим 
 криптографическую целостность даёт не прокси, а signed size/SHA-256 и final APK signer check.
 Operator-owned non-GitHub storage остаётся отдельной pending-задачей.
 
-Для первого merge C-008 старый signed code 15 `update/manifest.json` намеренно удалён.
-Final code 16 manifest создаётся только после появления exact v0.5.2 Release asset; иначе
-Pages workflow мог бы развернуть устаревший payload рядом с новым application source.
+Для первого merge C-008 старый signed code 15 `update/manifest.json` намеренно удалили,
+чтобы Pages workflow не развернул устаревший payload рядом с новым application source.
+После появления exact v0.5.2 Release asset опубликован final code 16 manifest: merge
+`367bcf288dd5b3ad729af94d9b21308e5c96354c`, 1 273 bytes, SHA-256
+`BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+`2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре URLs. Android CI run
+`32598900494` и Pages run `32598900503` завершились SUCCESS. Это доказывает release
+publication, но не runtime встроенного updater или hardware playback; C-008 остаётся
+validation candidate.
 
 ## D-029 — Cinemar discovery и already discovered player document имеют разные policy
 

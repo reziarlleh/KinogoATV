@@ -105,7 +105,8 @@ lint — **0 errors / 22 warnings / 2 hints**.
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
 **SUCCESS за 5 мин 20 с**, **87 suites / 441 tests**, 0 failures, 0 errors, 0 skipped;
 lint — **0 errors / 22 warnings / 2 hints**. Post-commit `assembleRelease --rerun-tasks` —
-**SUCCESS за 5 мин 29 с**. Remote CI остаётся **PENDING**.
+**SUCCESS за 5 мин 29 с**. Remote Android CI run `32598900494` на manifest/main merge
+`367bcf2` также завершён **SUCCESS**; аппаратная проверка C-008 остаётся **PENDING**.
 
 ### Buffer policy C-008
 
@@ -183,9 +184,16 @@ launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate 
 связан с exact application source
 `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.
 
-Final signed code 16 `update/manifest.json` ещё **PENDING**: старый code 15 manifest
-намеренно удалён перед первым merge C-008, чтобы Pages workflow не развернул устаревший
-payload. Release/Pages/jsDelivr/live updater и hardware runtime не проверены.
+Final signed code 16 `update/manifest.json`: 1 273 bytes, SHA-256
+`BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+`2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре URLs. Он опубликован merge
+`367bcf288dd5b3ad729af94d9b21308e5c96354c` после regular latest Release `v0.5.2`.
+GitHub digest asset совпадает с exact APK SHA-256.
+
+Remote Android CI run `32598900494` и Pages run `32598900503` завершены SUCCESS на
+`367bcf2`. Live exact bytes подтверждены для Pages manifest+APK, jsDelivr manifest и APK
+через ghfast, ghproxy, direct GitHub. In-app updater до OS confirmation и hardware playback
+не запускались и остаются **PENDING**; transports не считаются operator-owned независимым host.
 
 Исторический C-007 final local `update/manifest.json` имеет 1 273 bytes, SHA-256
 `3C167F87208077E6EC4717F202F968AD555B800C76043CFCF69B941627323070`, code 15 /
@@ -415,13 +423,12 @@ server sorts — дата, рейтинг, топ за 3 дня, просмот�
 | Next episode bounded cross-season preload + future-error isolation | `PlaybackMediaPlanTest`, `PlaybackBufferPolicyTest`, `PlaybackPreloadFailurePolicyTest` | Local canonical **PASS**; network/TV pending |
 | Settings update controls grouped last | source/UI contract review | Source review **PASS**; TV focus pending |
 | Native HUD manual refresh removed | source/UI contract review | Source review **PASS**; TV pending |
-| Updater 0.5.1 → 0.5.2 до OS confirmation | signed manifest/artifact verification | Exact APK local **PASS**; signed manifest/publication/runtime **PENDING** |
+| Updater 0.5.1 → 0.5.2 до OS confirmation | signed manifest/artifact/CI/live transport verification | Manifest/publication/transports **PASS**; in-app/OS runtime **PENDING** |
 
-C-008 имеет version code 16 / version name `0.5.2`; exact commit, local tests/lint и APK
-зафиксированы выше. CI URL, signed manifest, publication status и hardware behavior ещё
-неизвестны. Кандидат может быть опубликован как validation release для ручной проверки
-updater владельцем, но это не создаёт baseline tag и не разрешает утверждать, что плеер или
-TV UX аппаратно проверены.
+C-008 имеет version code 16 / version name `0.5.2`; exact commit, local tests/lint, APK,
+CI, signed manifest и publication зафиксированы выше. Он опубликован как validation release
+для ручной проверки updater владельцем. Это не создаёт playback baseline и не разрешает
+утверждать, что плеер, in-app updater или TV UX аппаратно проверены.
 
 ### Historical integration matrix 0.5.1
 

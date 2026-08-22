@@ -26,10 +26,11 @@ Settings; неиспользуемый arrow-cycle settings path удалён. �
 памяти через `ExoPlayer.PreloadConfiguration`; все совместимые сезоны уже сведены в один
 playlist, поэтому граница сезона не требует отдельного resolver warmup.
 
-C-008 имеет зафиксированный application source, зелёную локальную canonical-проверку и exact
-stable-signed APK, но не является новым playback baseline. Signed updater manifest, CI,
-PR/merge, Release, Pages/jsDelivr и live publication остаются `PENDING`. По выбору владельца
-APK 0.5.2 на TV не устанавливался;
+C-008 имеет зафиксированный application source, зелёные local/CI-проверки, exact
+stable-signed APK, regular latest GitHub Release и опубликованный signed update manifest,
+но не является новым playback baseline. Репозиторий публичный; Release, Pages, jsDelivr и
+все четыре APK transport проверены на exact bytes. По выбору владельца APK 0.5.2 на TV не
+устанавливался;
 hardware playback и updater runtime validation остаются **PENDING**. Доказательства C-007 /
 `0.5.1` ниже сохранены как исторические и к C-008 не переносятся. B-001 остаётся
 последним полным playback baseline.
@@ -48,15 +49,16 @@ hardware playback и updater runtime validation остаются **PENDING**. Д
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | v2 true; certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Baseline/release tag | не создан; C-008 не назначен baseline |
+| Release tag | `v0.5.2`; regular latest Release, не baseline |
 
-Exact local artifact C-008: `dist/KinogoATV-0.5.2-code16.apk`, **38 353 630 bytes**,
+Exact artifact C-008: `dist/KinogoATV-0.5.2-code16.apk`, **38 353 630 bytes**,
 SHA-256
 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
 `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, Android TV
 LEANBACK launcher/banner, zipalign OK, v2 true. Embedded revision — `4cfa7ac`, то есть exact
-application source выше. Final signed `update/manifest.json`, CI и publication evidence
-пока не записаны и остаются `PENDING`; APK/hash/TV results C-007 сюда не переносятся.
+application source выше. GitHub asset содержит тот же lowercase digest
+`sha256:fc70d02a2bc7a3f9e5e2f04a1a7b139037ac215c85166e72e9842d0db3cb4b38`.
+APK/hash/TV results C-007 сюда не переносятся.
 
 ## Known-good baseline и откат
 
@@ -107,9 +109,9 @@ Rollback APK допустим только с совместимой подпи�
 | Нативный плеер | C-008 source implemented; hardware **PENDING** | Buffer-aware watchdog, one fresh source attempt, forced new player generation, same-unit exact-position resume и quality exact/≤/lowest-above; ручная refresh-кнопка удалена |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-008 source implemented; runtime pending | Updater controls собраны в конце; Switch/OK-dropdown contract сохранён, obsolete arrow-cycle path удалён; buffer dropdown 5/10/15/20/30 с |
-| Обновления | C-008 runtime **PENDING** | Exact APK проверен локально; signed manifest/Release/Pages/jsDelivr/live updater ожидаются, owner проверит runtime без предварительной установки C-008 через ADB |
+| Обновления | Publication verified; runtime **PENDING** | Signed manifest, Release asset, Pages/jsDelivr metadata и четыре APK transport проверены; in-app flow до OS confirmation владелец проверит вручную |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | **PENDING** | Android workflow и Pages update workflow требуют remote evidence на exact C-008 commit |
+| CI | **PASS** | Android run `32598900494` и Pages run `32598900503` зелёные на manifest/main merge `367bcf2` |
 
 ## Проверка C-008
 
@@ -119,8 +121,32 @@ Rollback APK допустим только с совместимой подпи�
 завершена **SUCCESS за 5 мин 20 с**: **87 suites / 441 tests**, 0 failures, 0 errors,
 0 skipped; lint — **0 errors / 22 warnings / 2 hints**. После commit выполнен независимый
 `assembleRelease --rerun-tasks` — **SUCCESS за 5 мин 29 с**. Exact APK и его
-metadata/alignment/signature/hash приведены выше. Remote CI, PR/merge, Release, final signed
-manifest, Pages/jsDelivr/live updater и hardware evidence остаются **PENDING**.
+metadata/alignment/signature/hash приведены выше. CI, PR/merge, Release, final signed
+manifest и publication evidence приведены ниже. Hardware playback и in-app updater runtime
+остаются **PENDING**.
+
+### Публикация C-008
+
+- Public repository: [reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV).
+- Application/docs merge: `08c90c9`; application source внутри APK — exact
+  `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.
+- Tag `v0.5.2`; regular latest Release с `draft=false`, `prerelease=false`:
+  [KinogoATV 0.5.2](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.2).
+- Exact asset:
+  [KinogoATV-0.5.2-code16.apk](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk),
+  38 353 630 bytes, SHA-256 из таблицы выше; GitHub asset digest совпал побайтно.
+- Signed `update/manifest.json`: 1 273 bytes, SHA-256
+  `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+  `2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`, четыре URLs: Pages, ghfast,
+  ghproxy и direct GitHub. Manifest/main merge —
+  `367bcf288dd5b3ad729af94d9b21308e5c96354c`.
+- Android CI [run 32598900494](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900494)
+  — SUCCESS, `2026-08-22T21:12:08Z`–`21:13:28Z`; Pages
+  [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503) —
+  SUCCESS, `21:12:09Z`–`21:12:57Z`, оба на `367bcf2`.
+- Live exact bytes подтверждены для Pages manifest+APK и jsDelivr manifest; APK через
+  ghfast, ghproxy и direct GitHub совпал с exact size/SHA-256. Это transport diversity,
+  а не независимая от GitHub инфраструктура; operator-owned host остаётся **PENDING**.
 
 По решению владельца агент не подключался к TV по ADB, не устанавливал C-008
 и не выполнял hardware smoke. Автовосстановление playback, правила качества,
@@ -305,10 +331,10 @@ decline/explicit accept он подтвердил, что Down на нижней
   signer. До четырёх manifest/download URLs дают transport redundancy; GitHub Release API —
   fallback. Перед Android Package Installer повторно проверяются SHA-256, size,
   package/version и signing identity. Silent install нет, системное подтверждение
-  обязательно. Pages/jsDelivr/proxy transports до live-проверки считаются pending;
-  ни один из них не даёт trust без signed size/SHA и final APK checks.
-- GitHub Actions workflow настроен для clean-clone unit/lint/assembleDebug, но exact
-  remote run для exact C-008 commit ещё не записан. CI не имеет stable signing key и не доказывает TV UX.
+  обязательно. Pages/jsDelivr metadata и Pages/ghfast/ghproxy/direct APK transport проверены
+  на exact bytes, но ни один host не даёт trust без signed size/SHA и final APK checks.
+- GitHub Actions clean-clone unit/lint/assembleDebug и Pages publish прошли на merge
+  `367bcf2`. CI не имеет stable signing key и не доказывает TV UX.
 - Registration отдельно показывает DLE rules gate с default decline; sensitive fields
   remember-only, late responses защищены generation+origin, image CAPTCHA имеет bounded
   transport/decode. Интерактивные reCAPTCHA/hCaptcha/Turnstile не обходятся и явно
@@ -316,15 +342,14 @@ decline/explicit accept он подтвердил, что Down на нижней
 
 ## Активный фокус
 
-Следующий шаг — опубликовать и вручную принять C-008 / `0.5.2`:
+Следующий шаг — вручную принять опубликованный C-008 / `0.5.2`:
 
-- получить CI для exact commit, опубликовать exact Release asset, развернуть
-  Pages/jsDelivr и проверить metadata/APK URLs и update до OS confirmation;
-- после появления exact Release asset создать и проверить final signed code 16
-  `update/manifest.json`. Старый code 15 manifest намеренно удалён перед первым merge C-008,
-  чтобы Pages workflow не развернул устаревшее описание APK;
 - передать владельцу APK для ручной playback/updater приёмки; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;
+- проверить встроенный updater от обнаружения версии до передачи exact APK системному
+  Package Installer; системное подтверждение установки остаётся ручным;
+- добавить действительно operator-owned non-GitHub metadata+APK host, если потребуется
+  независимость от блокировки всей GitHub-инфраструктуры;
 - не назначать C-008 baseline, пока не закрыты playback stall/recovery, exact
   resume, quality persistence/fallback и updater runtime-сценарии.
 

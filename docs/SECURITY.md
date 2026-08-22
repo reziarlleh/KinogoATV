@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **23 августа 2026 года**.
 
 ## Модель угроз
 
@@ -179,12 +179,14 @@ token, iframe/media URL и cookies не логируются.
 
 ## Обновления APK
 
-Встроенный updater использует два независимых по доступности, но одну signing identity по
-доверию канала.
+Встроенный updater использует несколько транспортных маршрутов и одну signing identity как
+корень доверия. GitHub Pages, jsDelivr и proxy/direct download URLs повышают транспортную
+доступность, но не являются независимой от GitHub инфраструктурой: operator-owned
+non-GitHub endpoint остаётся отдельной задачей.
 
 Основной канал — signed manifest, загружаемый максимум с четырёх явно заданных HTTPS
-endpoints. В `0.5.1` по умолчанию используются GitHub Pages и jsDelivr для metadata;
-полностью независимый operator-owned endpoint остаётся отдельной инфраструктурной задачей:
+endpoints. В опубликованной `0.5.2` по умолчанию используются GitHub Pages и jsDelivr для
+metadata:
 
 - envelope подписан RSA/ECDSA public key сертификата уже установленного APK;
 - подписанные поля фиксируют version/name/size/SHA-256, срок не более 90 дней и до четырёх
@@ -214,9 +216,15 @@ cookie-данные не экспортируются в native/OkHttp, updater 
 
 Updater не может установить APK тихо. Если permission unknown-sources не выдан, Android
 сначала открывает системные настройки. В любом случае финальная установка требует
-явного OS confirmation пользователя. Final local canonical pass для `0.5.1` —
-82 suites / 393 tests, 0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
-Newer-version download и runtime-прогон Package Installer на TV ещё pending.
+явного OS confirmation пользователя.
+
+Для `0.5.2` проверены exact Release asset и GitHub lowercase digest, signed manifest
+размером 1 273 bytes с SHA-256
+`BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, его успешный Pages
+deployment и точное совпадение опубликованных bytes: manifest через Pages/jsDelivr, APK
+через Pages/ghfast/ghproxy/direct. Это доказывает публикацию и криптографические входы
+verifier, но не runtime встроенного updater: check/download/verify/Package Installer на TV
+остаётся **PENDING**, ADB по политике владельца не запускался.
 
 ## Repository hygiene
 
@@ -237,7 +245,10 @@ Newer-version download и runtime-прогон Package Installer на TV ещё 
 - `.env`, `local.properties` и secrets properties;
 - пользовательские DataStore, logs и crash reports.
 
-APK публикуются как GitHub Release assets с SHA-256, а не как Git blobs.
+Repository публичен по адресу `https://github.com/reziarlleh/KinogoATV`. APK публикуются как
+GitHub Release assets с SHA-256, а не как Git blobs. Regular latest release `v0.5.2`
+содержит exact asset `KinogoATV-0.5.2-code16.apk`; update manifest хранит только публичные
+release/transport URLs и подписанные метаданные, но не credentials, tokens или private key.
 
 ### About и поддержка автора
 

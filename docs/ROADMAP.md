@@ -6,26 +6,25 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: финализация 0.5.2 и ручная приёмка владельцем
+## Сейчас: ручная приёмка опубликованной 0.5.2
 
 C-008 добавляет buffer-aware one-shot recovery, новую player generation при
 fresh source, устойчивые checkpoint/resume writes, сохраняемый quality cap, реальную
 настройку Media3 buffer 5/10/15/20/30 с и in-memory preload ближайшей серии через
 границу сезона. Ручная refresh-кнопка и obsolete settings cycle удалены;
-updater-пункты собраны в конце Settings. Exact commit, final local Gradle evidence и
-stable-signed APK уже зафиксированы; signed manifest, CI/PR/Release/Pages/jsDelivr/live
-publication и runtime-приёмка ещё **PENDING**. C-007 остаётся
-исторической integration point, B-001 — полным playback rollback baseline.
+updater-пункты собраны в конце Settings. Exact application source, final local Gradle
+evidence, stable-signed APK, public repository, regular GitHub Release, signed code 16
+manifest, Android CI/Pages runs и exact bytes заявленных transports уже подтверждены.
+Аппаратная playback-приёмка и runtime встроенного updater ещё **PENDING**. C-007 остаётся
+исторической integration point, B-001 — полным playback rollback baseline; опубликованный
+C-008 остаётся validation candidate и сам по себе baseline не меняет.
 
-### P0 — final evidence и приёмка
+### P0 — runtime-приёмка владельцем
 
-- После появления exact Release asset создать и проверить final signed code 16
-  `update/manifest.json`. Старый code 15 manifest до первого merge C-008 намеренно удалён,
-  чтобы Pages workflow не развернул устаревший payload. При любом последующем production
-  change повторить полный canonical pass и artifact verification.
-- Получить GitHub Actions result на exact commit, опубликовать exact Release asset и
-  доказать live Pages/jsDelivr metadata и каждый заявленный APK transport. До этого все
-  endpoints считаются pending.
+- При любом последующем production change повторить полный canonical pass, artifact
+  verification, выпуск exact Release asset, формирование signed manifest и live-проверку
+  каждого заявленного transport. Доказательства текущего выпуска зафиксированы в
+  `PROJECT_STATE.md` и `RELEASE_PROCESS.md`.
 - Владелец вручную проверяет выход из player в Details с активной «Смотреть»,
   exact серию/позицию после restart, переход через границу сезона и immediate-next
   preload. Для quality проверяется exact/ниже cap/lowest-above и сохранение между
@@ -110,8 +109,8 @@ publication и runtime-приёмка ещё **PENDING**. C-007 остаётся
 
 - Разделить `KinogoAppRoot` на state holders/use cases без одномоментной миграции всех flow.
 - Удалить дублирование ручной пагинации/PagingSource после выбора одного production пути.
-- Получить первый зелёный remote run добавленного GitHub Actions workflow и затем считать
-  clean-clone CI operational.
+- Поддерживать clean-clone Android CI и Pages deployment зелёными на каждом production
+  merge; первый подтверждённый run получен для `367bcf2`.
 - Добавить dependency verification metadata и SHA-256 Gradle distribution.
 - Добавить API 28 emulator/device smoke; текущая аппаратная проверка выполнялась на Android TV
   14.
@@ -119,17 +118,18 @@ publication и runtime-приёмка ещё **PENDING**. C-007 остаётся
 
 ### Выпуск
 
-- Выпустить первый stable GitHub Release с exact asset name
-  `KinogoATV-<version>-code<code>.apk`, GitHub SHA-256 digest и release notes.
-- После exact Release asset подписать bounded update payload тем же APK signing identity,
-  развернуть Pages artifact и проверить его из целевой сети. При необходимости
-  добавить в следующий APK ещё один не-GitHub HTTPS endpoint через
-  `KINOGO_UPDATE_MANIFEST_URLS`; trust остаётся криптографическим, а не host-based.
+- Для следующей версии повторить подтверждённый процесс: exact Release asset,
+  GitHub SHA-256 digest, signed bounded update payload той же APK signing identity,
+  Pages deployment и live exact-byte verification.
+- Добавить operator-owned non-GitHub HTTPS endpoint через
+  `KINOGO_UPDATE_MANIFEST_URLS`, если потребуется реальная инфраструктурная независимость.
+  Текущие Pages/jsDelivr/proxy/direct URL дают разнообразие транспорта, но в итоге зависят
+  от опубликованного GitHub asset; trust остаётся криптографическим, а не host-based.
 - Настроить protected release environment и безопасную передачу signing secrets в CI, если
   автоматический release действительно понадобится.
-- Перед сменой visibility повторно проверить disclaimer/repository hygiene. Лицензию
-  выбрать только по явному решению владельца; пока `LICENSE` отсутствует, права не
-  предоставлены автоматически.
+- Перед каждым публичным выпуском повторно проверить disclaimer/repository hygiene.
+  Лицензию выбрать только по явному решению владельца; пока `LICENSE` отсутствует, права
+  не предоставлены автоматически.
 
 ## Реализовано в source
 
@@ -204,8 +204,9 @@ evidence указан в `PROJECT_STATE.md`.
   owner-supplied donation QR, exact external URL allowlist и
   public-repository disclaimer.
 - Signed multi-endpoint update manifest с installed-signer verification, bounded expiry/download
-  mirrors и GitHub Release API fallback; Pages/jsDelivr deployment ещё pending.
-- GitHub Actions clean-clone workflow (первый remote green run pending).
+  mirrors и GitHub Release API fallback; code 16 manifest опубликован через Pages/jsDelivr.
+- GitHub Actions clean-clone workflow и Pages deployment с зелёными runs для merge
+  `367bcf2`.
 - Local C-006 integration pass: 75 suites / 348 tests, lint 0 errors / 19 warnings / 2 hints,
   debug/androidTest/release assembly; verified stable-signed artifact и X96 final release
   install/cold smoke.

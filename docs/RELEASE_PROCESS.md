@@ -11,10 +11,10 @@
 Текущий C-008 / `0.5.2` (code 16, minSdk 28, targetSdk 37) — validation candidate для
 исправлений recovery/resume/quality, настраиваемого запаса буфера, bounded preload следующей
 серии и ручной проверки встроенного updater владельцем.
-Application commit, local canonical tests/lint и exact stable-signed APK/hash уже
-зафиксированы. CI, PR/merge, signed manifest, Release, Pages/jsDelivr/live publication и
-hardware evidence пока **PENDING**. C-008 не получает baseline tag и не считается
-аппаратно проверенным только из-за локальной сборки или публикации.
+Application commit, local canonical tests/lint, exact stable-signed APK/hash, public merge,
+regular latest Release, signed manifest, Android CI, Pages publish и live transport checks
+зафиксированы. Hardware playback и in-app updater runtime пока **PENDING**. C-008 не получает
+playback baseline tag и не считается аппаратно проверенным только из-за сборки или публикации.
 
 C-007 / `0.5.1` (code 15) остаётся историческим integration rollback point. Его final local
 canonical run, exact stable-signed APK/signed manifest и focused KIVI native/navigation
@@ -160,7 +160,8 @@ Post-commit `assembleRelease --rerun-tasks` — **SUCCESS за 5 мин 29 с**.
 `PlaybackQualityPolicyTest`, `PlaybackBufferPolicyTest`, `PlaybackMediaPlanTest`,
 `PlaybackPlaylistNavigationTest`, `PlaybackQualitySwitchGuardTest`,
 `PlaybackPreloadFailurePolicyTest`, `PlaybackSourceSelectionModelTest` и preferences tests.
-Remote CI run для exact commit ещё **PENDING**.
+Remote Android CI [run 32598900494](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900494)
+на manifest/main merge `367bcf2` завершён SUCCESS (`2026-08-22T21:12:08Z`–`21:13:28Z`).
 
 `.github/workflows/android.yml` повторяет canonical unit/lint/assembleDebug на push в
 `main` и pull request. Official Actions закреплены полными commit SHA актуальных Node 24
@@ -349,12 +350,13 @@ $expires = [DateTimeOffset]::UtcNow.AddDays(30)
   )
 ```
 
-Команда выше — воспроизводимый C-008 пример для уже проверенного exact final APK. Final
-code 16 manifest size/hash, timestamps, подпись, commit, Release asset и Pages/jsDelivr
-deployment ещё **PENDING**. Старый code 15 `update/manifest.json` намеренно удалён перед
-первым merge C-008: до появления exact v0.5.2 Release asset Pages workflow не должен
-разворачивать устаревший payload. Нельзя подписывать manifest до Release asset и нельзя
-использовать hash промежуточной сборки.
+Команда выше воспроизводит опубликованный C-008 contract. Final code 16
+`update/manifest.json`: 1 273 bytes, file SHA-256
+`BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
+`2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`; payload содержит exact APK
+size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest/main merge —
+`367bcf288dd5b3ad729af94d9b21308e5c96354c`. Старый code 15 manifest был намеренно удалён
+перед первым merge C-008 и заменён только после появления exact v0.5.2 Release asset.
 
 Исторический C-007 local release manifest candidate `update/manifest.json`: 1 273 bytes,
 file SHA-256
@@ -388,6 +390,12 @@ jsDelivr — отдельный CDN-транспорт для малого по�
 только после совпадения с подписанными size/SHA-256 и повторных
 package/version/signer checks. Operator-owned non-GitHub manifest+APK hosting остаётся
 **PENDING**.
+
+Для C-008 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest. APK через
+ghfast, ghproxy и direct GitHub совпал с 38 353 630 bytes и SHA-256
+`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`. Это проверенная
+transport diversity, но не инфраструктурная независимость от GitHub: Pages/jsDelivr/proxy
+маршруты в конечном счёте зависят от repository/Release asset.
 
 `update/manifest.json` коммитится только после review. Workflow
 `.github/workflows/pages-update.yml` скачивает exact Release asset, повторяет
@@ -438,25 +446,37 @@ gh release create v0.5.2 `
 единственное исключение описано выше для явно обозначенной validation-публикации.
 Draft/prerelease не обслуживаются updater как stable update.
 
+Фактический C-008 Release: public repository
+[reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV), application/docs merge
+`08c90c9`, tag `v0.5.2`,
+[regular latest Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.2) с
+`draft=false`, `prerelease=false`. Exact
+[APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk)
+имеет GitHub digest
+`sha256:fc70d02a2bc7a3f9e5e2f04a1a7b139037ac215c85166e72e9842d0db3cb4b38`.
+Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
+на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
+
 ## Release checklist
 
 - [x] Version code увеличен до 16, version name — `0.5.2`.
 - [x] Application source commit C-008 записан: `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.
-- [ ] GitHub Actions run на final documentation/release commit зелёный.
-- [x] Changelog/state/docs актуальны локально; publication commit ещё pending.
+- [x] GitHub Actions run `32598900494` на manifest/main merge `367bcf2` зелёный.
+- [x] Changelog/state/docs отражают опубликованный validation release.
 - [x] Unit tests зелёные: 87 suites / 441 tests без failures/errors/skips.
 - [x] Lint без errors: 22 warnings / 2 hints оценены.
 - [x] APK собран stable key.
 - [x] Metadata, alignment, signature и certificate проверены.
 - [x] SHA-256 записан.
-- [ ] Release tag, versionName/code, exact asset name и GitHub `sha256:` digest совпадают.
-- [ ] Signed manifest создан из того же APK, его installed-signer signature, exact
+- [x] Release tag, versionName/code, exact asset name и GitHub `sha256:` digest совпадают.
+- [x] Signed manifest создан из того же APK, его installed-signer signature, exact
       payload/expiry и download URLs проверены.
-- [ ] Pages workflow успешен; Pages и jsDelivr metadata URLs проверены из целевой
+- [x] Pages workflow `32598900503` успешен; Pages и jsDelivr metadata URLs проверены из целевой
       сети, а Pages не объявлен fully independent от всей GitHub infrastructure.
-- [ ] Каждый best-effort APK transport либо реально проверен, либо удалён из
-      payload; trust основан на signed size/SHA и final signer/package checks.
-- [ ] Hardware validation либо выполнена после отдельного явного разрешения, либо явно
+- [x] Каждый заявленный APK transport (Pages, ghfast, ghproxy, direct GitHub) проверен на
+      exact bytes; каждый остаётся недоверенным transport, а trust основан на signed
+      size/SHA и final signer/package checks.
+- [x] Hardware validation либо выполнена после отдельного явного разрешения, либо явно
       оставлена `PENDING`; для C-008 владелец проверяет updater вручную.
 - [ ] Если разрешено: `adb install -r` сохранил данные.
 - [ ] Если разрешено: cold launch и реальный playback проверены.

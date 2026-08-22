@@ -338,6 +338,12 @@ manifest endpoints, затем использует `GitHubReleaseUpdateClient` 
 package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
 системного confirmation.
 
+Для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
+metadata/download transports подтверждены после Release. Это проверяет deployment topology,
+но не runtime state machine на TV: in-app check/download/verify/installer остаётся
+**PENDING**. Pages/jsDelivr/proxy/direct transport в итоге зависит от GitHub publication;
+operator-owned non-GitHub endpoint пока отсутствует.
+
 `MirrorBootstrapClient` читает bounded exact-schema `config/mirrors.json` с operator-controlled
 GitHub raw path. Manifest не подписан и потому только добавляет quarantined discovery
 candidates в `MirrorRegistry`; принятие origin остаётся за existing health checker. Snapshot
@@ -439,8 +445,9 @@ device-bound.
 - xSort session-wide и потому требует общей сериализации даже при независимых UI feed
   states; разделение cookie sessions на browse/search пока не вводилось.
 - `reduceMotion` применяется только к части Settings UI.
-- GitHub Actions clean-clone workflow добавлен, но первый remote green run ещё pending;
-  dependency verification и API 28 emulator/device smoke отсутствуют.
+- GitHub Actions clean-clone Android workflow и Pages deployment получили первые зелёные
+  runs для merge `367bcf2`; dependency verification и API 28 emulator/device smoke
+  отсутствуют.
 
 Legacy `cycle`/`SettingCycleDirection` для Settings удалён в C-008. Изменение настройки идёт
 только через stable `settingId + optionId`: boolean-пункты передают состояние switch, enum
