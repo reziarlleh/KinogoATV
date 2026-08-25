@@ -26,4 +26,13 @@ class HistoryPosterTest {
             poster.subtitle,
         )
     }
+
+    @Test
+    fun `removal keeps focus at the same visual slot when possible`() {
+        val ids = listOf("first", "selected", "next")
+
+        assertEquals("next", preferredHistoryFocusAfterRemoval(ids, "selected"))
+        assertEquals("selected", preferredHistoryFocusAfterRemoval(ids, "next"))
+        assertEquals(null, preferredHistoryFocusAfterRemoval(listOf("selected"), "selected"))
+    }
 }

@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Цели архитектуры
 
@@ -309,8 +309,9 @@ contentId + seasonId? + episodeId?
 
 Запись содержит selection, position, duration, timestamp, явный `playbackEnded` и snapshot
 карточки. Completion не выводится только из последней позиции: отдельный end-сигнал не
-должен быть потерян при закрытии или смене серии. `PlaybackProgressCodec` читает v1 и
-записывает v2. Snapshot обогащается атомарно, не перезаписывая более новый checkpoint.
+должен быть потерян при закрытии или смене серии. `PlaybackProgressCodec` читает v1/v2 и
+записывает v3. V3 добавляет только stable adapter `sourceId`; URL/token в persistent
+selection не допускаются. Snapshot обогащается атомарно, не перезаписывая более новый checkpoint.
 `LegacyHistoryDetailsResolver` восстанавливает старые numeric-only записи через строго
 ограниченные относительные пути.
 
@@ -328,6 +329,12 @@ Timestamp выдаётся монотонно относительно памя�
 memory snapshot с DataStore, поэтому немедленный выход и повторное «Продолжить» видят одну
 и ту же последнюю серию/позицию.
 
+UI Истории группирует units по content ID. Обычный click использует общий `openDetails`,
+а content-level delete удаляет все ключи сериала. Delete/clear идут через ту же очередь
+после pending checkpoints и затем заменяют root memory точным store snapshot; merge со
+старыми удалёнными rows запрещён. Shared poster long action включён опционально только для
+Истории, поэтому click-контракт остальных сеток не изменён.
+
 ### Обновления и remote bootstrap
 
 `AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
@@ -337,6 +344,11 @@ manifest endpoints, затем использует `GitHubReleaseUpdateClient` 
 берётся из сертификата установленного APK. `ApkUpdateVerifier` до installer повторно сверяет
 package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
 системного confirmation.
+
+Startup orchestration различает automatic и manual check. Automatic flow имеет максимум
+две попытки с одной bounded задержкой; только результат `Available` открывает глобальный
+Compose TV-dialog. Dismiss скрывает его на текущий процесс, но не меняет настройку и не
+отменяет доступность update в Settings. Manual flow не выполняет скрытых retry.
 
 Для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
 metadata/download transports подтверждены после Release. Это проверяет deployment topology,

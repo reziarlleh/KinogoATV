@@ -6,6 +6,7 @@ import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.Signature
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.test.runTest
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -27,8 +28,12 @@ class SignedManifestUpdateClientTest {
     fun `one unavailable endpoint does not hide another verified manifest`() = runTest {
         val apk = "signed apk bytes".toByteArray()
         val body = envelope(payload(apk))
+        val noCacheRequested = AtomicBoolean(false)
         val client = client(
             interceptor = Interceptor { chain ->
+                if (chain.request().header("Cache-Control") == "no-cache") {
+                    noCacheRequested.set(true)
+                }
                 when (chain.request().url.host) {
                     "offline.example.org" -> response(chain, 503, "")
                     else -> response(chain, 200, body)
@@ -44,6 +49,7 @@ class SignedManifestUpdateClientTest {
 
         assertTrue(result is AppUpdateCheckResult.Available)
         assertEquals(15L, (result as AppUpdateCheckResult.Available).release.versionCode)
+        assertTrue(noCacheRequested.get())
     }
 
     @Test

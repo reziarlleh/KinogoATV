@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Модель угроз
 
@@ -141,6 +141,11 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 `PreparedPlaybackSession`, resolved source и related models должны redacted-форматировать
 `toString`. Fixtures содержат только синтетические или очищенные значения.
 
+Допустимое исключение в history codec v3 — короткий stable adapter `sourceId`, необходимый
+для точного resume (`cinemar`, `collaps`, `direct-media`). Он проходит non-blank
+domain invariant, не является URL/token и не разрешает сохранять provider document,
+grant либо конечный поток.
+
 Cinemar deferred token дополнительно не помещается в media URI. Он хранится только в
 session-owned `PlaybackMediaUrlResolver`. Три адресные политики намеренно разделены:
 
@@ -183,6 +188,10 @@ token, iframe/media URL и cookies не логируются.
 корень доверия. GitHub Pages, jsDelivr и proxy/direct download URLs повышают транспортную
 доступность, но не являются независимой от GitHub инфраструктурой: operator-owned
 non-GitHub endpoint остаётся отдельной задачей.
+
+`Cache-Control: no-cache` у signed manifest влияет только на freshness транспорта. Он не
+обходит HTTPS/public-DNS URL policy, проверку подписи manifest и последующую проверку
+package/version/size/SHA/signer APK.
 
 Основной канал — signed manifest, загружаемый максимум с четырёх явно заданных HTTPS
 endpoints. В опубликованной `0.5.2` по умолчанию используются GitHub Pages и jsDelivr для

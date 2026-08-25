@@ -1,23 +1,25 @@
 # Roadmap
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: ручная приёмка опубликованной 0.5.2
+## Сейчас: выпуск и ручная приёмка 0.5.3
 
-C-008 добавляет buffer-aware one-shot recovery, новую player generation при
+C-009 дополняет C-008 управлением локальной Историей, Details-first routing,
+сохранением stable source ID в checkpoint и видимым startup update prompt с одной
+повторной попыткой. C-008 добавил buffer-aware one-shot recovery и новую player generation при
 fresh source, устойчивые checkpoint/resume writes, сохраняемый quality cap, реальную
 настройку Media3 buffer 5/10/15/20/30 с и in-memory preload ближайшей серии через
 границу сезона. Ручная refresh-кнопка и obsolete settings cycle удалены;
-updater-пункты собраны в конце Settings. Exact application source, final local Gradle
-evidence, stable-signed APK, public repository, regular GitHub Release, signed code 16
-manifest, Android CI/Pages runs и exact bytes заявленных transports уже подтверждены.
-Аппаратная playback-приёмка и runtime встроенного updater ещё **PENDING**. C-007 остаётся
-исторической integration point, B-001 — полным playback rollback baseline; опубликованный
-C-008 остаётся validation candidate и сам по себе baseline не меняет.
+updater-пункты собраны в конце Settings. Для C-009 подтверждён final local Gradle pass;
+application source commit, exact stable-signed APK, Release, code 17 manifest и новые
+CI/Pages runs фиксируются в процессе выпуска. Exact publication evidence для code 16
+относится к C-008. Аппаратная playback-приёмка и runtime встроенного updater ещё
+**PENDING**. C-007 остаётся исторической integration point, B-001 — полным playback
+rollback baseline; C-009 остаётся validation candidate и сам по себе baseline не меняет.
 
 ### P0 — runtime-приёмка владельцем
 
@@ -35,9 +37,11 @@ C-008 остаётся validation candidate и сам по себе baseline н�
   помогла, явный retry идёт только через Back → Details → «Смотреть».
 - Владелец проверяет signed-manifest update при недоступном GitHub API: metadata,
   fallback download, APK checks и передачу Package Installer с обязательным OS confirmation.
+- Владелец проверяет обычный/долгий `OK` в Истории, безопасный focus диалога,
+  удаление одного сериала со всеми его сериями, полную очистку и startup update prompt.
 - Агент не подключается к TV по ADB, не устанавливает APK и не запускает hardware smoke
   без нового явного разрешения владельца на конкретный узкий сценарий.
-- Не назначать C-008 playback baseline, пока не закрыта эта runtime-матрица.
+- Не назначать C-009 playback baseline, пока не закрыта эта runtime-матрица.
 
 ### P1 — оставшиеся integration-регрессии
 
@@ -90,8 +94,9 @@ C-008 остаётся validation candidate и сам по себе baseline н�
 
 ### История и синхронизация
 
-- Добавить UI удаления одной записи/эпизода истории с подтверждением.
-- Добавить управление локальной history retention.
+- После ручной проверки решить, нужен ли отдельный режим удаления только одной серии;
+  текущая карточка материала намеренно удаляет все его episode checkpoints.
+- Добавить настраиваемую локальную history retention; ручные delete/clear уже реализованы.
 - Исследовать отдельный opt-in sync service/companion для exact progress; не имитировать
   серверную функцию сайта, которой нет.
 
@@ -133,7 +138,7 @@ C-008 остаётся validation candidate и сам по себе baseline н�
 
 ## Реализовано в source
 
-Пункты C-008 в этом списке не становятся verified runtime автоматически; актуальный уровень
+Пункты C-008/C-009 в этом списке не становятся verified runtime автоматически; актуальный уровень
 evidence указан в `PROJECT_STATE.md`.
 
 - Native Android TV shell и launcher tile.
@@ -163,6 +168,9 @@ evidence указан в `PROJECT_STATE.md`.
 - Local episode/position history and legacy ID recovery; checkpoint queue, generation guard,
   monotonic timestamps, unit activation at `0` и newest-completed suppression защищают
   exact resume от late writes и возврата к старой серии.
+- History использует Details-first navigation; long `OK` открывает безопасный delete/clear
+  dialog, удаление сериала охватывает все его episode checkpoints и сохраняет соседний фокус.
+- Codec v3 сохраняет stable playback source ID без transient URL; v1/v2 остаются читаемыми.
 - Native Media3 player and selection matrix; desired quality сохраняется между
   сериями и выбирает exact, затем highest `<=` cap, иначе lowest above cap.
 - Cinemar/Collaps native adapters, включая lazy selected-leaf Cinemar grant через
@@ -194,6 +202,8 @@ evidence указан в `PROJECT_STATE.md`.
   candidates; текущий snapshot содержит четыре origin, включая `kinogo.family`.
 - Проверяемый GitHub Release updater с exact signer validation и обязательным Android OS
   confirmation.
+- Startup auto-check показывает global D-pad prompt при новой версии, делает одну bounded
+  повторную попытку и запрашивает signed manifest с `Cache-Control: no-cache`.
 - Initial rail focus, Switch/dropdown Settings и newest applicable resume policy;
   updater controls собраны в конце, obsolete arrow-cycle settings path удалён.
 - Buffer-aware one-shot fresh playback source recovery с cross-screen loop guard, forced

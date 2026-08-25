@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Виды сборок
 
@@ -8,18 +8,22 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-008 / `0.5.2` (code 16, minSdk 28, targetSdk 37) — validation candidate для
-исправлений recovery/resume/quality, настраиваемого запаса буфера, bounded preload следующей
-серии и ручной проверки встроенного updater владельцем.
-Application commit, local canonical tests/lint, exact stable-signed APK/hash, public merge,
+Текущий C-009 / `0.5.3` (code 17, minSdk 28, targetSdk 37) — validation candidate для
+Details-first History, delete/clear, codec v3 source persistence и видимого startup updater.
+Final local canonical tests/lint уже зелёные; source commit, post-commit exact stable-signed
+APK/hash, public Release и signed manifest фиксируются этим выпуском. Hardware History/resume/updater
+runtime остаётся **PENDING** по решению владельца. C-009 не получает playback baseline tag и
+не считается аппаратно проверенным только из-за сборки или публикации.
+
+C-008 / `0.5.2` (code 16) остаётся предыдущим exact published validation candidate:
+application commit, local canonical tests/lint, stable-signed APK/hash, public merge,
 regular latest Release, signed manifest, Android CI, Pages publish и live transport checks
-зафиксированы. Hardware playback и in-app updater runtime пока **PENDING**. C-008 не получает
-playback baseline tag и не считается аппаратно проверенным только из-за сборки или публикации.
+зафиксированы в `PROJECT_STATE.md`.
 
 C-007 / `0.5.1` (code 15) остаётся историческим integration rollback point. Его final local
 canonical run, exact stable-signed APK/signed manifest и focused KIVI native/navigation
 runtime проверены для application source `8b0be72`; эти числа, hash и device evidence нельзя
-переносить на C-008.
+переносить на C-009.
 
 Исторический локальный canonical result C-007:
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
@@ -138,6 +142,12 @@ git ls-files --others --exclude-standard
 ```
 
 Любая ошибка блокирует выпуск. Lint warnings оцениваются и фиксируются либо документируются.
+
+Для C-009 полный canonical набор
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
+завершён **SUCCESS за 7 мин 12 с**: 89 suites / 455 tests, 0 failures, 0 errors,
+0 skipped; lint 0 errors / 22 warnings / 2 hints. Source commit и независимый
+`assembleRelease --rerun-tasks` фиксируются следующим этапом выпуска.
 
 Предыдущий local integration pass C-006: 75 suites / 348 unit tests, 0 failures, 0 errors,
 0 skipped; lint 0 errors / 19 warnings / 2 hints; debug, AndroidTest APK и release assembly

@@ -124,6 +124,7 @@ internal class SignedManifestUpdateClient internal constructor(
         val request = Request.Builder()
             .url(manifestUrl)
             .header("Accept", "application/json")
+            .header("Cache-Control", "no-cache")
             .header("User-Agent", USER_AGENT)
             .get()
             .build()

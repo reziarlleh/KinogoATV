@@ -80,6 +80,12 @@ object PlaybackProgressCollection {
     fun delete(entries: Collection<WatchProgress>, key: PlaybackProgressKey): List<WatchProgress> =
         normalize(entries.filterNot { it.progressKey() == key })
 
+    /** Removes every movie/episode checkpoint represented by one History poster. */
+    fun deleteContent(entries: Collection<WatchProgress>, contentId: String): List<WatchProgress> {
+        require(contentId.isNotBlank())
+        return normalize(entries.filterNot { it.selection.contentId == contentId })
+    }
+
     private fun historyOrder(): Comparator<WatchProgress> =
         compareByDescending<WatchProgress> { it.updatedAtEpochMs }
             .thenBy { it.selection.contentId }
@@ -94,16 +100,18 @@ object PlaybackProgressCollection {
 object PlaybackProgressCodec {
     private const val VERSION_1 = "1"
     private const val VERSION_2 = "2"
+    private const val VERSION_3 = "3"
     private const val NULL_TOKEN = "~"
     private const val V1_FIELD_COUNT = 10
     private const val V2_FIELD_COUNT = 21
+    private const val V3_FIELD_COUNT = 22
     private val hex = "0123456789ABCDEF".toCharArray()
 
     fun encode(entries: Collection<WatchProgress>): String =
         PlaybackProgressCollection.normalize(entries).joinToString(separator = "\n") { progress ->
             val snapshot = progress.contentSnapshot
             listOf(
-                VERSION_2,
+                VERSION_3,
                 encodeText(progress.selection.contentId),
                 encodeNullableText(progress.selection.seasonId),
                 encodeNullableText(progress.selection.episodeId),
@@ -124,6 +132,7 @@ object PlaybackProgressCodec {
                 snapshot?.ratings?.imdb?.toString() ?: NULL_TOKEN,
                 encodeNullableText(snapshot?.qualityBadge),
                 encodeNullableText(snapshot?.episodeBadge),
+                encodeNullableText(progress.selection.sourceId),
             ).joinToString(separator = "\t")
         }
 
@@ -141,7 +150,8 @@ object PlaybackProgressCodec {
         val fields = line.split('\t')
         require(
             (fields.size == V1_FIELD_COUNT && fields[0] == VERSION_1) ||
-                (fields.size == V2_FIELD_COUNT && fields[0] == VERSION_2),
+                (fields.size == V2_FIELD_COUNT && fields[0] == VERSION_2) ||
+                (fields.size == V3_FIELD_COUNT && fields[0] == VERSION_3),
         )
 
         val selection =
@@ -151,6 +161,11 @@ object PlaybackProgressCodec {
                 episodeId = decodeNullableText(fields[3]),
                 voiceId = decodeText(fields[4]),
                 qualityId = decodeText(fields[5]),
+                sourceId = if (fields[0] == VERSION_3) {
+                    decodeNullableText(fields[21])
+                } else {
+                    null
+                },
             )
         val ended =
             when (fields[9]) {
@@ -158,7 +173,7 @@ object PlaybackProgressCodec {
                 "1" -> true
                 else -> error("Invalid ended flag")
             }
-        val snapshot = if (fields[0] == VERSION_2 && fields[10] == "1") {
+        val snapshot = if (fields[0] != VERSION_1 && fields[10] == "1") {
             CatalogItem(
                 id = selection.contentId,
                 relativePath = decodeText(fields[11]),

@@ -1,64 +1,48 @@
 # Текущее состояние проекта
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.2** (code 16), validation candidate
-**C-008**. Основное изменение — автоматическое one-shot восстановление native playback:
-production watchdog получает пороги из той же политики, что и Media3 buffer:
-initial `max(20 с, target)`, rebuffer `clamp(target, 5–10 с)` и 15 с для `READY` без
-прогресса. При срабатывании запрашивается fresh source plan,
-увеличивается session generation и создаётся новый Media3 player с той же unit/позицией.
-Ручная native-кнопка обновления удалена; после исчерпания автопопытки явный retry
-выполняется через Back → Details → «Смотреть».
+Текущий application source выпускает **0.5.3** (code 17), validation candidate
+**C-009**. История теперь использует общий Details-first route: короткий `OK` открывает
+карточку, длинный `OK`/Enter или long tap — безопасный диалог удаления выбранного материала
+либо полной очистки. Удаление сериала охватывает все episode checkpoints и сериализовано с
+pending playback writes; фокус переходит к соседнему stable ID либо в rail.
 
-Resume state усилен сериализованной checkpoint-очередью, generation guard и
-монотонным timestamp. Новая серия фиксируется даже на позиции `0`; более новый
-completed checkpoint подавляет старую unfinished-запись. Детали материала остаются в
-root cache, поэтому «Смотреть» доступна сразу после выхода из плеера. Desired quality
-хранится отдельно от actual variant и применяется между сериями по правилу exact →
-highest available `<=` cap → lowest available above cap; смена intent до preload пересчитывает
-fixed MediaItems будущих серий, не меняя текущую позицию/reference. Пункты updater собраны в конце
-Settings; неиспользуемый arrow-cycle settings path удалён. Новый dropdown
-«Буфер воспроизведения» даёт 5/10/15/20/30 с (default/fallback 15 с) и напрямую
-настраивает Media3 `LoadControl`. Immediate-next episode ограниченно заготавливается в
-памяти через `ExoPlayer.PreloadConfiguration`; все совместимые сезоны уже сведены в один
-playlist, поэтому граница сезона не требует отдельного resolver warmup.
+Resume checkpoint v3 дополнительно сохраняет stable provider `sourceId`; v1/v2 остаются
+читаемыми. Это закрывает найденный путь, где после restart выбирался другой source/первая
+доступная серия и старая позиция корректно не применялась к несовпавшей unit. DataStore name
+и history key между версиями не менялись; точную причину уже случившейся полной потери без
+старых данных устройства доказать нельзя.
 
-C-008 имеет зафиксированный application source, зелёные local/CI-проверки, exact
-stable-signed APK, regular latest GitHub Release и опубликованный signed update manifest,
-но не является новым playback baseline. Репозиторий публичный; Release, Pages, jsDelivr и
-все четыре APK transport проверены на exact bytes. По выбору владельца APK 0.5.2 на TV не
-устанавливался;
-hardware playback и updater runtime validation остаются **PENDING**. Доказательства C-007 /
-`0.5.1` ниже сохранены как исторические и к C-008 не переносятся. B-001 остаётся
-последним полным playback baseline.
+Startup auto-update теперь показывает global D-pad dialog при `Available` и делает одну
+отложенную повторную попытку после временной ошибки. Manual check остаётся немедленным;
+signed manifest/APK verification и обязательный Android installer confirmation сохранены.
+Локальный canonical lint/build зелёный. Exact stable-signed APK, source commit и публикация
+C-009 ещё фиксируются; TV/ADB по указанию владельца не использовались.
+C-008 остаётся предыдущим опубликованным validation candidate, C-007 — исторической
+аппаратно проверенной integration point, B-001 — последним полным playback baseline.
 
 ## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-008 / 0.5.2 validation** |
-| Application source commit | `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1` |
+| Candidate | **C-009 / 0.5.3 validation** |
+| Application source commit | `PENDING` до фиксации source commit |
 | Application ID | `com.kinogo.atv` |
-| Version code | `16` |
-| Version name | `0.5.2` |
+| Version code | `17` |
+| Version name | `0.5.3` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | v2 true; certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | `v0.5.2`; regular latest Release, не baseline |
+| Release tag | `PENDING`; C-008 `v0.5.2` остаётся текущим published rollback candidate |
 
-Exact artifact C-008: `dist/KinogoATV-0.5.2-code16.apk`, **38 353 630 bytes**,
-SHA-256
-`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
-`com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, Android TV
-LEANBACK launcher/banner, zipalign OK, v2 true. Embedded revision — `4cfa7ac`, то есть exact
-application source выше. GitHub asset содержит тот же lowercase digest
-`sha256:fc70d02a2bc7a3f9e5e2f04a1a7b139037ac215c85166e72e9842d0db3cb4b38`.
-APK/hash/TV results C-007 сюда не переносятся.
+Exact artifact C-009 ещё не зафиксирован. До его проверки единственный published exact
+artifact — C-008 `dist/KinogoATV-0.5.2-code16.apk`, **38 353 630 bytes**, SHA-256
+`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`.
 
 ## Known-good baseline и откат
 
@@ -74,7 +58,7 @@ APK/hash/TV results C-007 сюда не переносятся.
 
 C-007 / `0.5.1`, source `8b0be72`, сохраняется как предыдущая проверенная
 интеграционная точка. Её exact APK/hash и KIVI evidence описаны в разделе
-«Предыдущая проверка C-007» и не являются evidence для C-008.
+«Предыдущая проверка C-007» и не являются evidence для C-009.
 
 Последний аппаратно проверенный catalog candidate — **C-005 / `0.4.3-dev`**, source
 `15efacc`, artifact SHA-256
@@ -92,8 +76,8 @@ Rollback APK допустим только с совместимой подпи�
 
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | C-008 hardware **PENDING** | APK 0.5.2 на TV не устанавливался; C-007 KIVI install/launch evidence остаётся историческим |
-| Android TV launcher | C-008 local artifact verified | Exact package/code/name/min/target, LEANBACK launcher/banner, zipalign, v2 signature и certificate проверены локально |
+| Запуск | C-009 hardware **PENDING** | TV/ADB не использовались; C-007 KIVI install/launch evidence остаётся историческим |
+| Android TV launcher | C-009 build pending | Metadata code 17/name 0.5.3/minSdk 28 зафиксированы; exact APK verification ещё предстоит |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
@@ -104,16 +88,30 @@ Rollback APK допустим только с совместимой подпи�
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-008 source implemented; runtime pending | Serialized/generation-guarded/monotonic checkpoint writes, unit activation at position `0`, newest-completed suppression и merge history+progress; C-007 Back/focus evidence историческое |
+| История | C-009 source/unit PASS; runtime pending | Details-first click, long-OK delete/clear, content-level series removal, deterministic focus, serialized mutations и codec v3 source ID |
 | Выбор источника | C-008 source implemented; runtime pending | Source/voice/season/episode sparse-матрица; desired quality сохраняется между сериями как cap |
 | Нативный плеер | C-008 source implemented; hardware **PENDING** | Buffer-aware watchdog, one fresh source attempt, forced new player generation, same-unit exact-position resume и quality exact/≤/lowest-above; ручная refresh-кнопка удалена |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-008 source implemented; runtime pending | Updater controls собраны в конце; Switch/OK-dropdown contract сохранён, obsolete arrow-cycle path удалён; buffer dropdown 5/10/15/20/30 с |
-| Обновления | Publication verified; runtime **PENDING** | Signed manifest, Release asset, Pages/jsDelivr metadata и четыре APK transport проверены; in-app flow до OS confirmation владелец проверит вручную |
+| Обновления | C-009 source/unit PASS; publication/runtime pending | Global automatic Available dialog, one retry и no-cache manifest; C-008 signed publication остаётся last exact live evidence |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | **PASS** | Android run `32598900494` и Pages run `32598900503` зелёные на manifest/main merge `367bcf2` |
+| CI | C-009 **PENDING**; C-008 publication PASS | Android run `32598900494` и Pages run `32598900503` зелёные для предыдущего manifest/main merge `367bcf2`; новые run IDs фиксируются после публикации C-009 |
 
-## Проверка C-008
+## Проверка C-009
+
+Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+assembleRelease` завершён **SUCCESS за 7 мин 12 с**: **89 suites / 455 tests**, 0
+failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Проверяются
+backward-compatible codec v1/v2/v3, source round-trip,
+content-level delete, сохранность unrelated preferences, checkpoint/delete ordering,
+History focus/long-press reducer и automatic update policy. Exact signed APK фиксируется
+после source commit повторной release-сборкой.
+
+По прямому указанию владельца ADB, установка на KIVI/X96MAX и hardware smoke не
+выполнялись. Работа D-pad long press на конкретном OEM, реальный resume после process
+restart и startup update dialog остаются **PENDING**.
+
+## Предыдущая проверка C-008
 
 Для application source
 `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1` canonical команда
@@ -121,7 +119,8 @@ Rollback APK допустим только с совместимой подпи�
 завершена **SUCCESS за 5 мин 20 с**: **87 suites / 441 tests**, 0 failures, 0 errors,
 0 skipped; lint — **0 errors / 22 warnings / 2 hints**. После commit выполнен независимый
 `assembleRelease --rerun-tasks` — **SUCCESS за 5 мин 29 с**. Exact APK и его
-metadata/alignment/signature/hash приведены выше. CI, PR/merge, Release, final signed
+metadata/alignment/signature/hash приведены в `TESTING.md` и `RELEASE_PROCESS.md`. CI,
+PR/merge, Release, final signed
 manifest и publication evidence приведены ниже. Hardware playback и in-app updater runtime
 остаются **PENDING**.
 

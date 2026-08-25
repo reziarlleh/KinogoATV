@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Принцип доказательств
 
@@ -107,6 +107,27 @@ lint — **0 errors / 22 warnings / 2 hints**.
 lint — **0 errors / 22 warnings / 2 hints**. Post-commit `assembleRelease --rerun-tasks` —
 **SUCCESS за 5 мин 29 с**. Remote Android CI run `32598900494` на manifest/main merge
 `367bcf2` также завершён **SUCCESS**; аппаратная проверка C-008 остаётся **PENDING**.
+
+Для C-009 / `0.5.3` (code 17) добавлены/расширены:
+
+- `PlaybackProgressCodecTest` — v1/v2 backward compatibility, v3 source ID round-trip,
+  обновление той же episode unit при смене provider и content-level удаление всех серий;
+- `PlaybackProgressStoreTest` — атомарное удаление сериала и сохранность посторонних
+  Preferences при полной очистке history;
+- `KinogoAppRootResumeTest` — UI/domain source round-trip и checkpoint → delete ordering;
+- `HistoryPosterTest` — deterministic next/previous focus после удаления;
+- `TvPosterGridTest` — короткий OK остаётся click, repeat-based long OK срабатывает один раз
+  и подавляет последующий click на KeyUp;
+- `AutomaticUpdateCheckPolicyTest` — ожидание загруженной preference, один automatic retry,
+  отсутствие retry у manual check и global prompt только для automatic `Available`;
+- `SignedManifestUpdateClientTest` — manifest request явно требует `no-cache`.
+
+Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+assembleRelease` завершён **SUCCESS за 7 мин 12 с**: **89 suites / 455 tests**, 0
+failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Exact C-009 APK
+фиксируется после source commit повторной release-сборкой. D-pad long-press,
+resume реального non-default provider и startup update dialog остаются ручной аппаратной
+приёмкой владельца.
 
 ### Buffer policy C-008
 

@@ -40,6 +40,7 @@ import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.model.KinogoFixtures
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.AppUpdateUiModel
+import com.kinogo.atv.ui.model.AppUpdateUiPhase
 import com.kinogo.atv.ui.model.HistoryUiModel
 import com.kinogo.atv.ui.model.MirrorUiState
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
@@ -167,7 +168,8 @@ fun KinogoTvApp(
     onManualMirrorSubmitted: (String) -> Unit = {},
     onMirrorSelected: (String) -> Unit = {},
     onMirrorRetry: (String) -> Unit = {},
-    onHistoryResume: ((String) -> Unit)? = null,
+    onHistoryDelete: (String) -> Unit = {},
+    onHistoryClear: () -> Unit = {},
     accountState: AccountConnectionState = AccountConnectionState(),
     pendingSyncCount: Int = 0,
     syncMessage: String? = null,
@@ -184,6 +186,8 @@ fun KinogoTvApp(
     onRegistrationSubmit: (RegistrationSubmissionUiInput) -> Unit = {},
     appUpdate: AppUpdateUiModel = AppUpdateUiModel(currentVersion = "—"),
     onUpdateAction: () -> Unit = {},
+    showAppUpdatePrompt: Boolean = false,
+    onUpdatePromptDismiss: () -> Unit = {},
     appVersionName: String = "—",
     onDonateOpen: () -> Unit = {},
     onRepositoryOpen: () -> Unit = {},
@@ -348,13 +352,23 @@ fun KinogoTvApp(
 
                             TvDestination.History -> HistoryScreen(
                                 history = history,
-                                onResume = { contentId ->
-                                    onHistoryResume?.invoke(contentId)
-                                        ?: run { selectedDetailsId = contentId }
-                                },
+                                onOpenDetails = ::openDetails,
                                 requestInitialFocus = !suppressInitialContentFocus,
                                 lastFocusedItemId = historyFocusedItemId,
                                 onFocusedItemChanged = onHistoryFocusedItemChanged,
+                                onDeleteContent = { contentId, preferredFocusItemId ->
+                                    if (preferredFocusItemId == null) {
+                                        suppressInitialContentFocus = true
+                                    } else {
+                                        suppressInitialContentFocus = false
+                                        onHistoryFocusedItemChanged(preferredFocusItemId)
+                                    }
+                                    onHistoryDelete(contentId)
+                                },
+                                onClearHistory = {
+                                    suppressInitialContentFocus = true
+                                    onHistoryClear()
+                                },
                             )
 
                             TvDestination.Settings -> SettingsScreen(
@@ -403,6 +417,90 @@ fun KinogoTvApp(
                     onRepository = onRepositoryOpen,
                     onDismiss = { showAboutDialog = false },
                 )
+            }
+            if (showAppUpdatePrompt) {
+                AppUpdatePromptDialog(
+                    update = appUpdate,
+                    onAction = onUpdateAction,
+                    onDismiss = onUpdatePromptDismiss,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppUpdatePromptDialog(
+    update: AppUpdateUiModel,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val laterFocus = remember { FocusRequester() }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        BackHandler(onBack = onDismiss)
+        LaunchedEffect(Unit) { laterFocus.requestFocus() }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.76f))
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.width(600.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xFF213842),
+                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                shadowElevation = 28.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Text(
+                        text = "Доступно обновление KinogoATV",
+                        color = Color.White,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                    update.availableVersion?.let { availableVersion ->
+                        Text(
+                            text = "Версия ${update.currentVersion} → $availableVersion",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Text(
+                        text = update.status,
+                        color = Color(0xFFD0DEE4),
+                        fontSize = 15.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TvActionButton(
+                            text = "Позже",
+                            onClick = onDismiss,
+                            modifier = Modifier.focusRequester(laterFocus),
+                            primary = true,
+                        )
+                        val actionLabel = update.actionLabel
+                        if (actionLabel != null && update.phase != AppUpdateUiPhase.CURRENT) {
+                            Spacer(Modifier.width(12.dp))
+                            TvActionButton(
+                                text = actionLabel,
+                                onClick = onAction,
+                                enabled = update.actionEnabled,
+                            )
+                        }
+                    }
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,23 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-009 — 0.5.3 validation
+
+- Статус: source fix и canonical local verification passed; exact artifact/publication и
+  hardware verification фиксируются перед выпуском.
+- Metadata in source: version code 17, version `0.5.3`, minSdk 28, targetSdk 37.
+- Source scope: Details-first History, content-level delete/clear, deterministic focus,
+  codec v3 stable source ID, visible automatic update prompt, one bounded automatic retry
+  и no-cache signed manifest request.
+- Protective evidence: `PlaybackProgressCodecTest`, `PlaybackProgressStoreTest`,
+  `KinogoAppRootResumeTest`, `HistoryPosterTest`, `TvPosterGridTest`,
+  `AutomaticUpdateCheckPolicyTest`, `SignedManifestUpdateClientTest`.
+- Automated: canonical Gradle run — SUCCESS за 7 мин 12 с; 89 suites / 455 tests,
+  0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
+- Runtime: TV/ADB не использовались по указанию владельца. Long-OK, real resume и startup
+  updater dialog — **PENDING**.
+- Rollback: C-008 application source `4cfa7ac8`; полный playback — B-001.
 
 ### C-008 — 0.5.2 validation
 
@@ -290,7 +307,7 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Статус: Resolved before B-001
 - Наблюдалось: 22 июля 2026 года
 - Симптом: focus был виден, но Left/Right/OK не меняли значения либо значение не сохранялось.
-- Исправление до B-001: DataStore codec/store и D-pad row handling. Текущий контракт C-008
+- Исправление до B-001: DataStore codec/store и D-pad row handling. Текущий контракт C-009
   использует явный `set(settingId, optionId)`: boolean меняется Switch по OK, enum выбирается
   из dropdown, включая запас буфера `5/10/15/20/30 сек` (default `15`). Старые
   неиспользуемые `TvPreferences.cycle` и `SettingCycleDirection` удалены; Left/Right не
@@ -841,6 +858,64 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Runtime verification: **PENDING**; без отдельного разрешения не измерять фактические
   tracks на TV.
 - Rollback point: C-007 / `8b0be72`; аппаратно подтверждённого quality-cap baseline нет.
+
+### R-028 — Resume терял выбранный provider и выглядел как сброс позиции
+
+- Статус: source fix и local unit verification passed in C-009; hardware **PENDING**.
+- Обнаружено: 25 августа 2026 года при аудите пользовательского сообщения о сброшенных
+  временных метках/позициях.
+- Affected: C-008 и более ранние multi-source версии; exact first-bad неизвестен.
+- Last-known-good: отсутствует для restart с non-default source; C-007 runtime проверял
+  один current Cinemar route.
+- Причина: UI selection содержала stable `sourceId`, domain `PlaybackSelection` и codec —
+  нет. Кроме того, root перед selector преждевременно заменял сохранённую unit уже
+  нормализованной: selector сравнивал её саму с собой и мог разрешить старую позицию для
+  первой доступной другой серии.
+- Исправление: optional source ID добавлен в domain selection и двусторонний mapper;
+  codec v3 сохраняет его с backward read v1/v2. Root передаёт selector исходную сохранённую
+  unit как resume reference, поэтому position разрешена только при совпадении content/season/
+  episode после fresh normalization. Direct media сохраняет только internal `direct-media`,
+  а не недоверенный HTML provider/hostname. Unit key не изменён.
+- Protective tests: codec v1/v2/v3, source round-trip, same-unit update, direct resolver ID и
+  mismatch/reselect resume guard в `PlaybackProgressCodecTest`, `KinogoAppRootResumeTest` и
+  `PlaybackSourceSelectionModelTest`.
+- Runtime verification: **PENDING**; точную причину уже произошедшей полной потери без
+  старого состояния устройства установить невозможно. Обычный signer-compatible APK
+  update DataStore не очищает.
+- Rollback point: C-008 / `4cfa7ac8`; аппаратного baseline для non-default source нет.
+
+### R-029 — Автопроверка находила обновление, но не показывала его при запуске
+
+- Статус: source fix и local unit verification passed in C-009; runtime **PENDING**.
+- Обнаружено: 25 августа 2026 года по симптому «при запуске не предложило, вручную нашло».
+- Affected: C-008 / `0.5.2` и предыдущий updater UI.
+- Last-known-good: отсутствует для startup prompt; C-008 доказал только публикацию и bytes.
+- Причина: automatic check обновлял `appUpdateUi`, который рендерился исключительно внутри
+  Settings. Флаг started выставлялся до запроса, поэтому временная ошибка расходовала
+  единственную попытку процесса.
+- Исправление: check origin, глобальный D-pad dialog только для automatic `Available`, одна
+  задержанная повторная попытка, no-cache manifest. Manual check остаётся одноразовым.
+- Protective test: `AutomaticUpdateCheckPolicyTest`, `SignedManifestUpdateClientTest` и
+  source contract глобального dialog.
+- Runtime verification: **PENDING** до ручного запуска владельцем и OS confirmation.
+- Rollback point: C-008 / `4cfa7ac8`; функционального startup-prompt baseline нет.
+
+### R-030 — История обходила карточку и не позволяла удалить локальные записи
+
+- Статус: source fix и local unit verification passed in C-009; TV long-press **PENDING**.
+- Обнаружено: 25 августа 2026 года.
+- Affected: C-008 / `0.5.2` и предыдущая History routing implementation.
+- Last-known-good: C-007 подтверждал History → player → Details → History, но прямой запуск
+  тогда был ожидаемым старым поведением.
+- Причина: отдельный `onHistoryResume` напрямую вызывал `startPlayback`; store имел только
+  exact-unit delete, не соответствующий сгруппированной карточке сериала.
+- Исправление: History использует `openDetails`; добавлены content-level delete, clear,
+  безопасный confirm dialog, repeat-safe long OK и deterministic focus fallback. Mutations
+  сериализованы с checkpoints.
+- Protective test: `PlaybackProgressStoreTest`, `PlaybackProgressCodecTest`,
+  `TvPosterGridTest`, `HistoryPosterTest`, queue ordering test.
+- Runtime verification: **PENDING**, ADB не использовался.
+- Rollback point: C-008 / `4cfa7ac8`; полный playback rollback — B-001.
 
 ## Шаблон новой записи
 

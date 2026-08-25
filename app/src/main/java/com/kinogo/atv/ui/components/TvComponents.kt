@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -71,6 +72,8 @@ fun PosterCard(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String = "Дополнительные действия",
 ) {
     var focused by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
@@ -83,34 +86,25 @@ fun PosterCard(
         Modifier
     }
 
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .then(requesterModifier)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+    val baseModifier = modifier
+        .then(requesterModifier)
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .onFocusChanged {
+            focused = it.isFocused
+            if (it.isFocused) onFocused()
+        }
+        .semantics {
+            contentDescription = buildString {
+                append(item.title)
+                append(", ")
+                append(item.subtitle)
+                item.progress?.let { append(", просмотрено ${(it * 100).toInt()} процентов") }
             }
-            .onFocusChanged {
-                focused = it.isFocused
-                if (it.isFocused) onFocused()
-            }
-            .semantics {
-                contentDescription = buildString {
-                    append(item.title)
-                    append(", ")
-                    append(item.subtitle)
-                    item.progress?.let { append(", просмотрено ${(it * 100).toInt()} процентов") }
-                }
-            },
-        shape = RoundedCornerShape(8.dp),
-        color = if (focused) Color(0xFF476775) else Color(0xFF263B46),
-        border = BorderStroke(
-            width = if (focused) 3.dp else 1.dp,
-            color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF526E7A),
-        ),
-        shadowElevation = if (focused) 10.dp else 1.dp,
-    ) {
+        }
+    val cardContent: @Composable () -> Unit = {
         Column {
             PosterArtwork(
                 title = item.title,
@@ -140,6 +134,39 @@ fun PosterCard(
                     fontSize = 10.sp,
                 )
             }
+        }
+    }
+
+    val shape = RoundedCornerShape(8.dp)
+    val color = if (focused) Color(0xFF476775) else Color(0xFF263B46)
+    val border = BorderStroke(
+        width = if (focused) 3.dp else 1.dp,
+        color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF526E7A),
+    )
+    if (onLongClick == null) {
+        Surface(
+            onClick = onClick,
+            modifier = baseModifier,
+            shape = shape,
+            color = color,
+            border = border,
+            shadowElevation = if (focused) 10.dp else 1.dp,
+        ) {
+            cardContent()
+        }
+    } else {
+        Surface(
+            modifier = baseModifier.combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = onLongClickLabel,
+            ),
+            shape = shape,
+            color = color,
+            border = border,
+            shadowElevation = if (focused) 10.dp else 1.dp,
+        ) {
+            cardContent()
         }
     }
 }

@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **25 августа 2026 года**.
 
 ## Требования
 
@@ -118,17 +118,19 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
 
-Текущий final local snapshot C-008 для application source
-`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`: canonical command
+Текущий pre-artifact snapshot C-009 / `0.5.3` code 17: canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
-SUCCESS за 5 мин 20 с; 87 suites / 441 tests, 0 failures/errors/skips; lint —
-0 errors / 22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
-5 мин 29 с. Exact `dist/KinogoATV-0.5.2-code16.apk` — 38 353 630 bytes, SHA-256
+SUCCESS за 7 мин 12 с; 89 suites / 455 tests, 0 failures/errors/skips; lint —
+0 errors / 22 warnings / 2 hints. Source commit, post-commit `assembleRelease --rerun-tasks`
+и exact artifact metadata фиксируются перед публикацией.
+
+Предыдущий exact snapshot C-008 для application source
+`4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`: `dist/KinogoATV-0.5.2-code16.apk`,
+38 353 630 bytes, SHA-256
 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`, package
 `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
 launcher/banner, zipalign OK, v2 true, certificate SHA-256
-`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
-`4cfa7ac`.
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
 Application source вошёл первым merge `08c90c9`, tag/release — `v0.5.2`, final manifest/main
 merge — `367bcf288dd5b3ad729af94d9b21308e5c96354c`. Android CI run `32598900494` и Pages run

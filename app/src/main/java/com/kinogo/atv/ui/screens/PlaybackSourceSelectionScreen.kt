@@ -86,9 +86,11 @@ fun PlaybackSourceSelectionScreen(
     val primaryFocus = remember(mediaPlan, webFallbacks) { FocusRequester() }
     val effectiveSelection = nativeState?.toPlaybackSelection(requestedSelection)
         ?: requestedSelection
-    val mayContinue = requestedSelection.resume &&
-        resumePositionMs > 0L &&
-        effectiveSelection.isSamePlaybackUnitAs(requestedSelection)
+    val mayContinue = shouldContinueFromPlaybackSelector(
+        requestedSelection = requestedSelection,
+        effectiveSelection = effectiveSelection,
+        resumePositionMs = resumePositionMs,
+    )
     val launchSelection = effectiveSelection.copy(resume = mayContinue)
 
     LaunchedEffect(mediaPlan, webFallbacks) {
@@ -287,6 +289,14 @@ fun PlaybackSourceSelectionScreen(
         }
     }
 }
+
+internal fun shouldContinueFromPlaybackSelector(
+    requestedSelection: PlaybackSelectionUiModel,
+    effectiveSelection: PlaybackSelectionUiModel,
+    resumePositionMs: Long,
+): Boolean = requestedSelection.resume &&
+    resumePositionMs > 0L &&
+    effectiveSelection.isSamePlaybackUnitAs(requestedSelection)
 
 @Composable
 private fun SelectorHeader(
