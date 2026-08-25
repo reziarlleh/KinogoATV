@@ -179,6 +179,10 @@ Post-commit hook выполняет `repowise update` в фоне и пишет 
 `.repowise/.update.log`; он не должен блокировать commit. После установки другого hook
 manager либо настройки `core.hooksPath` повторно выполнить `repowise hook status`, потому
 что другой installer может заменить или обойти локальный `.git/hooks/post-commit`.
+В этом проекте локальный `.repowise/config.yaml` содержит
+`editor_files.agents_md: false`: динамический snapshot RepoWise не записывается в tracked
+`AGENTS.md`, иначе каждый post-commit update оставлял бы новый commit/hash/health diff.
+RepoWise-контекст Codex загружается project-local `.codex` SessionStart/MCP wiring.
 
 После обычной перезагрузки ПК повторная инициализация не нужна: пользовательский PATH,
 `.repowise/`, project-local `.codex` wiring и Git hook сохраняются. После первой установки

@@ -16,8 +16,10 @@
   API-ключа и token spend. Реальные `status`, `context`, `health` и `doctor` завершились
   успешно.
 - Установлен неблокирующий post-commit hook для инкрементального обновления индекса.
-  Управляемый RepoWise-блок добавлен в конец `AGENTS.md`, не изменяя существующие обязательные
-  правила KinogoATV.
+  Автогенерация managed-блока `AGENTS.md` затем отключена: практический post-commit test
+  показал, что commit/health snapshot меняет tracked-файл после каждого commit. Исходные
+  обязательные правила KinogoATV сохранены без генерируемого churn; Codex получает RepoWise
+  через локальные SessionStart/MCP hooks.
 - Производная `.repowise/` и editor/MCP-файлы с абсолютным локальным путём исключены из Git.
   Они сохраняются в текущем checkout, а после clone/move восстанавливаются повторным `init`.
   Это изменение developer tooling не меняет APK, C-008 evidence или playback baseline.

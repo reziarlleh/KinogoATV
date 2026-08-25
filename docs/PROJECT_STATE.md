@@ -284,8 +284,10 @@ pages или SQL/vector/FTS drift, а реальный `context` для `KinogoA
 
 `.repowise/`, `.mcp.json`, `.claude/`, локальные `.vscode` RepoWise-файлы и уже игнорируемая
 `.codex/` являются машинно-зависимыми: часть конфигураций содержит абсолютный путь checkout,
-а индекс состоит из производных SQLite/LanceDB/cache данных. В Git сохраняется только
-managed-блок RepoWise в `AGENTS.md`, общая политика игнорирования и эта документация.
+а индекс состоит из производных SQLite/LanceDB/cache данных. В Git сохраняются только общая
+политика игнорирования и документация. Автогенерация managed-блока `AGENTS.md` локально
+отключена (`editor_files.agents_md: false`), потому что post-commit snapshot иначе оставляет
+tracked-файл грязным после каждого commit. Исходный обязательный `AGENTS.md` сохранён.
 Локальный `.git/hooks/post-commit` обновляет индекс в фоне, но не является tracked-файлом.
 
 Health score `7.87/10` average и `4.83/10` для hotspots, а также 456 static findings — только
