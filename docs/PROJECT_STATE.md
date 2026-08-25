@@ -273,6 +273,30 @@ decline/explicit accept он подтвердил, что Down на нижней
 
 ## Текущие технические границы
 
+### Локальный индекс RepoWise
+
+25 августа 2026 года checkout `D:\_codex\KinogoATV` проиндексирован RepoWise 0.45.0 командой
+`repowise init --codex --no-prose --yes`. Начальный снимок application/docs commit
+`134ae00` дал 246 файлов, 4 700 символов и 524 структурные страницы без provider/model.
+`repowise doctor` завершился `All checks passed`, `status` не показал stale pages или
+SQL/vector/FTS drift, а реальный `context` для `KinogoAppRoot.kt` вернул структурную карточку.
+Контрольный commit подтвердил реальный фоновый post-commit update до нового HEAD; точные
+текущие commit/размер/health всегда запрашиваются через `repowise status`, а не дублируются
+как быстро устаревающий tracked snapshot.
+
+`.repowise/`, `.mcp.json`, `.claude/`, локальные `.vscode` RepoWise-файлы и уже игнорируемая
+`.codex/` являются машинно-зависимыми: часть конфигураций содержит абсолютный путь checkout,
+а индекс состоит из производных SQLite/LanceDB/cache данных. В Git сохраняются только общая
+политика игнорирования и документация. Автогенерация managed-блока `AGENTS.md` локально
+отключена (`editor_files.agents_md: false`), потому что post-commit snapshot иначе оставляет
+tracked-файл грязным после каждого commit. Исходный обязательный `AGENTS.md` сохранён.
+Локальный `.git/hooks/post-commit` обновляет индекс в фоне, но не является tracked-файлом.
+
+Динамические health scores и static findings RepoWise — только сигнал для выбора области
+дальнейшего аудита. Они не считаются подтверждёнными дефектами, не меняют C-008 validation
+evidence и не разрешают массовую чистку без проверки call sites, Git history и защитных
+тестов.
+
 - Каталог зависит от server-rendered DLE HTML и stateful xSort. POST может вернуть document
   или fragment; динамические sort/collection/year/country берутся из ответа. Сессионный
   DLE-транспорт закреплён на HTTP/1.1; playback использует отдельные клиенты.

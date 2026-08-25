@@ -7,6 +7,13 @@
 .agents/
 .codex/
 .codex-remote-attachments/
+# RepoWise index and machine-local editor wiring. Recreate them with
+# `repowise init --codex --no-prose --yes` in each checkout.
+.repowise/
+.mcp.json
+.claude/
+.vscode/mcp.json
+.vscode/extensions.json
 .externalNativeBuild/
 .cxx/
 local.properties

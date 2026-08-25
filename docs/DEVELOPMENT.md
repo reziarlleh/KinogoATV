@@ -148,6 +148,55 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Release build выполняйте только по [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md).
 
+## RepoWise
+
+RepoWise 0.45.0 используется как локальный структурный индекс и MCP-помощник для выбора
+затрагиваемых файлов, рисков и тестов. Он дополняет, но не заменяет чтение исходника перед
+редактированием, документацию проекта и проверки Gradle.
+
+Первичная настройка нового checkout:
+
+```powershell
+repowise init --codex --no-prose --yes
+repowise hook install
+repowise doctor
+```
+
+`--no-prose` не вызывает модель, не требует API-ключ и не расходует токены. Текущая
+конфигурация использует mock embedder: структурные страницы и full-text search доступны,
+а semantic search потребует отдельно настроенный embedder, например локальный Ollama.
+
+Полезная проверка перед изменением:
+
+```powershell
+repowise status
+repowise context app/src/main/java/com/kinogo/atv/KinogoAppRoot.kt
+repowise health
+repowise hook status
+```
+
+Post-commit hook выполняет `repowise update` в фоне и пишет диагностику только в
+`.repowise/.update.log`; он не должен блокировать commit. После установки другого hook
+manager либо настройки `core.hooksPath` повторно выполнить `repowise hook status`, потому
+что другой installer может заменить или обойти локальный `.git/hooks/post-commit`.
+В этом проекте локальный `.repowise/config.yaml` содержит
+`editor_files.agents_md: false`: динамический snapshot RepoWise не записывается в tracked
+`AGENTS.md`, иначе каждый post-commit update оставлял бы новый commit/hash/health diff.
+RepoWise-контекст Codex загружается project-local `.codex` SessionStart/MCP wiring.
+
+После обычной перезагрузки ПК повторная инициализация не нужна: пользовательский PATH,
+`.repowise/`, project-local `.codex` wiring и Git hook сохраняются. После первой установки
+RepoWise или изменения пользовательского PATH нужно один раз полностью перезапустить Codex
+и терминал; уже открытая задача не подхватывает новый MCP server динамически. После clone,
+переноса checkout в другой путь, удаления `.repowise/` либо смены машины нужно повторить
+три команды первичной настройки, поскольку абсолютные editor/MCP paths и сам индекс
+намеренно не коммитятся.
+
+Если новый процесс всё ещё не находит команду, проверить пользовательский PATH и
+`repowise --version`; не зашивать путь `C:\Users\...\repowise.exe` в repository files.
+Анонимная telemetry RepoWise включена upstream по умолчанию и не содержит код, пути или имя
+репозитория; при желании её можно отключить локально командой `repowise telemetry disable`.
+
 ### Update manifest endpoints
 
 Code 16 имеет два default signed-manifest transports: GitHub Pages и jsDelivr. Client

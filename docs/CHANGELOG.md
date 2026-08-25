@@ -9,6 +9,21 @@
 
 ## [0.5.2] — 2026-08-23 (validation candidate)
 
+### Инструменты разработки — 25 августа 2026 года
+
+- Для checkout `D:\_codex\KinogoATV` локально инициализирован RepoWise 0.45.0 в режиме
+  `--no-prose`: 246 файлов, 4 700 символов, 524 структурные страницы, без LLM-вызовов,
+  API-ключа и token spend. Реальные `status`, `context`, `health` и `doctor` завершились
+  успешно.
+- Установлен неблокирующий post-commit hook для инкрементального обновления индекса.
+  Автогенерация managed-блока `AGENTS.md` затем отключена: практический post-commit test
+  показал, что commit/health snapshot меняет tracked-файл после каждого commit. Исходные
+  обязательные правила KinogoATV сохранены без генерируемого churn; Codex получает RepoWise
+  через локальные SessionStart/MCP hooks.
+- Производная `.repowise/` и editor/MCP-файлы с абсолютным локальным путём исключены из Git.
+  Они сохраняются в текущем checkout, а после clone/move восстанавливаются повторным `init`.
+  Это изменение developer tooling не меняет APK, C-008 evidence или playback baseline.
+
 ### Автоматическое восстановление плеера
 
 - Добавлен one-shot watchdog зависания, связанный с выбранным target buffer: initial
