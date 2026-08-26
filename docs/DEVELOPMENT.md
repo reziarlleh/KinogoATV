@@ -128,8 +128,22 @@ SHA-256 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, pack
 `com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
 ровно один signer, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
-точно совпадает с application source. Publication/tag, Android CI, signed manifest,
-Pages/live transports и TV runtime остаются **PENDING**.
+точно совпадает с application source. Application/docs PR #5 влит merge
+`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI run `32920452170` и post-merge
+`main` run `32920746857` за 4 мин 22 с — SUCCESS. Annotated tag `v0.5.3` указывает
+на тот же merge. Regular latest
+[Release 0.5.3](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.3)
+(`draft=false`, `prerelease=false`) опубликован `2026-08-26T01:59:56Z`; asset size/SHA
+и GitHub digest совпадают.
+
+Final signed manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90` вошёл через
+PR #6 в main merge `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`: 1 273 bytes, SHA-256
+`860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`. PR CI `32921520976`, main Android
+`32921627748` за 1 мин 04 с и Pages `32921627746` за 45 с завершились SUCCESS.
+Live exact bytes подтверждены для Pages manifest+APK, jsDelivr manifest после
+адресной очистки кэша и ghfast/ghproxy/direct GitHub APK. TV/ADB, in-app installer
+и hardware playback остаются **PENDING**; baseline tag не создавался.
 
 Предыдущий опубликованный exact snapshot C-008 для application source
 `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`: `dist/KinogoATV-0.5.2-code16.apk`,

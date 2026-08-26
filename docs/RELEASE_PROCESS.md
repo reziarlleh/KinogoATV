@@ -8,17 +8,20 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-009 / `0.5.3` (code 17, minSdk 28, targetSdk 37) — validation candidate для
+Текущий C-009 / `0.5.3` (code 17, minSdk 28, targetSdk 37) — published validation release для
 Details-first History, delete/clear, codec v3 source persistence и видимого startup updater.
 Application source `777c8a0528f24db67402536631257d6cdc91f148`, final local canonical
 tests/lint, exact post-commit release rebuild и stable-signed APK/hash уже зафиксированы.
-Public merge/tag/Release, Android CI, signed manifest, Pages/live transports и hardware
-History/resume/updater runtime остаются **PENDING**. C-009 не получает playback baseline
-tag и не считается аппаратно проверенным только из-за сборки или будущей публикации.
+Application/docs merge `0473a820eefedea16ce2f393df568c90e5b30bbe`, annotated tag/regular
+latest Release, Android CI, signed manifest merge
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`, Pages и live transports также
+зафиксированы. Только hardware History/resume/updater runtime и in-app installer до
+Android OS confirmation остаются **PENDING**. C-009 не получает playback baseline tag и
+не считается аппаратно проверенным только из-за успешной публикации.
 
-C-008 / `0.5.2` (code 16) остаётся предыдущим exact published validation candidate:
+C-008 / `0.5.2` (code 16) остаётся предыдущим exact published validation release:
 application commit, local canonical tests/lint, stable-signed APK/hash, public merge,
-regular latest Release, signed manifest, Android CI, Pages publish и live transport checks
+regular Release, signed manifest, Android CI, Pages publish и live transport checks
 зафиксированы в `PROJECT_STATE.md`.
 
 C-007 / `0.5.1` (code 15) остаётся историческим integration rollback point. Его final local
@@ -236,8 +239,11 @@ Get-FileHash <apk> -Algorithm SHA256
 `com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
 ровно один signer, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
-`777c8a0528f24db67402536631257d6cdc91f148`. Publication/tag, CI, signed manifest,
-Pages/live transports и TV runtime ещё **PENDING**.
+`777c8a0528f24db67402536631257d6cdc91f148`. Application/docs PR #5 влит merge
+`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI `32920452170` и post-merge main CI
+`32920746857` завершились SUCCESS. Annotated `v0.5.3` указывает на этот merge;
+regular latest Release и GitHub asset digest совпадают с exact APK. TV runtime ещё
+**PENDING**.
 
 Исторически, для C-008 локально проверен exact
 `dist/KinogoATV-0.5.2-code16.apk`: 38 353 630 bytes,
@@ -365,17 +371,26 @@ digest. Затем из той же локальной stable-signed копии 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.AddDays(30)
 .\scripts\New-SignedUpdateManifest.ps1 `
-  -ApkPath .\dist\KinogoATV-0.5.2-code16.apk `
-  -VersionName 0.5.2 -VersionCode 16 -ExpiresAt $expires `
+  -ApkPath .\dist\KinogoATV-0.5.3-code17.apk `
+  -VersionName 0.5.3 -VersionCode 17 -ExpiresAt $expires `
   -DownloadUrl @(
-    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.2-code16.apk',
-    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk',
-    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk',
-    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk'
+    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.3-code17.apk',
+    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk',
+    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk',
+    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk'
   )
 ```
 
-Команда выше воспроизводит опубликованный C-008 contract. Final code 16
+Команда выше воспроизводит опубликованный C-009 contract. Final code 17
+`update/manifest.json`: 1 273 bytes, file SHA-256
+`860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`; payload содержит exact APK
+size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest source
+`7faebbba8d305a0c339f6966e7759ec7c7f96b90`, PR #6, main merge
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR CI run `32921520976`, main Android run
+`32921627748` за 1 мин 04 с и Pages run `32921627746` за 45 с завершились SUCCESS.
+
+Исторический final code 16
 `update/manifest.json`: 1 273 bytes, file SHA-256
 `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, issued
 `2026-08-22T21:02:03Z`, expires `2026-09-21T21:02:03Z`; payload содержит exact APK
@@ -416,7 +431,15 @@ jsDelivr — отдельный CDN-транспорт для малого по�
 package/version/signer checks. Operator-owned non-GitHub manifest+APK hosting остаётся
 **PENDING**.
 
-Для C-008 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest. APK через
+Для C-009 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest
+после адресной очистки его кэша. APK через ghfast, ghproxy и direct GitHub совпал с
+38 386 398 bytes и SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`. Это закрывает
+publication/transport evidence, но не hardware/in-app installer runtime и не
+инфраструктурную независимость от GitHub.
+
+Для исторического C-008 live exact bytes подтверждены у Pages manifest+APK и jsDelivr
+manifest. APK через
 ghfast, ghproxy и direct GitHub совпал с 38 353 630 bytes и SHA-256
 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`. Это проверенная
 transport diversity, но не инфраструктурная независимость от GitHub: Pages/jsDelivr/proxy
@@ -456,13 +479,13 @@ tests/lint, exact stable-signed artifact, manifest и CI всё равно об�
 validation release может быть технически regular Release, но его evidence-классификация
 остаётся validation, а не baseline.
 
-Пример C-008 validation GitHub Release после вычисления exact digest:
+Пример C-009 validation GitHub Release после вычисления exact digest:
 
 ```powershell
-gh release create v0.5.2 `
-  dist/KinogoATV-0.5.2-code16.apk `
+gh release create v0.5.3 `
+  dist/KinogoATV-0.5.3-code17.apk `
   dist/SHA256SUMS.txt `
-  --title "KinogoATV 0.5.2" `
+  --title "KinogoATV 0.5.3" `
   --notes-file <release-notes.md>
 ```
 
@@ -471,10 +494,21 @@ gh release create v0.5.2 `
 единственное исключение описано выше для явно обозначенной validation-публикации.
 Draft/prerelease не обслуживаются updater как stable update.
 
-Фактический C-008 Release: public repository
+Фактический C-009: application/docs PR #5 влит merge
+`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI run
+[32920452170](https://github.com/reziarlleh/KinogoATV/actions/runs/32920452170) и post-merge main
+[32920746857](https://github.com/reziarlleh/KinogoATV/actions/runs/32920746857) за 4 мин 22 с — SUCCESS.
+Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
+[Release 0.5.3](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.3)
+опубликован `2026-08-26T01:59:56Z` с `draft=false`, `prerelease=false`. Exact
+[APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk)
+имеет 38 386 398 bytes и GitHub digest
+`sha256:3c88df356a9815865db02f7821da53be3c6e25f03fe493516fccaf0f48f0c17a`.
+
+Исторический C-008 Release: public repository
 [reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV), application/docs merge
 `08c90c9`, tag `v0.5.2`,
-[regular latest Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.2) с
+[regular Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.2) с
 `draft=false`, `prerelease=false`. Exact
 [APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.2/KinogoATV-0.5.2-code16.apk)
 имеет GitHub digest
@@ -494,12 +528,14 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
 - [x] Exact stable-signed APK упакован как `KinogoATV-0.5.3-code17.apk`.
 - [x] Package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, embedded
       revision, size и SHA-256 проверены локально.
-- [ ] Application/docs PR влит в `main`, Android CI зелёный.
-- [ ] Annotated tag `v0.5.3`, regular GitHub Release и exact asset `sha256:` digest
+- [x] Application/docs PR #5 влит merge `0473a820`; PR CI `32920452170` и main
+      CI `32920746857` зелёные.
+- [x] Annotated tag `v0.5.3`, regular latest GitHub Release и exact asset `sha256:` digest
       совпадают.
-- [ ] Signed manifest создан из того же APK и опубликован после Release asset.
-- [ ] Pages workflow, Pages/jsDelivr metadata и все заявленные APK transports
-      проверены на exact bytes.
+- [x] Signed manifest создан из того же APK, опубликован merge `ff7f5f8`;
+      PR/main Android CI зелёные.
+- [x] Pages workflow `32921627746`, Pages/jsDelivr metadata и все заявленные APK
+      transports проверены на exact bytes.
 - [x] Hardware boundary явно записана: TV/ADB runtime **PENDING**, baseline tag не
       создаётся.
 - [ ] После ручной приёмки владельцем startup update prompt, Details-first History,

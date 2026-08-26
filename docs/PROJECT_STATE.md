@@ -19,10 +19,11 @@ Resume checkpoint v3 дополнительно сохраняет stable provid
 Startup auto-update теперь показывает global D-pad dialog при `Available` и делает одну
 отложенную повторную попытку после временной ошибки. Manual check остаётся немедленным;
 signed manifest/APK verification и обязательный Android installer confirmation сохранены.
-Локальный canonical lint/build зелёный. Application source и exact stable-signed APK
-C-009 зафиксированы и проверены; release tag, publication, signed manifest,
-CI/Pages и live transports ещё **PENDING**. TV/ADB по указанию владельца не использовались.
-C-008 остаётся предыдущим опубликованным validation candidate, C-007 — исторической
+Локальный canonical lint/build зелёный. Application source, exact stable-signed APK,
+regular Release, signed manifest, Android CI, Pages и live exact transport checks C-009
+зафиксированы и проверены. TV/ADB по указанию владельца не использовались;
+hardware playback, long-OK, restart-resume и in-app installer runtime остаются **PENDING**.
+C-008 теперь предыдущий published validation rollback candidate, C-007 — историческая
 аппаратно проверенной integration point, B-001 — последним полным playback baseline.
 
 ## Текущий validation candidate
@@ -39,14 +40,14 @@ C-008 остаётся предыдущим опубликованным validat
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | `PENDING`; C-008 `v0.5.2` остаётся текущим published rollback candidate |
+| Release tag | Annotated `v0.5.3` → `0473a820eefedea16ce2f393df568c90e5b30bbe`; regular latest validation Release, baseline tag не создавался |
 
 Exact artifact C-009: `dist/KinogoATV-0.5.3-code17.apk`, **38 386 398 bytes**, SHA-256
 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
 `com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, Android TV LEANBACK
 launcher/banner, zipalign PASS, v2 true с ровно одним сертификатом. Embedded revision точно
-`777c8a0528f24db67402536631257d6cdc91f148`. APK ещё не опубликован; C-008 `v0.5.2`
-остаётся текущим published rollback candidate.
+`777c8a0528f24db67402536631257d6cdc91f148`. Published Release asset имеет GitHub digest
+`sha256:3c88df356a9815865db02f7821da53be3c6e25f03fe493516fccaf0f48f0c17a`.
 
 ## Known-good baseline и откат
 
@@ -97,9 +98,9 @@ Rollback APK допустим только с совместимой подпи�
 | Нативный плеер | C-008 source implemented; hardware **PENDING** | Buffer-aware watchdog, one fresh source attempt, forced new player generation, same-unit exact-position resume и quality exact/≤/lowest-above; ручная refresh-кнопка удалена |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-008 source implemented; runtime pending | Updater controls собраны в конце; Switch/OK-dropdown contract сохранён, obsolete arrow-cycle path удалён; buffer dropdown 5/10/15/20/30 с |
-| Обновления | C-009 source/unit PASS; publication/runtime pending | Global automatic Available dialog, one retry и no-cache manifest; C-008 signed publication остаётся last exact live evidence |
+| Обновления | C-009 publication PASS; runtime **PENDING** | Signed code 17 manifest, Release asset, Pages/jsDelivr metadata и Pages/ghfast/ghproxy/direct APK exact bytes проверены; startup dialog/download/installer на TV не запускались |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-009 **PENDING**; C-008 publication PASS | Android run `32598900494` и Pages run `32598900503` зелёные для предыдущего manifest/main merge `367bcf2`; новые run IDs фиксируются после публикации C-009 |
+| CI | C-009 publication PASS | PR #5 CI `32920452170`, application main CI `32920746857`, PR #6 CI `32921520976`, final main CI `32921627748` и Pages `32921627746` завершены SUCCESS |
 
 ## Проверка C-009
 
@@ -115,6 +116,35 @@ History focus/long-press reducer и automatic update policy. После source c
 По прямому указанию владельца ADB, установка на KIVI/X96MAX и hardware smoke не
 выполнялись. Работа D-pad long press на конкретном OEM, реальный resume после process
 restart и startup update dialog остаются **PENDING**.
+
+### Публикация C-009
+
+- Application source: `777c8a0528f24db67402536631257d6cdc91f148`.
+- Application/docs [PR #5](https://github.com/reziarlleh/KinogoATV/pull/5) прошёл CI
+  [32920452170](https://github.com/reziarlleh/KinogoATV/actions/runs/32920452170) и вошёл merge
+  `0473a820eefedea16ce2f393df568c90e5b30bbe`; main Android CI
+  [32920746857](https://github.com/reziarlleh/KinogoATV/actions/runs/32920746857) — SUCCESS за 4 мин 22 с.
+- Annotated tag `v0.5.3` указывает на `0473a820eefedea16ce2f393df568c90e5b30bbe`.
+  [Regular latest Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.3)
+  опубликован `2026-08-26T01:59:56Z`, `draft=false`, `prerelease=false`.
+- Exact [APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk)
+  — 38 386 398 bytes; GitHub digest точно
+  `sha256:3c88df356a9815865db02f7821da53be3c6e25f03fe493516fccaf0f48f0c17a`.
+- Signed manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90`,
+  [PR #6](https://github.com/reziarlleh/KinogoATV/pull/6), merge
+  `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`. PR CI
+  [32921520976](https://github.com/reziarlleh/KinogoATV/actions/runs/32921520976) — SUCCESS.
+- Final signed code 17 `update/manifest.json`: 1 273 bytes, SHA-256
+  `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+  `2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`. Final main Android CI
+  [32921627748](https://github.com/reziarlleh/KinogoATV/actions/runs/32921627748) — SUCCESS за 1 мин 04 с;
+  Pages [32921627746](https://github.com/reziarlleh/KinogoATV/actions/runs/32921627746) —
+  SUCCESS за 45 с.
+- Live exact bytes: Pages manifest+APK PASS; jsDelivr manifest PASS после точечной
+  purge; ghfast, ghproxy и direct GitHub APK совпали по size/SHA-256. Это
+  transport diversity, а не независимая от GitHub инфраструктура.
+- Baseline tag не создавался: hardware/TV/ADB, long-OK, restart-resume и
+  in-app installer runtime остаются **PENDING**.
 
 ## Предыдущая проверка C-008
 
@@ -361,8 +391,8 @@ evidence и не разрешают массовую чистку без про�
   package/version и signing identity. Silent install нет, системное подтверждение
   обязательно. Pages/jsDelivr metadata и Pages/ghfast/ghproxy/direct APK transport проверены
   на exact bytes, но ни один host не даёт trust без signed size/SHA и final APK checks.
-- GitHub Actions clean-clone unit/lint/assembleDebug и Pages publish прошли на merge
-  `367bcf2`. CI не имеет stable signing key и не доказывает TV UX.
+- GitHub Actions clean-clone unit/lint/assembleDebug и Pages publish прошли на final
+  C-009 merge `ff7f5f8`; CI не имеет stable signing key и не доказывает TV UX.
 - Registration отдельно показывает DLE rules gate с default decline; sensitive fields
   remember-only, late responses защищены generation+origin, image CAPTCHA имеет bounded
   transport/decode. Интерактивные reCAPTCHA/hCaptcha/Turnstile не обходятся и явно
@@ -370,10 +400,9 @@ evidence и не разрешают массовую чистку без про�
 
 ## Активный фокус
 
-Следующий шаг — опубликовать C-009 / `0.5.3` как validation release и передать его
-владельцу для ручной приёмки:
+Следующий шаг — ручная приёмка владельцем уже опубликованного C-009 / `0.5.3`:
 
-- передать владельцу APK для ручной playback/updater приёмки; не подключаться к TV
+- проверить playback/updater приёмку; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;
 - проверить встроенный updater от обнаружения версии до передачи exact APK системному
   Package Installer; системное подтверждение установки остаётся ручным;

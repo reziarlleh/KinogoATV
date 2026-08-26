@@ -7,7 +7,7 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
-## [0.5.3] — 2026-08-26 (validation candidate)
+## [0.5.3] — 2026-08-26 (validation release)
 
 ### История и навигация
 
@@ -64,11 +64,27 @@
   zipalign PASS, v2 true, ровно один сертификат SHA-256
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
   точно совпадает с application source.
-- Release tag, GitHub publication, signed manifest, CI/Pages и live transport checks
-  остаются **PENDING**.
+- Application/docs [PR #5](https://github.com/reziarlleh/KinogoATV/pull/5), merge
+  `0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI `32920452170` и main Android CI
+  `32920746857` завершены SUCCESS.
+- Annotated tag `v0.5.3` указывает на application/docs merge. Regular latest
+  [Release 0.5.3](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.3)
+  опубликован `2026-08-26T01:59:56Z` с `draft=false`, `prerelease=false`;
+  exact APK asset имеет GitHub digest
+  `sha256:3c88df356a9815865db02f7821da53be3c6e25f03fe493516fccaf0f48f0c17a`.
+- Signed manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90`,
+  [PR #6](https://github.com/reziarlleh/KinogoATV/pull/6), merge
+  `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR CI `32921520976` — SUCCESS.
+  Final code 17 manifest — 1 273 bytes, SHA-256
+  `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+  `2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`.
+- Final main Android CI `32921627748` — SUCCESS за 1 мин 04 с; Pages
+  `32921627746` — SUCCESS за 45 с. Live exact bytes: Pages manifest+APK PASS,
+  jsDelivr manifest PASS после точечной purge, ghfast/ghproxy/direct GitHub APK
+  совпали по size/SHA-256.
 - ADB и реальный TV не использовались по прямому указанию владельца. D-pad long-press,
   сохранение реальной позиции после обновления и in-app updater runtime остаются ручной
-  приёмкой владельца.
+  приёмкой владельца; baseline tag не создавался.
 
 ### Инструменты разработки — 25 августа 2026 года
 

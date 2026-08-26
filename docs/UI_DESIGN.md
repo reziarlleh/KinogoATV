@@ -397,5 +397,9 @@ rules instrumentation `OK (1)` подтверждает default decline, explici
 Локальный stable-signed `KinogoATV-0.5.3-code17.apk` (`38,386,398` bytes, SHA-256
 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`) содержит exact
 embedded revision. История Details/delete/clear, codec v3 resume и startup update dialog
-проверены на уровне source/tests; tag/Release/manifest/CI/live transports и аппаратный
-D-pad/runtime smoke остаются **PENDING**.
+проверены на уровне source/tests. App/docs merge `0473a820eefedea16ce2f393df568c90e5b30bbe`,
+PR/main CI, annotated `v0.5.3`, regular latest Release с exact asset, signed manifest merge
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`, Pages и live transports — **PASS**. Все
+transports зависят от GitHub assets. Аппаратный D-pad long-OK, restart-resume, in-app
+updater/install и остальной TV runtime остаются **PENDING**; release tag не создаёт playback
+baseline.

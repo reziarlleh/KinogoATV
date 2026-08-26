@@ -32,7 +32,7 @@
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
 
-## Текущий release candidate
+## Текущий validation release
 
 C-009 / `0.5.3` локально проверен на exact source
 `777c8a0528f24db67402536631257d6cdc91f148`. Stable-signed
@@ -41,10 +41,18 @@ C-009 / `0.5.3` локально проверен на exact source
 `com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
 SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
 revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
-post-commit release rerun — за `4m04s`. Tag, Release, code 17 signed manifest, CI/Pages,
-live metadata/download transports и hardware runtime остаются **PENDING**. Это различие
-между local candidate и опубликованным/аппаратно проверенным выпуском обязательно сохранять
-во всех handoff и отчётах.
+post-commit release rerun — за `4m04s`. App/docs PR #5 merged как
+`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR/main CI `32920452170`/`32920746857` —
+**PASS**. Annotated `v0.5.3` указывает на `0473a820`, regular latest Release содержит exact
+asset. Manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90` merged через PR #6 как
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR/main Android/Pages runs
+`32921520976`/`32921627748`/`32921627746` — **PASS**. Signed manifest: 1 273 bytes,
+SHA-256 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`. Live Pages manifest+APK,
+jsDelivr manifest после targeted purge и ghfast/ghproxy/direct GitHub APK совпали exact.
+Все transports зависят от GitHub assets; независимого host нет. Hardware TV/ADB, long-OK,
+restart-resume, in-app updater и installer остаются **PENDING**; release tag не является
+playback baseline.
 
 ## Операционные документы
 

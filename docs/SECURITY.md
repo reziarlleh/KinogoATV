@@ -235,7 +235,7 @@ deployment и точное совпадение опубликованных byt
 verifier, но не runtime встроенного updater: check/download/verify/Package Installer на TV
 остаётся **PENDING**, ADB по политике владельца не запускался.
 
-Локальный stable-signed candidate `0.5.3` собран из exact source
+Stable-signed candidate `0.5.3` собран из exact source
 `777c8a0528f24db67402536631257d6cdc91f148`; embedded revision совпадает с ним. APK
 `KinogoATV-0.5.3-code17.apk` имеет `38,386,398` bytes и SHA-256
 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
@@ -243,9 +243,22 @@ verifier, но не runtime встроенного updater: check/download/verif
 v2 signer с certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Canonical source
 verification прошла как `89 suites / 455 tests` за `7m12s`, post-commit release rerun —
-за `4m04s`. Это только локальное доказательство exact source/artifact: tag, Release asset,
-code 17 signed manifest, CI/Pages, live metadata/download transports и hardware runtime
-остаются **PENDING**.
+за `4m04s`.
+
+App/docs PR #5 merged как `0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI
+`32920452170` и main CI `32920746857` — **PASS**. Annotated release tag `v0.5.3`
+указывает на `0473a820`, regular latest Release содержит exact asset выше. Manifest source
+`7faebbba8d305a0c339f6966e7759ec7c7f96b90` прошёл PR #6 и merged как
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR CI `32921520976`, main Android
+`32921627748` и Pages `32921627746` — **PASS**. Signed manifest: 1 273 bytes, SHA-256
+`860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`.
+
+Live exact bytes подтверждены для Pages manifest+APK, jsDelivr manifest после targeted
+purge и ghfast/ghproxy/direct GitHub APK. Это транспортное разнообразие, а не независимая
+инфраструктура: все заявленные пути зависят от GitHub assets, operator-owned host отсутствует.
+In-app check/download/verify/install и hardware runtime остаются **PENDING**; release tag не
+является playback baseline tag.
 
 ## Repository hygiene
 
