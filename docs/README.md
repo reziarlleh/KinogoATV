@@ -34,7 +34,7 @@
 
 ## Текущий validation release
 
-C-010 / `0.5.4` локально проверен на exact source
+C-010 / `0.5.4` опубликован как regular validation release на exact source
 `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Stable-signed
 `KinogoATV-0.5.4-code18.apk` имеет `38,402,782` bytes, SHA-256
 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
@@ -43,8 +43,10 @@ SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embe
 revision совпадает с exact source. Canonical прошёл `91 suites / 462 tests` за `4m58s`,
 post-commit release rerun — `3m38s`. Изменения закрепляют startup title, long-OK release
 guard, стабильный Settings focus, pre-launch-only source/web selection, bookmark-only
-server sync и один local resume contract для всех Details entry points. GitHub Release,
-signed manifest, remote CI/Pages и live transports ещё **PENDING** до финальной публикации.
+server sync и один local resume contract для всех Details entry points. PR #8, tag/Release
+`v0.5.4`, signed code 18 manifest, Android CI и Pages deployment опубликованы; основной
+Pages manifest+APK и ghfast APK дали exact bytes. jsDelivr `@main` при первой проверке ещё
+отдавал безопасный, но устаревший code 17; основной Pages-канал уже отдаёт code 18.
 Hardware TV/ADB не использовались; OEM long-OK, Settings focus, real resume/player и
 in-app updater остаются **PENDING**. C-009 / `0.5.3` — предыдущий published validation
 rollback candidate; ни один release tag без hardware evidence не становится playback baseline.

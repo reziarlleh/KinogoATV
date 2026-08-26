@@ -229,8 +229,14 @@ certificate SHA-256
 ровно один signer с certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Embedded revision
 точно совпадает с application source
-`b6b2d379dad90bd33ba35725cc9d329166d365e8`. GitHub publication и TV runtime на этом
-этапе **PENDING**.
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. PR #8 merge `e472ca6`, annotated tag и regular
+Release `v0.5.4`, exact GitHub asset/digest опубликованы. Signed code 18 manifest source
+`8e0a8aa`, PR #9 merge `b569740`; PR/main Android и Pages runs `32970169960`, `32970708245`,
+`32971109889`, `32971237800`, `32971237767` — SUCCESS. Manifest имеет 1 273 bytes, SHA-256
+`CD947D90D92E54727111C1FF2EABC77BA9D7A93F6DCA7815035E4A194FC82EBE`, issued
+`2026-08-26T12:52:04Z`, expires `2026-09-25T12:52:04Z`. Pages manifest+APK и ghfast APK
+совпали с exact bytes; jsDelivr `@main` оставался на signed code 17 после первой purge,
+ghproxy full GET превысил 90 секунд. TV runtime остаётся **PENDING**.
 
 Для C-009 локально проверен exact stable-signed release APK
 `dist/KinogoATV-0.5.3-code17.apk`: 38 386 398 bytes, SHA-256

@@ -8,12 +8,13 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — local validation
-release candidate для startup title, History long-OK release guard, stable async Settings
+Текущий C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — published validation
+release для startup title, History long-OK release guard, stable async Settings
 focus, pre-launch-only source/Web choice и единого local resume. Application source
 `b6b2d379dad90bd33ba35725cc9d329166d365e8`, canonical tests/lint, exact post-commit release
 rebuild и stable-signed APK/hash зафиксированы. GitHub app/docs merge/tag/Release, signed
-manifest, remote CI/Pages и live transports ещё **PENDING**. TV/ADB не использовались;
+manifest, remote CI и Pages опубликованы; primary Pages manifest+APK проверен по exact bytes.
+TV/ADB не использовались;
 hardware focus/player/updater runtime не подтверждён, baseline tag не создавался.
 
 C-009 / `0.5.3` (code 17) остаётся предыдущим published validation release:
@@ -249,7 +250,9 @@ Get-FileHash <apk> -Algorithm SHA256
 `com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
 ровно один signer, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
-`b6b2d379dad90bd33ba35725cc9d329166d365e8`. GitHub Release/digest ещё **PENDING**.
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Regular
+[Release 0.5.4](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.4) содержит exact
+asset с GitHub digest `sha256:541941c081136854d17fb7258e92149d98f1292a56dad02724bc1dcaa9f543ac`.
 
 Для C-009 локально проверен exact `dist/KinogoATV-0.5.3-code17.apk`:
 38 386 398 bytes, SHA-256
@@ -544,10 +547,12 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
 - [x] Exact stable-signed APK упакован как `KinogoATV-0.5.4-code18.apk`.
 - [x] Package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, embedded
       revision, size и SHA-256 проверены локально.
-- [ ] Application/docs PR/main CI влиты и зелёные.
-- [ ] Annotated `v0.5.4`, regular latest validation Release и exact GitHub asset опубликованы.
-- [ ] Signed code 18 manifest создан из exact APK, merged и опубликован Pages.
-- [ ] Live manifest/APK transports сверены по exact bytes.
+- [x] Application/docs PR #8, PR/main CI влиты и зелёные.
+- [x] Annotated `v0.5.4`, regular latest validation Release и exact GitHub asset опубликованы.
+- [x] Signed code 18 manifest создан из exact APK, merged PR #9 и опубликован Pages.
+- [ ] Все live transports сверены по exact bytes: Pages manifest+APK и ghfast APK PASS;
+      direct GitHub digest/Content-Length PASS; ghproxy full GET timed out, jsDelivr `@main`
+      при первой проверке после purge ещё отдавал signed code 17.
 - [x] Hardware boundary записана: TV/ADB runtime **PENDING**, baseline tag не создавался.
 - [ ] Владелец вручную проверил long-OK release, Settings focus, единый resume
       и updater 0.5.4.

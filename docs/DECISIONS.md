@@ -678,5 +678,7 @@ ghfast/ghproxy/direct GitHub paths дали exact bytes. Publication доказ�
 failures/errors/skips, lint 0 errors, post-commit release rerun 50 tasks. Exact stable-signed
 `KinogoATV-0.5.4-code18.apk` имеет 38 402 782 bytes, SHA-256
 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, expected one-signer
-certificate и embedded exact source revision. Remote publication и hardware runtime ещё
-**PENDING**; baseline tag не создавался.
+certificate и embedded exact source revision. PR #8/#9, regular Release, signed manifest,
+Android CI и Pages опубликованы; Pages manifest+APK и ghfast APK дали exact bytes. jsDelivr
+`@main` при первой проверке оставался на signed code 17, но primary Pages отдавал exact code 18.
+Hardware runtime ещё **PENDING**; baseline tag не создавался.
