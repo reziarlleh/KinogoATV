@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Требования
 
@@ -118,13 +118,20 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
 
-Текущий pre-artifact snapshot C-009 / `0.5.3` code 17: canonical command
+Текущий local exact snapshot C-009 / `0.5.3` code 17 привязан к application
+source `777c8a0528f24db67402536631257d6cdc91f148`. Canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
 SUCCESS за 7 мин 12 с; 89 suites / 455 tests, 0 failures/errors/skips; lint —
-0 errors / 22 warnings / 2 hints. Source commit, post-commit `assembleRelease --rerun-tasks`
-и exact artifact metadata фиксируются перед публикацией.
+0 errors / 22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
+4 мин 04 с, 50 tasks. Exact `dist/KinogoATV-0.5.3-code17.apk`: 38 386 398 bytes,
+SHA-256 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
+точно совпадает с application source. Publication/tag, Android CI, signed manifest,
+Pages/live transports и TV runtime остаются **PENDING**.
 
-Предыдущий exact snapshot C-008 для application source
+Предыдущий опубликованный exact snapshot C-008 для application source
 `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`: `dist/KinogoATV-0.5.2-code16.apk`,
 38 353 630 bytes, SHA-256
 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`, package

@@ -7,7 +7,7 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
-## [0.5.3] — 2026-08-25 (validation candidate)
+## [0.5.3] — 2026-08-26 (validation candidate)
 
 ### История и навигация
 
@@ -52,11 +52,20 @@
 
 ### Validation status
 
-- Source metadata: code 17 / `0.5.3`, minSdk 28, targetSdk 37.
+- Application source: `777c8a0528f24db67402536631257d6cdc91f148`; code 17 / `0.5.3`,
+  minSdk 28, targetSdk 37.
 - Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
   assembleRelease` завершён **SUCCESS за 7 мин 12 с**: **89 suites / 455 tests**, 0
-  failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Exact signed APK и
-  публикационные данные фиксируются после source commit и повторной release-сборки.
+  failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Post-commit
+  `assembleRelease --rerun-tasks` завершён **SUCCESS за 4 мин 04 с**.
+- Exact stable-signed APK `dist/KinogoATV-0.5.3-code17.apk`: 38 386 398 bytes, SHA-256
+  `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
+  `com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, LEANBACK launcher/banner,
+  zipalign PASS, v2 true, ровно один сертификат SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
+  точно совпадает с application source.
+- Release tag, GitHub publication, signed manifest, CI/Pages и live transport checks
+  остаются **PENDING**.
 - ADB и реальный TV не использовались по прямому указанию владельца. D-pad long-press,
   сохранение реальной позиции после обновления и in-app updater runtime остаются ручной
   приёмкой владельца.

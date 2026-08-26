@@ -1,6 +1,6 @@
 # Roadmap
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
@@ -14,17 +14,23 @@ C-009 дополняет C-008 управлением локальной Ист�
 fresh source, устойчивые checkpoint/resume writes, сохраняемый quality cap, реальную
 настройку Media3 buffer 5/10/15/20/30 с и in-memory preload ближайшей серии через
 границу сезона. Ручная refresh-кнопка и obsolete settings cycle удалены;
-updater-пункты собраны в конце Settings. Для C-009 подтверждён final local Gradle pass;
-application source commit, exact stable-signed APK, Release, code 17 manifest и новые
-CI/Pages runs фиксируются в процессе выпуска. Exact publication evidence для code 16
-относится к C-008. Аппаратная playback-приёмка и runtime встроенного updater ещё
-**PENDING**. C-007 остаётся исторической integration point, B-001 — полным playback
-rollback baseline; C-009 остаётся validation candidate и сам по себе baseline не меняет.
+updater-пункты собраны в конце Settings. Для C-009 локально проверены exact application
+source `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed APK
+`KinogoATV-0.5.3-code17.apk`: `38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, один v2 signer с certificate
+SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
+revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
+post-commit release rerun — за `4m04s`. Tag, Release asset, code 17 signed manifest,
+CI/Pages, live metadata/download transports, аппаратная playback-приёмка и runtime
+встроенного updater остаются **PENDING**. Exact publication evidence для code 16 относится
+к C-008. C-007 остаётся исторической integration point, B-001 — полным playback rollback
+baseline; C-009 остаётся validation candidate и сам по себе baseline не меняет.
 
 ### P0 — runtime-приёмка владельцем
 
-- При любом последующем production change повторить полный canonical pass, artifact
-  verification, выпуск exact Release asset, формирование signed manifest и live-проверку
+- Для текущего C-009 создать tag, выпустить exact Release asset, сформировать code 17 signed
+  manifest, получить зелёные CI/Pages runs и live-проверить
   каждого заявленного transport. Доказательства текущего выпуска зафиксированы в
   `PROJECT_STATE.md` и `RELEASE_PROCESS.md`.
 - Владелец вручную проверяет выход из player в Details с активной «Смотреть»,
@@ -170,7 +176,8 @@ evidence указан в `PROJECT_STATE.md`.
   exact resume от late writes и возврата к старой серии.
 - History использует Details-first navigation; long `OK` открывает безопасный delete/clear
   dialog, удаление сериала охватывает все его episode checkpoints и сохраняет соседний фокус.
-- Codec v3 сохраняет stable playback source ID без transient URL; v1/v2 остаются читаемыми.
+- Codec v3 сохраняет stable playback source ID без transient URL; v1/v2 остаются читаемыми,
+  а direct media использует только внутренний ID `direct-media`.
 - Native Media3 player and selection matrix; desired quality сохраняется между
   сериями и выбирает exact, затем highest `<=` cap, иначе lowest above cap.
 - Cinemar/Collaps native adapters, включая lazy selected-leaf Cinemar grant через
@@ -204,6 +211,8 @@ evidence указан в `PROJECT_STATE.md`.
   confirmation.
 - Startup auto-check показывает global D-pad prompt при новой версии, делает одну bounded
   повторную попытку и запрашивает signed manifest с `Cache-Control: no-cache`.
+- Exact C-009 source и code 17 APK проверены локально; publication/tag/manifest/CI/live
+  transports и hardware runtime остаются отдельными pending уровнями evidence.
 - Initial rail focus, Switch/dropdown Settings и newest applicable resume policy;
   updater controls собраны в конце, obsolete arrow-cycle settings path удалён.
 - Buffer-aware one-shot fresh playback source recovery с cross-screen loop guard, forced

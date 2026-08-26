@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Принцип
 
@@ -45,7 +45,8 @@ flowchart TD
 ### Direct media
 
 `DirectMediaResolver` принимает явно найденные HTTPS HLS, DASH и MP4 locations, прошедшие
-destination validation.
+destination validation. Его stable adapter ID всегда равен `direct-media`; HTML provider,
+hostname и конечный URL не используются как сохраняемая identity.
 
 ### Cinemar
 
@@ -438,6 +439,15 @@ adaptive+fixed quality policy. Application source `4cfa7ac8ebd48b70c7b172e54a071
 установка APK и аппаратный smoke
 допустимы только после отдельного явного разрешения владельца на конкретный необходимый
 сценарий; до этого результат формулируется только по review и автоматическим тестам.
+
+C-009 добавляет Details-first History с content-level delete/clear, codec v3 `sourceId` и
+видимый startup update prompt/retry/no-cache, не меняя bounded playback recovery. Exact
+source `777c8a0528f24db67402536631257d6cdc91f148` прошёл canonical
+`89 suites / 455 tests` за `7m12s`, post-commit release rerun — за `4m04s`. Локальный
+stable-signed `KinogoATV-0.5.3-code17.apk` (`38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`) содержит exact
+embedded revision. Publication/tag/manifest/CI/live transports и hardware runtime, включая
+resume с non-default source и long-OK History flow, остаются **PENDING**.
 
 ## Сетевые ограничения плеера
 

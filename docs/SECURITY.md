@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Модель угроз
 
@@ -234,6 +234,18 @@ deployment и точное совпадение опубликованных byt
 через Pages/ghfast/ghproxy/direct. Это доказывает публикацию и криптографические входы
 verifier, но не runtime встроенного updater: check/download/verify/Package Installer на TV
 остаётся **PENDING**, ADB по политике владельца не запускался.
+
+Локальный stable-signed candidate `0.5.3` собран из exact source
+`777c8a0528f24db67402536631257d6cdc91f148`; embedded revision совпадает с ним. APK
+`KinogoATV-0.5.3-code17.apk` имеет `38,386,398` bytes и SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
+`com.kinogo.atv`, versionCode `17`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один
+v2 signer с certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Canonical source
+verification прошла как `89 suites / 455 tests` за `7m12s`, post-commit release rerun —
+за `4m04s`. Это только локальное доказательство exact source/artifact: tag, Release asset,
+code 17 signed manifest, CI/Pages, live metadata/download transports и hardware runtime
+остаются **PENDING**.
 
 ## Repository hygiene
 

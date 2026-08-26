@@ -1,6 +1,6 @@
 # Текущее состояние проекта
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Краткий итог
 
@@ -19,8 +19,9 @@ Resume checkpoint v3 дополнительно сохраняет stable provid
 Startup auto-update теперь показывает global D-pad dialog при `Available` и делает одну
 отложенную повторную попытку после временной ошибки. Manual check остаётся немедленным;
 signed manifest/APK verification и обязательный Android installer confirmation сохранены.
-Локальный canonical lint/build зелёный. Exact stable-signed APK, source commit и публикация
-C-009 ещё фиксируются; TV/ADB по указанию владельца не использовались.
+Локальный canonical lint/build зелёный. Application source и exact stable-signed APK
+C-009 зафиксированы и проверены; release tag, publication, signed manifest,
+CI/Pages и live transports ещё **PENDING**. TV/ADB по указанию владельца не использовались.
 C-008 остаётся предыдущим опубликованным validation candidate, C-007 — исторической
 аппаратно проверенной integration point, B-001 — последним полным playback baseline.
 
@@ -29,7 +30,7 @@ C-008 остаётся предыдущим опубликованным validat
 | Поле | Значение |
 | --- | --- |
 | Candidate | **C-009 / 0.5.3 validation** |
-| Application source commit | `PENDING` до фиксации source commit |
+| Application source commit | `777c8a0528f24db67402536631257d6cdc91f148` |
 | Application ID | `com.kinogo.atv` |
 | Version code | `17` |
 | Version name | `0.5.3` |
@@ -37,12 +38,15 @@ C-008 остаётся предыдущим опубликованным validat
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
-| Подпись APK | v2 true; certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
+| Подпись APK | v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
 | Release tag | `PENDING`; C-008 `v0.5.2` остаётся текущим published rollback candidate |
 
-Exact artifact C-009 ещё не зафиксирован. До его проверки единственный published exact
-artifact — C-008 `dist/KinogoATV-0.5.2-code16.apk`, **38 353 630 bytes**, SHA-256
-`FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`.
+Exact artifact C-009: `dist/KinogoATV-0.5.3-code17.apk`, **38 386 398 bytes**, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
+`com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, Android TV LEANBACK
+launcher/banner, zipalign PASS, v2 true с ровно одним сертификатом. Embedded revision точно
+`777c8a0528f24db67402536631257d6cdc91f148`. APK ещё не опубликован; C-008 `v0.5.2`
+остаётся текущим published rollback candidate.
 
 ## Known-good baseline и откат
 
@@ -77,7 +81,7 @@ Rollback APK допустим только с совместимой подпи�
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
 | Запуск | C-009 hardware **PENDING** | TV/ADB не использовались; C-007 KIVI install/launch evidence остаётся историческим |
-| Android TV launcher | C-009 build pending | Metadata code 17/name 0.5.3/minSdk 28 зафиксированы; exact APK verification ещё предстоит |
+| Android TV launcher | C-009 local artifact PASS | Exact package/code/name/min/target, LEANBACK launcher/banner, zipalign, v2 signature, one-certificate signer и embedded revision проверены локально |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
@@ -104,8 +108,9 @@ assembleRelease` завершён **SUCCESS за 7 мин 12 с**: **89 suites /
 failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Проверяются
 backward-compatible codec v1/v2/v3, source round-trip,
 content-level delete, сохранность unrelated preferences, checkpoint/delete ordering,
-History focus/long-press reducer и automatic update policy. Exact signed APK фиксируется
-после source commit повторной release-сборкой.
+History focus/long-press reducer и automatic update policy. После source commit
+`777c8a0528f24db67402536631257d6cdc91f148` exact `assembleRelease --rerun-tasks`
+завершён **SUCCESS за 4 мин 04 с**; получен и проверен APK с метаданными выше.
 
 По прямому указанию владельца ADB, установка на KIVI/X96MAX и hardware smoke не
 выполнялись. Работа D-pad long press на конкретном OEM, реальный resume после process
@@ -365,7 +370,8 @@ evidence и не разрешают массовую чистку без про�
 
 ## Активный фокус
 
-Следующий шаг — вручную принять опубликованный C-008 / `0.5.2`:
+Следующий шаг — опубликовать C-009 / `0.5.3` как validation release и передать его
+владельцу для ручной приёмки:
 
 - передать владельцу APK для ручной playback/updater приёмки; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;
@@ -373,7 +379,7 @@ evidence и не разрешают массовую чистку без про�
   Package Installer; системное подтверждение установки остаётся ручным;
 - добавить действительно operator-owned non-GitHub metadata+APK host, если потребуется
   независимость от блокировки всей GitHub-инфраструктуры;
-- не назначать C-008 baseline, пока не закрыты playback stall/recovery, exact
+- не назначать C-009 baseline, пока не закрыты playback stall/recovery, exact
   resume, quality persistence/fallback и updater runtime-сценарии.
 
 Подробная очередь — в [`ROADMAP.md`](ROADMAP.md).

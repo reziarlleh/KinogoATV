@@ -4,7 +4,7 @@
 Документы разделены по назначению, чтобы не смешивать пользовательское описание, текущее
 состояние, архитектурные контракты и исторические исследования.
 
-Последняя ревизия индекса: **25 августа 2026 года**.
+Последняя ревизия индекса: **26 августа 2026 года**.
 
 ## Быстрый старт для нового чата
 
@@ -31,6 +31,20 @@
 
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
+
+## Текущий release candidate
+
+C-009 / `0.5.3` локально проверен на exact source
+`777c8a0528f24db67402536631257d6cdc91f148`. Stable-signed
+`KinogoATV-0.5.3-code17.apk` имеет `38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
+SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
+revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
+post-commit release rerun — за `4m04s`. Tag, Release, code 17 signed manifest, CI/Pages,
+live metadata/download transports и hardware runtime остаются **PENDING**. Это различие
+между local candidate и опубликованным/аппаратно проверенным выпуском обязательно сохранять
+во всех handoff и отчётах.
 
 ## Операционные документы
 

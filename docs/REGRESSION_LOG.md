@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **25 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -33,9 +33,15 @@
 
 ### C-009 — 0.5.3 validation
 
-- Статус: source fix и canonical local verification passed; exact artifact/publication и
-  hardware verification фиксируются перед выпуском.
+- Статус: exact application source и stable-signed APK verified locally; tag, Release,
+  code 17 manifest, CI/Pages, live transports и hardware runtime — **PENDING**.
 - Metadata in source: version code 17, version `0.5.3`, minSdk 28, targetSdk 37.
+- Application source commit: `777c8a0528f24db67402536631257d6cdc91f148`.
+- APK: `dist/KinogoATV-0.5.3-code17.apk`, 38,386,398 bytes, SHA-256
+  `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
+  `com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, target/compile SDK 37, zipalign **PASS**,
+  ровно один v2 signer, embedded revision exact source, certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 - Source scope: Details-first History, content-level delete/clear, deterministic focus,
   codec v3 stable source ID, visible automatic update prompt, one bounded automatic retry
   и no-cache signed manifest request.
@@ -43,7 +49,10 @@
   `KinogoAppRootResumeTest`, `HistoryPosterTest`, `TvPosterGridTest`,
   `AutomaticUpdateCheckPolicyTest`, `SignedManifestUpdateClientTest`.
 - Automated: canonical Gradle run — SUCCESS за 7 мин 12 с; 89 suites / 455 tests,
-  0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
+  0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints. Post-commit release rerun —
+  SUCCESS за 4 мин 04 с.
+- Publication: tag, Release asset, code 17 signed manifest, CI/Pages и live
+  metadata/download transports — **PENDING**.
 - Runtime: TV/ADB не использовались по указанию владельца. Long-OK, real resume и startup
   updater dialog — **PENDING**.
 - Rollback: C-008 application source `4cfa7ac8`; полный playback — B-001.
@@ -861,7 +870,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-028 — Resume терял выбранный provider и выглядел как сброс позиции
 
-- Статус: source fix и local unit verification passed in C-009; hardware **PENDING**.
+- Статус: source fix и local C-009 candidate verification passed на exact source
+  `777c8a0528f24db67402536631257d6cdc91f148`; hardware **PENDING**.
 - Обнаружено: 25 августа 2026 года при аудите пользовательского сообщения о сброшенных
   временных метках/позициях.
 - Affected: C-008 и более ранние multi-source версии; exact first-bad неизвестен.
@@ -886,7 +896,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-029 — Автопроверка находила обновление, но не показывала его при запуске
 
-- Статус: source fix и local unit verification passed in C-009; runtime **PENDING**.
+- Статус: source fix и local C-009 candidate verification passed на exact source
+  `777c8a0528f24db67402536631257d6cdc91f148`; runtime **PENDING**.
 - Обнаружено: 25 августа 2026 года по симптому «при запуске не предложило, вручную нашло».
 - Affected: C-008 / `0.5.2` и предыдущий updater UI.
 - Last-known-good: отсутствует для startup prompt; C-008 доказал только публикацию и bytes.
@@ -902,7 +913,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-030 — История обходила карточку и не позволяла удалить локальные записи
 
-- Статус: source fix и local unit verification passed in C-009; TV long-press **PENDING**.
+- Статус: source fix и local C-009 candidate verification passed на exact source
+  `777c8a0528f24db67402536631257d6cdc91f148`; TV long-press **PENDING**.
 - Обнаружено: 25 августа 2026 года.
 - Affected: C-008 / `0.5.2` и предыдущая History routing implementation.
 - Last-known-good: C-007 подтверждал History → player → Details → History, но прямой запуск
