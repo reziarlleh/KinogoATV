@@ -221,6 +221,7 @@ fun KinogoTvApp(
                 catalog = allCatalogPosters,
                 searchResults = searchResults,
                 favorites = favorites,
+                bookmarks = bookmarks,
                 history = history,
             )
                 ?.toPendingDetails()
@@ -597,11 +598,13 @@ internal fun pendingDetailsPoster(
     catalog: List<PosterUiModel>,
     searchResults: List<PosterUiModel>,
     favorites: List<PosterUiModel>,
+    bookmarks: List<BookmarkUiModel>,
     history: List<HistoryUiModel>,
 ): PosterUiModel? =
     catalog.firstOrNull { it.id == id }
         ?: searchResults.firstOrNull { it.id == id }
         ?: favorites.firstOrNull { it.id == id }
+        ?: bookmarks.firstOrNull { it.poster.id == id }?.poster
         ?: history.firstOrNull { it.poster.id == id }?.poster
 
 private fun PosterUiModel.toPendingDetails() =

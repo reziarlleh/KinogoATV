@@ -118,7 +118,19 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
 
-Текущий local exact snapshot C-009 / `0.5.3` code 17 привязан к application
+Текущий local exact snapshot C-010 / `0.5.4` code 18 привязан к application
+source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Canonical command
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
+SUCCESS за 4 мин 58 с; 91 suites / 462 tests, 0 failures/errors/skips; lint —
+0 errors / 22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
+3 мин 38 с, 50 tasks. Exact `dist/KinogoATV-0.5.4-code18.apk`: 38 402 782 bytes,
+SHA-256 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
+`com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
+точно совпадает с application source. Remote publication и TV runtime ещё **PENDING**.
+
+Предыдущий published snapshot C-009 / `0.5.3` code 17 привязан к application
 source `777c8a0528f24db67402536631257d6cdc91f148`. Canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
 SUCCESS за 7 мин 12 с; 89 suites / 455 tests, 0 failures/errors/skips; lint —

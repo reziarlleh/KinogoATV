@@ -25,6 +25,8 @@ internal data class NativeStartupHost(
     val diagnosticsButton: Button,
 )
 
+internal const val STARTUP_APP_TITLE = "KinogoATV"
+
 internal object StartupViews {
     fun loading(context: Context): NativeStartupHost {
         val root = FrameLayout(context).apply {
@@ -35,7 +37,7 @@ internal object StartupViews {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(context.dp(64), context.dp(48), context.dp(64), context.dp(48))
         }
-        val title = text(context, "KINOGO TV", 42f, Color.WHITE).apply {
+        val title = text(context, STARTUP_APP_TITLE, 42f, Color.WHITE).apply {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
         }

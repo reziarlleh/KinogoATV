@@ -200,10 +200,9 @@ fun SettingsScreen(
                     ) {
                         TvActionButton(
                             text = if (mirrorState.isChecking) "Проверяем…" else "Проверить зеркала",
-                            onClick = onCheckMirrors,
+                            onClick = { if (!mirrorState.isChecking) onCheckMirrors() },
                             primary = true,
                             leadingMark = if (mirrorState.isChecking) "…" else "↻",
-                            enabled = !mirrorState.isChecking,
                         )
                         TvActionButton(
                             text = "Добавить адрес",
@@ -389,6 +388,7 @@ private fun AccountCard(
     onSyncNow: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val connecting = state.phase == AccountConnectionPhase.CONNECTING
     val statusColor = when (state.phase) {
         AccountConnectionPhase.NO_CREDENTIALS -> Color(0xFF9EABC0)
         AccountConnectionPhase.WAITING_FOR_MIRROR -> Color(0xFFFBBF24)
@@ -484,24 +484,15 @@ private fun AccountCard(
             ) {
                 TvActionButton(
                     text = if (state.credentialsSaved) "Сменить данные" else "Войти",
-                    onClick = onLogin,
+                    onClick = { if (!connecting) onLogin() },
                     primary = !state.credentialsSaved,
                     leadingMark = if (state.credentialsSaved) "✎" else "→",
-                    enabled = state.phase != AccountConnectionPhase.CONNECTING,
                 )
-                if (!state.isAuthenticated) {
-                    TvActionButton(
-                        text = "Регистрация",
-                        onClick = onRegister,
-                        leadingMark = "+",
-                        enabled = state.phase != AccountConnectionPhase.CONNECTING,
-                    )
-                }
                 TvActionButton(
                     text = "Переподключиться",
-                    onClick = onReconnect,
+                    onClick = { if (!connecting) onReconnect() },
                     leadingMark = "↻",
-                    enabled = state.credentialsSaved && state.phase != AccountConnectionPhase.CONNECTING,
+                    enabled = state.credentialsSaved,
                 )
                 TvActionButton(
                     text = if (safePendingCount > 0) {
@@ -509,9 +500,9 @@ private fun AccountCard(
                     } else {
                         "Синхронизировать"
                     },
-                    onClick = onSyncNow,
+                    onClick = { if (!connecting) onSyncNow() },
                     leadingMark = "⇄",
-                    enabled = state.isAuthenticated && state.phase != AccountConnectionPhase.CONNECTING,
+                    enabled = state.credentialsSaved,
                 )
                 TvActionButton(
                     text = "Удалить данные",
@@ -519,6 +510,13 @@ private fun AccountCard(
                     leadingMark = "×",
                     enabled = state.credentialsSaved,
                 )
+                if (!state.isAuthenticated) {
+                    TvActionButton(
+                        text = "Регистрация",
+                        onClick = { if (!connecting) onRegister() },
+                        leadingMark = "+",
+                    )
+                }
             }
         }
     }
@@ -529,6 +527,7 @@ private fun AppUpdateCard(
     state: AppUpdateUiModel,
     onAction: () -> Unit,
 ) {
+    val action = state.stableActionPresentation()
     val statusColor = when (state.phase) {
         AppUpdateUiPhase.AVAILABLE,
         AppUpdateUiPhase.READY_TO_INSTALL,
@@ -566,22 +565,49 @@ private fun AppUpdateCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            state.actionLabel?.let { label ->
-                TvActionButton(
-                    text = label,
-                    onClick = onAction,
-                    primary = state.phase == AppUpdateUiPhase.AVAILABLE ||
-                        state.phase == AppUpdateUiPhase.READY_TO_INSTALL,
-                    leadingMark = when (state.phase) {
-                        AppUpdateUiPhase.AVAILABLE -> "↓"
-                        AppUpdateUiPhase.READY_TO_INSTALL -> "✓"
-                        else -> "↻"
-                    },
-                    enabled = state.actionEnabled,
-                )
-            }
+            TvActionButton(
+                text = action.label,
+                onClick = { if (action.actionable) onAction() },
+                modifier = Modifier.testTag("settings-update-action"),
+                primary = action.primary,
+                leadingMark = action.leadingMark,
+            )
         }
     }
+}
+
+internal data class AppUpdateActionPresentation(
+    val label: String,
+    val leadingMark: String,
+    val primary: Boolean,
+    val actionable: Boolean,
+)
+
+/** A running update operation keeps one focusable node instead of removing the focused button. */
+internal fun AppUpdateUiModel.stableActionPresentation(): AppUpdateActionPresentation = when (phase) {
+    AppUpdateUiPhase.CHECKING -> AppUpdateActionPresentation(
+        label = "Проверяем…",
+        leadingMark = "…",
+        primary = false,
+        actionable = false,
+    )
+    AppUpdateUiPhase.DOWNLOADING -> AppUpdateActionPresentation(
+        label = "Загружаем…",
+        leadingMark = "…",
+        primary = false,
+        actionable = false,
+    )
+    else -> AppUpdateActionPresentation(
+        label = actionLabel ?: "Проверить",
+        leadingMark = when (phase) {
+            AppUpdateUiPhase.AVAILABLE -> "↓"
+            AppUpdateUiPhase.READY_TO_INSTALL -> "✓"
+            else -> "↻"
+        },
+        primary = phase == AppUpdateUiPhase.AVAILABLE ||
+            phase == AppUpdateUiPhase.READY_TO_INSTALL,
+        actionable = actionEnabled,
+    )
 }
 
 @Composable
@@ -765,11 +791,10 @@ private fun MirrorDetailsDialog(
                     ) {
                         TvActionButton(
                             text = if (isChecking) "Проверяем…" else "Проверить снова",
-                            onClick = onRetry,
+                            onClick = { if (!isChecking) onRetry() },
                             modifier = Modifier.focusRequester(retryFocus),
                             primary = true,
                             leadingMark = if (isChecking) "…" else "↻",
-                            enabled = !isChecking,
                         )
                         Spacer(Modifier.width(12.dp))
                         TvActionButton(

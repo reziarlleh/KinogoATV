@@ -31,6 +31,31 @@
 
 ## Validation candidates
 
+### C-010 — 0.5.4 validation
+
+- Статус: exact application source, canonical local verification и stable-signed APK
+  verified; GitHub publication и hardware runtime — **PENDING**.
+- Metadata in source: version code 18, version `0.5.4`, minSdk 28, targetSdk 37.
+- Application source commit: `b6b2d379dad90bd33ba35725cc9d329166d365e8`.
+- APK: `dist/KinogoATV-0.5.4-code18.apk`, 38 402 782 bytes, SHA-256
+  `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`; package
+  `com.kinogo.atv`, code 18 / `0.5.4`, min/target SDK 28/37, zipalign **PASS**, ровно
+  один v2 signer, embedded revision exact source, certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+- Source scope: startup title `KinogoATV`; remote long-OK release guard; stable focusable
+  async Settings actions; source/Web только в pre-launch selector; единая local resume
+  policy для всех Details entry points; server sync только `STATUS`/`FAVORITE`.
+- Protective evidence: `StartupViewsTest`, `HistoryPosterTest`, `TvPosterGridTest`,
+  `AppUpdateActionPresentationTest`, `SettingsScreenDpadTest`, `PendingDetailsPosterTest`,
+  `KinogoAppRootResumeTest`.
+- Automated: canonical Gradle run — SUCCESS за 4 мин 58 с; 91 suites / 462 tests,
+  0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints. Post-commit release rerun —
+  SUCCESS за 3 мин 38 с, 50 tasks.
+- Runtime: TV/ADB не использовались. OEM long-OK, Settings focus, real resume/player
+  и in-app updater — **PENDING**.
+- Rollback: C-009 application source `777c8a0528f24db67402536631257d6cdc91f148` /
+  published `0.5.3`; полный playback rollback — B-001.
+
 ### C-009 — 0.5.3 validation
 
 - Статус: exact application source, stable-signed APK, regular Release, code 17 manifest,
@@ -938,6 +963,54 @@ C-002 нельзя переименовывать в B-002 и помечать b
   `TvPosterGridTest`, `HistoryPosterTest`, queue ordering test.
 - Runtime verification: **PENDING**, ADB не использовался.
 - Rollback point: C-008 / `4cfa7ac8`; полный playback rollback — B-001.
+
+### R-031 — Меню Истории закрывалось при отпускании долгого OK
+
+- Статус: Resolved in C-010 source; hardware **PENDING**.
+- Обнаружено: 26 августа 2026 года по пользовательскому симптому.
+- Affected: C-009 / `0.5.3` History long-OK dialog.
+- Last-known-good: отсутствует для этого exact OEM-жеста; C-009 имел только source/unit evidence.
+- Причина: repeat `KeyDown` открывал dialog, а завершающий тот же gesture `KeyUp`
+  доставался первой сфокусированной кнопке `Отмена`.
+- Исправление: poster передаёт origin long action; dialog ancestor поглощает первый
+  remote activation release и после него снимает guard.
+- Protective test: `HistoryPosterTest`, существующий `TvPosterGridTest`.
+- Rollback point: C-009 / `777c8a05`; он affected, но сохраняет прочую History logic.
+
+### R-032 — Ручная проверка обновления отдавала фокус боковому меню
+
+- Статус: Resolved in C-010 source/Compose test; hardware **PENDING**.
+- Affected: C-009 / `0.5.3` Settings update action; аналогичный риск был у mirror/account actions.
+- Причина: running state удалял focusable action или делал его disabled; Compose искал
+  следующий focus target, которым мог стать rail.
+- Исправление: stable action остаётся enabled/focusable, меняет label и guard-ит
+  повторный callback; условные кнопки перенесены после stable actions.
+- Protective test: `AppUpdateActionPresentationTest`, `SettingsScreenDpadTest`.
+- Rollback point: C-009 / `777c8a05`.
+
+### R-033 — Native HUD дублировал source и Web route из pre-launch selector
+
+- Статус: Resolved in C-010 source; hardware **PENDING**.
+- Affected: C-009 / `0.5.3` native HUD.
+- Причина: HUD сохранял два route controls, хотя оба уже выбирались до запуска и
+  загромождали D-pad focus row.
+- Исправление: кнопки удалены только из native HUD; `PlaybackSourceSelectionScreen`
+  сохраняет source/native/Web choices до старта.
+- Protective evidence: compile/unit/lint/release зелёны; в дифф-ревью блокеров нет.
+- Rollback point: C-009 / `777c8a05`.
+
+### R-034 — Continue должен быть одинаковым из любого раздела
+
+- Статус: Resolved in C-010 source/unit tests; hardware **PENDING**.
+- Affected: C-009 и более ранние Details entry paths; status-only bookmark мог не иметь
+  immediate pending poster.
+- Причина: resume label строился inline и не имел отдельного контракта для всех
+  origins; pending poster lookup видел favorites, но не все status bookmarks.
+- Исправление: `DetailsUiModel.withLocalResume` применяет одну policy; bookmark
+  poster добавлен в pending lookup. Серверная sync осталась bookmark-only;
+  `PlaybackProgressStore` — единственный источник exact progress.
+- Protective test: `KinogoAppRootResumeTest`, `PendingDetailsPosterTest`.
+- Rollback point: C-009 / `777c8a05`; полный playback rollback — B-001.
 
 ## Шаблон новой записи
 

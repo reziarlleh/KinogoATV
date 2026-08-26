@@ -62,7 +62,7 @@ class KinogoLibraryRepository(
                 authenticated = true,
                 pendingCount = pendingCount,
                 message = if (pendingCount == 0) {
-                    "Закладки и статусы синхронизированы"
+                    "Закладки синхронизированы"
                 } else {
                     "Ожидают отправки: $pendingCount"
                 },

@@ -204,10 +204,14 @@ Media3 `PlayerView` выводит видео без стандартного co
 - title/status;
 - elapsed/duration и focusable timeline;
 - previous/play-pause/next;
-- source, season, voiceover, quality и subtitles selectors;
+- season, voiceover, quality и subtitles selectors;
 - нижняя episode row для series.
 
 HUD полупрозрачный и полноэкранное видео остаётся видимым.
+Выбор provider source и native/Web route происходит в `PlaybackSourceSelectionScreen`
+до создания playback session. Native HUD не дублирует кнопки `Источник` и
+`Web-плеер`; для их смены после запуска нужно вернуться в Details и снова открыть
+действие `Смотреть`/`Продолжить`.
 
 Отдельной кнопки «Обновить источник» в native HUD нет. Ошибка или обнаруженный stall
 сначала запускают bounded automatic recovery; после исчерпания попытки Back возвращает в
@@ -302,7 +306,8 @@ Root принимает callback только от текущей `ActivePlaybac
 новую. Перед вычислением resume root ждёт очередь и нормализует объединение памяти с
 DataStore, поэтому закрытие плеера и немедленное повторное «Продолжить» видят один порядок.
 
-History, Catalog и Search используют одну `preferredResumeProgress` policy. Для content ID
+Home, Catalog, Search, History, Bookmarks и возврат из player используют одну
+`preferredResumeProgress` policy. Для content ID
 сначала выбирается newest активная единица: eligible progress, explicit completed checkpoint
 или episodic checkpoint с position 0. Только после этого проверяется completion. Если newest
 единица завершена, Continue action отсутствует и policy не откатывается к более старой
@@ -310,7 +315,9 @@ History, Catalog и Search используют одну `preferredResumeProgres
 `Продолжить S03E07 с 17:42`; для новой серии с position 0 — `Продолжить S03E07` без
 фиктивного времени.
 
-Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта.
+Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта. Серверный
+контракт Kinogo в приложении охватывает только status/favorite закладок; provider
+WebView `localStorage` — локальное web-to-web state, а не account sync.
 
 Обычный `OK` в Истории открывает Details; он больше не вызывает resume напрямую.
 Экран показывает одну карточку на content ID, поэтому пользовательское удаление материала
@@ -453,6 +460,15 @@ embedded revision. App/docs merge `0473a820eefedea16ce2f393df568c90e5b30bbe`, PR
 **PASS**. Все transports зависят от GitHub assets. Hardware runtime, включая restart-resume
 с non-default source, long-OK History, in-app updater и install, остаётся **PENDING**;
 release tag не является playback baseline.
+
+C-010 не меняет resolver/watchdog/quality алгоритмы. Он удаляет source/Web controls из
+native HUD, оставляя их в pre-launch selector, и применяет один local resume contract
+к Home/Catalog/Search/History/Bookmarks/player return. Exact source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8` прошёл 91 suites / 462 tests за
+4m58s; post-commit release rerun — 3m38s. Exact APK `KinogoATV-0.5.4-code18.apk` имеет
+38 402 782 bytes, SHA-256 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`
+и embedded exact source revision. Реальный player/resume runtime без ADB не повторялся и
+остаётся **PENDING**.
 
 ## Сетевые ограничения плеера
 

@@ -318,7 +318,8 @@ selection не допускаются. Snapshot обогащается атом�
 `LegacyHistoryDetailsResolver` восстанавливает старые numeric-only записи через строго
 ограниченные относительные пути.
 
-`preferredResumeProgress` одинаково обслуживает History, Catalog и Search: для content ID
+`preferredResumeProgress` одинаково обслуживает Home, Catalog, Search, History, Bookmarks
+и возврат из player: для content ID
 сначала определяется самая новая активная единица, включая только что выбранную серию с
 позиции 0. Если эта newest запись завершена, Continue отсутствует: policy не откатывается к
 более старой незавершённой серии. Details получает явный resume label с
@@ -337,6 +338,15 @@ UI Истории группирует units по content ID. Обычный cli
 после pending checkpoints и затем заменяют root memory точным store snapshot; merge со
 старыми удалёнными rows запрещён. Shared poster long action включён опционально только для
 Истории, поэтому click-контракт остальных сеток не изменён.
+Для repeat-based remote long-OK poster передаёт origin жеста; ancestor dialog поглощает
+завершающий activation `KeyUp`, чтобы он не нажал сфокусированную `Отмена`.
+
+### Граница account sync
+
+`KinogoLibraryRepository` и `LibraryStateStore` обслуживают только два server-измерения:
+nullable bookmark `STATUS` и независимый `FAVORITE`. `PlaybackProgressStore` — отдельное
+локальное хранилище; его rows не входят в library outbox, login HTTP requests или account
+snapshot. Позиция provider WebView в `localStorage` также не является account sync.
 
 ### Обновления и remote bootstrap
 
@@ -495,3 +505,9 @@ History Details/delete/clear, codec v3 source resume, startup update prompt/retr
 recovery/resume/quality/buffer/prefetch на реальном TV остаются **PENDING**. ADB,
 установка APK и аппаратный smoke выполняются только после отдельного разрешения владельца
 на конкретный узкий сценарий, когда результат нельзя надёжно установить review и тестами.
+
+C-010 добавляет общий `DetailsUiModel.withLocalResume`, status-only bookmark fallback,
+remote long-OK release guard и stable async Settings actions без изменения store/network слоёв.
+Exact source `b6b2d379dad90bd33ba35725cc9d329166d365e8` прошёл 91 suites / 462
+tests и lint без errors; exact code 18 APK и embedded revision проверены. Аппаратный
+focus/player runtime остаётся **PENDING**.

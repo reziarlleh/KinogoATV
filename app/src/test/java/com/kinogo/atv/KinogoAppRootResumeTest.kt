@@ -345,6 +345,38 @@ class KinogoAppRootResumeTest {
     }
 
     @Test
+    fun `catalog search history bookmarks and player return share one details resume policy`() {
+        val details = ParsedContentPage(
+            catalogItem = CatalogItem(
+                id = CONTENT_ID,
+                relativePath = "/serialy/content-42.html",
+                title = "Series",
+                year = 2025,
+                type = ContentType.SERIES,
+            ),
+            description = "Description",
+            countries = emptyList(),
+            genres = emptyList(),
+            directors = emptyList(),
+            cast = emptyList(),
+            durationMinutes = null,
+            metadata = emptyMap(),
+            playerEmbeds = emptyList(),
+        ).toPlaybackDetailsUiModel()
+        val checkpoint = progress(
+            season = 4,
+            episode = 2,
+            positionMs = 645_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 300L,
+        )
+
+        val resumedDetails = details.withLocalResume(listOf(checkpoint))
+
+        assertEquals("Продолжить S04E02 с 10:45", resumedDetails.resumeLabel)
+    }
+
+    @Test
     fun `newest completed unit never falls back to an older unfinished episode`() {
         val olderUnfinished = progress(
             season = 1,

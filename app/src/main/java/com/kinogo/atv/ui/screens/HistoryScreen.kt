@@ -27,12 +27,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kinogo.atv.ui.components.TvActionButton
+import com.kinogo.atv.ui.components.PosterLongClickOrigin
 import com.kinogo.atv.ui.components.TvSectionTitle
 import com.kinogo.atv.ui.components.shouldRequestFirstPosterFocus
 import com.kinogo.atv.ui.model.HistoryUiModel
@@ -56,6 +62,7 @@ fun HistoryScreen(
     }
     var actionContentId by remember { mutableStateOf<String?>(null) }
     var confirmClearAll by remember { mutableStateOf(false) }
+    var suppressInitialActivationRelease by remember { mutableStateOf(false) }
     val itemIds = remember(posters) { posters.map(PosterUiModel::id) }
     LaunchedEffect(itemIds, actionContentId) {
         if (actionContentId != null && actionContentId !in itemIds) {
@@ -97,9 +104,11 @@ fun HistoryScreen(
                 restorePreferredFocus = false
                 onFocusedItemChanged(contentId)
             },
-            onItemLongClick = { contentId ->
+            onItemLongClick = { contentId, origin ->
                 actionContentId = contentId
                 confirmClearAll = false
+                suppressInitialActivationRelease =
+                    origin == PosterLongClickOrigin.REMOTE_KEY_REPEAT
             },
             itemLongClickLabel = "Управление историей",
         )
@@ -113,9 +122,12 @@ fun HistoryScreen(
             title = selectedTitle,
             itemCount = history.size,
             confirmClearAll = confirmClearAll,
+            suppressInitialActivationRelease = suppressInitialActivationRelease,
+            onInitialActivationReleased = { suppressInitialActivationRelease = false },
             onDismiss = {
                 actionContentId = null
                 confirmClearAll = false
+                suppressInitialActivationRelease = false
                 restorePreferredFocus = true
             },
             onDeleteContent = {
@@ -125,6 +137,7 @@ fun HistoryScreen(
                 )
                 actionContentId = null
                 confirmClearAll = false
+                suppressInitialActivationRelease = false
                 restorePreferredFocus = preferredFocus != null
                 preferredFocus?.let(onFocusedItemChanged)
                 onDeleteContent(selectedContentId, preferredFocus)
@@ -133,6 +146,7 @@ fun HistoryScreen(
             onClearAll = {
                 actionContentId = null
                 confirmClearAll = false
+                suppressInitialActivationRelease = false
                 restorePreferredFocus = false
                 onClearHistory()
             },
@@ -154,6 +168,8 @@ private fun HistoryManagementDialog(
     title: String,
     itemCount: Int,
     confirmClearAll: Boolean,
+    suppressInitialActivationRelease: Boolean,
+    onInitialActivationReleased: () -> Unit,
     onDismiss: () -> Unit,
     onDeleteContent: () -> Unit,
     onRequestClearAll: () -> Unit,
@@ -168,6 +184,15 @@ private fun HistoryManagementDialog(
         LaunchedEffect(confirmClearAll) { cancelFocus.requestFocus() }
         Box(
             modifier = Modifier
+                .onPreviewKeyEvent { event ->
+                    val decision = historyDialogActivationDecision(
+                        pendingRelease = suppressInitialActivationRelease,
+                        key = event.key,
+                        type = event.type,
+                    )
+                    if (decision.releaseConsumed) onInitialActivationReleased()
+                    decision.consume
+                }
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.74f))
                 .padding(horizontal = 24.dp, vertical = 16.dp),
@@ -222,6 +247,30 @@ private fun HistoryManagementDialog(
                 }
             }
         }
+    }
+}
+
+internal data class HistoryDialogActivationDecision(
+    val consume: Boolean,
+    val releaseConsumed: Boolean,
+)
+
+/** Keeps the KeyUp that completed a remote long-OK from activating the dialog's first button. */
+internal fun historyDialogActivationDecision(
+    pendingRelease: Boolean,
+    key: Key,
+    type: KeyEventType,
+): HistoryDialogActivationDecision {
+    val activationKey = key == Key.DirectionCenter || key == Key.Enter || key == Key.NumPadEnter
+    if (!pendingRelease || !activationKey) {
+        return HistoryDialogActivationDecision(consume = false, releaseConsumed = false)
+    }
+    return when (type) {
+        KeyEventType.KeyDown ->
+            HistoryDialogActivationDecision(consume = true, releaseConsumed = false)
+        KeyEventType.KeyUp ->
+            HistoryDialogActivationDecision(consume = true, releaseConsumed = true)
+        else -> HistoryDialogActivationDecision(consume = false, releaseConsumed = false)
     }
 }
 

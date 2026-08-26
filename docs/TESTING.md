@@ -133,6 +133,28 @@ post-merge `main` [run 32920746857](https://github.com/reziarlleh/KinogoATV/acti
 за 4 мин 22 с завершены **SUCCESS**. D-pad long-press, resume реального non-default
 provider и startup update dialog остаются ручной аппаратной приёмкой владельца.
 
+Для C-010 / `0.5.4` (code 18) добавлены/расширены:
+
+- `StartupViewsTest` — нативный startup title равен `KinogoATV`;
+- `HistoryPosterTest` — release `KeyUp` remote long-OK поглощается один раз, pointer origin
+  не подавляет следующее нажатие;
+- `AppUpdateActionPresentationTest` — update action сохраняет stable presentation в
+  checking/downloading;
+- `SettingsScreenDpadTest` — сфокусированная update action остаётся focused при
+  переходе модели в `CHECKING`;
+- `PendingDetailsPosterTest` — status-only bookmark даёт immediate Details fallback;
+- `KinogoAppRootResumeTest` — Catalog/Search/History/Bookmarks/player return применяют
+  одну local checkpoint-derived Continue policy.
+
+Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+assembleRelease` завершён **SUCCESS за 4 мин 58 с**: **91 suites / 462 tests**, 0
+failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Результат привязан к
+application source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Exact post-commit
+`assembleRelease --rerun-tasks` завершён **SUCCESS за 3 мин 38 с**, 50 tasks.
+`assembleDebugAndroidTest` только собрал test APK; instrumentation на TV не запускалась.
+Compose `Dialog` event propagation на конкретном OEM-пульте и Settings focus остаются
+ручной hardware-приёмкой.
+
 ### Buffer policy C-008
 
 В source зафиксирована одна pure `PlaybackBufferPolicy`, чтобы UI, Media3 и stall recovery
@@ -199,6 +221,16 @@ certificate verification; значения находятся в `PROJECT_STATE.
 `KinogoATV`, zipalign OK, v2 true,
 certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+
+Для C-010 локально проверен exact stable-signed release APK
+`dist/KinogoATV-0.5.4-code18.apk`: 38 402 782 bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`; package
+`com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer с certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Embedded revision
+точно совпадает с application source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. GitHub publication и TV runtime на этом
+этапе **PENDING**.
 
 Для C-009 локально проверен exact stable-signed release APK
 `dist/KinogoATV-0.5.3-code17.apk`: 38 386 398 bytes, SHA-256

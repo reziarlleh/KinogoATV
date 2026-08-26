@@ -397,12 +397,16 @@ Independent favorite читается с `/favorites/` и переключает
 
 `LibraryStateStore` хранит server snapshot и coalescing outbox отдельно для status/favorite.
 При конфликте pending локальная команда имеет приоритет до успешной отправки.
+В production-коде `LibraryMutationKind` содержит ровно `STATUS` и `FAVORITE`, а
+`KinogoLibraryRepository.sync` читает/отправляет только эти два измерения. Playback checkpoint
+не входит в library outbox и не передаётся в account HTTP client.
 
 Подробный протокол и ограничения: [`AUTH_AND_SYNC.md`](AUTH_AND_SYNC.md).
 
 ## Прогресс просмотра
 
-Точный Media3 checkpoint не является частью account protocol Kinogo. В текущей архитектуре:
+Точный Media3 checkpoint не является частью account protocol Kinogo. Это фиксированная
+продуктовая граница, а не нереализованная функция. В текущей архитектуре:
 
 - сайт синхронизирует status/favorite;
 - TV хранит season/episode/voice/quality/position локально;
@@ -410,6 +414,9 @@ Independent favorite читается с `/favorites/` и переключает
   сайта.
 
 Не пытайтесь отправлять секунды воспроизведения в неподтверждённый endpoint.
+Для C-010 эта граница повторно проверена review production paths: сетевая library sync
+ограничена status/favorite, а resume читается из `PlaybackProgressStore` для любого
+Details entry point.
 
 ## Обработка ошибок
 

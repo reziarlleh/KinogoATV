@@ -186,7 +186,7 @@ class KinogoSessionManager(
                     login = credentials.login,
                     displayName = session.displayName,
                     credentialsSaved = true,
-                    message = "Закладки и статусы синхронизируются",
+                    message = "Закладки синхронизируются",
                 )
             } else {
                 sessionsByOrigin.remove(origin)

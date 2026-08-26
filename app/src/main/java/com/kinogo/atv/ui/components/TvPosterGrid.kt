@@ -52,6 +52,11 @@ internal data class PosterLongPressDecision(
     val longPressHandled: Boolean,
 )
 
+enum class PosterLongClickOrigin {
+    POINTER_OR_SEMANTICS,
+    REMOTE_KEY_REPEAT,
+}
+
 /** Handles repeat-based long OK/Enter consistently on TV remotes. */
 internal fun posterLongPressDecision(
     key: Key,
@@ -224,7 +229,7 @@ fun TvPosterGrid(
     preferredFocusItemId: String? = null,
     requestPreferredFocus: Boolean = false,
     onFocusedItemChanged: (String) -> Unit = {},
-    onItemLongClick: ((String) -> Unit)? = null,
+    onItemLongClick: ((String, PosterLongClickOrigin) -> Unit)? = null,
     itemLongClickLabel: String = "Дополнительные действия",
 ) {
     require(columns > 0) { "Poster grid column count must be positive" }
@@ -319,12 +324,12 @@ fun TvPosterGrid(
             var lastLongClickUptimeMs by remember(item.id) {
                 mutableLongStateOf(-LONG_CLICK_DEDUPLICATION_MS)
             }
-            fun dispatchLongClick() {
+            fun dispatchLongClick(origin: PosterLongClickOrigin) {
                 val callback = onItemLongClick ?: return
                 val now = SystemClock.uptimeMillis()
                 if (now - lastLongClickUptimeMs >= LONG_CLICK_DEDUPLICATION_MS) {
                     lastLongClickUptimeMs = now
-                    callback(item.id)
+                    callback(item.id, origin)
                 }
             }
             val effectiveRequester = if (index == 0) firstFocus ?: itemRequester else itemRequester
@@ -340,7 +345,9 @@ fun TvPosterGrid(
             PosterCard(
                 item = item,
                 onClick = { onOpenDetails(item.id) },
-                onLongClick = onItemLongClick?.let { { dispatchLongClick() } },
+                onLongClick = onItemLongClick?.let {
+                    { dispatchLongClick(PosterLongClickOrigin.POINTER_OR_SEMANTICS) }
+                },
                 onLongClickLabel = itemLongClickLabel,
                 focusRequester = effectiveRequester,
                 onFocused = {
@@ -372,7 +379,9 @@ fun TvPosterGrid(
                                 alreadyHandled = remoteLongPressHandled,
                             )
                             remoteLongPressHandled = longPress.longPressHandled
-                            if (longPress.invokeLongClick) dispatchLongClick()
+                            if (longPress.invokeLongClick) {
+                                dispatchLongClick(PosterLongClickOrigin.REMOTE_KEY_REPEAT)
+                            }
                             if (longPress.consume) return@onPreviewKeyEvent true
                         }
                         if (event.type != KeyEventType.KeyDown || !event.key.isGridDirection()) {

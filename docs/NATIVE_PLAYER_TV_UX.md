@@ -38,8 +38,9 @@ The HUD is an original two-zone overlay: a subtle dark gradient rather than a co
 * **Top:** back, title, current source name, and compact `S2 · E5 · Dub · 1080p · CC` metadata. Show a source trust/status glyph only as text for accessibility (for example, “native direct stream”).
 * **Bottom:** elapsed/duration and a focusable seek bar; one compact horizontally
   scrollable row containing graphical Previous episode, Play/Pause, Next episode,
-  **Season**, **Audio/translation**, **Quality**, **Subtitles**, **Source** and validated
-  **Web player** actions. Rewind/forward buttons are deliberately omitted because the
+  **Season**, **Audio/translation**, **Quality** and **Subtitles** actions. Source and
+  native/Web route are selected on the dedicated pre-launch screen, not repeated in the
+  HUD. Rewind/forward buttons are deliberately omitted because the
   focused timeline and hardware keys already provide seeking.
 * **Last row for episodic content:** a horizontally focusable episode strip filtered by
   the current source, translation and season. It is always below the controls, so a separate
@@ -51,14 +52,15 @@ The HUD is an original two-zone overlay: a subtle dark gradient rather than a co
 
 Open selectors as a right-side modal panel over paused or playing video (do not pause automatically). The scrim is non-focusable. Back returns to the invoking HUD control and preserves playback.
 
-1. **Source** — provider/source cards: label, native/Web badge, availability, selected state, and short failure note. Native direct sources rank before provider Web sources; user order is never overwritten during a session.
-2. **Season** — only for serials, horizontal chips or a compact vertical list. Changing season keeps the chosen translation where available and opens the episode panel.
-3. **Episode** — a numbered grid/list with watched state, progress bar, duration if known, and “next” marker. Numeric entry remains a fast path; it is additive, not the only way to reach an episode.
-4. **Translation/audio** — display provider label as supplied. Selecting one retains the current quality if that combination exists, otherwise picks the source's preferred quality and announces the substitution.
-5. **Quality** — `Auto` first, then available representations ordered high to low. A choice is selectable only when its current source/season/episode/translation tuple has at least one playable resolution path. During adaptive HLS/DASH, a quality choice may resolve to a track constraint; for separate streams it resolves to a fixed variant. C-008 compares both sets together. A fixed choice is a persistent upper cap: exact resolution wins, otherwise the highest not above the cap, and when every candidate is above it the lowest available candidate is used. The actual fallback stays visible but must not rewrite the desired cap.
-6. **Subtitles** — `System`, `Off`, then the actual Media3 text tracks with language/forced/CC labels. If the source has no captions, keep `Off` and explain why; never present a nonfunctional selector.
+1. **Season** — only for serials, horizontal chips or a compact vertical list. Changing season keeps the chosen translation where available and opens the episode panel.
+2. **Episode** — a numbered grid/list with watched state, progress bar, duration if known, and “next” marker. Numeric entry remains a fast path; it is additive, not the only way to reach an episode.
+3. **Translation/audio** — display provider label as supplied. Selecting one retains the current quality if that combination exists, otherwise picks the source's preferred quality and announces the substitution.
+4. **Quality** — `Auto` first, then available representations ordered high to low. A choice is selectable only when its current source/season/episode/translation tuple has at least one playable resolution path. During adaptive HLS/DASH, a quality choice may resolve to a track constraint; for separate streams it resolves to a fixed variant. C-008 compares both sets together. A fixed choice is a persistent upper cap: exact resolution wins, otherwise the highest not above the cap, and when every candidate is above it the lowest available candidate is used. The actual fallback stays visible but must not rewrite the desired cap.
+5. **Subtitles** — `System`, `Off`, then the actual Media3 text tracks with language/forced/CC labels. If the source has no captions, keep `Off` and explain why; never present a nonfunctional selector.
 
-The current `PlayerDrawer` already covers episode, voiceover, quality and on/off subtitles. Add season, source and real text-track data without making provider page controls part of the native player.
+The current `PlayerDrawer` covers episode, voiceover, quality and on/off subtitles. Source
+cards and explicit Web handoff remain in `PlaybackSourceSelectionScreen`; add season and real
+text-track data without making provider page controls part of the native player.
 
 ## Remote and media-key contract
 
@@ -106,7 +108,7 @@ Each choice change calls the adapter for compatible descendants rather than assu
 
 Selectors are available from the HUD and retain position wherever safe:
 
-* source / translation / quality: checkpoint first, resolve a fresh stream, replace the media item at the clamped current position, retain play/pause state; quality reuses the persistent desired cap rather than carrying the previous episode's concrete stream label;
+* translation / quality: checkpoint first, resolve a fresh stream, replace the media item at the clamped current position, retain play/pause state; quality reuses the persistent desired cap rather than carrying the previous episode's concrete stream label;
 * season / episode: checkpoint current unit, start requested episode at zero, immediately checkpoint the new S/E identity at zero, then resume normal auto-next rules;
 * subtitle track: change Media3 `TrackSelectionParameters` in place; no media reload;
 * after a failed choice, restore the last successful playable tuple and show an actionable error panel.
@@ -115,8 +117,8 @@ Never apply a saved URL as a resume target. Persist only stable provider option 
 
 ## Quick actions, progress and history
 
-The compact control row exposes previous/next episode, season, translation, quality,
-subtitles, source and **Open Web player** when a validated provider embed is supplied.
+The compact control row exposes previous/next episode, season, translation, quality and
+subtitles. Source and **Open Web player** are pre-launch choices and are not duplicated here.
 Optional future actions such as restart, speed, sleep timer, subtitle style and source reports
 belong in a single **More** drawer rather than making the main HUD taller.
 
@@ -249,6 +251,8 @@ sealed interface PlaybackResolveResult {
 ## Delivery slices and acceptance checks
 
 1. Introduce the choice graph and adapter test fixtures; preserve the current single-variant resolver through an adapter shim.
-2. Build Source/Season/Episode/Translation/Quality/real-subtitle selectors and focus restoration; verify all flows with D-pad-only Compose tests.
+2. Build Season/Episode/Translation/Quality/real-subtitle HUD selectors and focus restoration;
+   keep Source/native/Web selection on the pre-launch screen and verify both flows with
+   D-pad-only Compose tests.
 3. Implement bounded retry/failover and the explicit Web handoff; unit-test no-loop, position preservation and unsafe-source rejection.
 4. Validate on an API 28 device/emulator and a physical TV remote: start/resume, all table keys, media session keys, focus recovery, captions, history, selectable 5/10/15/20/30-second LoadControl targets, an interrupted stream, cross-season prefetch, a Web fallback and lifecycle pause. A successful Gradle build alone is not acceptance evidence. ADB connection, APK installation and physical-TV smoke require the owner's explicit prior permission for one narrow scenario and should be requested only when review and automated tests cannot establish a predictable result. C-008 hardware validation is therefore pending until such permission is given.

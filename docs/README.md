@@ -34,25 +34,20 @@
 
 ## Текущий validation release
 
-C-009 / `0.5.3` локально проверен на exact source
-`777c8a0528f24db67402536631257d6cdc91f148`. Stable-signed
-`KinogoATV-0.5.3-code17.apk` имеет `38,386,398` bytes, SHA-256
-`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+C-010 / `0.5.4` локально проверен на exact source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Stable-signed
+`KinogoATV-0.5.4-code18.apk` имеет `38,402,782` bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
 `com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
 SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
-revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
-post-commit release rerun — за `4m04s`. App/docs PR #5 merged как
-`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR/main CI `32920452170`/`32920746857` —
-**PASS**. Annotated `v0.5.3` указывает на `0473a820`, regular latest Release содержит exact
-asset. Manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90` merged через PR #6 как
-`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR/main Android/Pages runs
-`32921520976`/`32921627748`/`32921627746` — **PASS**. Signed manifest: 1 273 bytes,
-SHA-256 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
-`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`. Live Pages manifest+APK,
-jsDelivr manifest после targeted purge и ghfast/ghproxy/direct GitHub APK совпали exact.
-Все transports зависят от GitHub assets; независимого host нет. Hardware TV/ADB, long-OK,
-restart-resume, in-app updater и installer остаются **PENDING**; release tag не является
-playback baseline.
+revision совпадает с exact source. Canonical прошёл `91 suites / 462 tests` за `4m58s`,
+post-commit release rerun — `3m38s`. Изменения закрепляют startup title, long-OK release
+guard, стабильный Settings focus, pre-launch-only source/web selection, bookmark-only
+server sync и один local resume contract для всех Details entry points. GitHub Release,
+signed manifest, remote CI/Pages и live transports ещё **PENDING** до финальной публикации.
+Hardware TV/ADB не использовались; OEM long-OK, Settings focus, real resume/player и
+in-app updater остаются **PENDING**. C-009 / `0.5.3` — предыдущий published validation
+rollback candidate; ни один release tag без hardware evidence не становится playback baseline.
 
 ## Операционные документы
 

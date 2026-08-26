@@ -66,8 +66,10 @@ origins проходят health/fingerprint/public-DNS boundary.
 History key — content/season/episode. Сохраняются stable selection, position и snapshot
 карточки; media URL не сохраняется.
 
-Следствие: смена зеркала не ломает resume. Межустройственная синхронизация exact position
-потребует отдельного подтверждённого механизма.
+Следствие: смена зеркала не ломает resume. С аккаунтом сайта синхронизируются только
+закладки (`STATUS`/`FAVORITE`); exact position/history в account protocol не входят. Provider
+`localStorage` — локальное web-to-web state, а не account sync. Не имитировать несуществующий
+серверный progress endpoint.
 
 ## D-007 — Native provider adapters и явный Web fallback
 
@@ -77,6 +79,8 @@ History key — content/season/episode. Сохраняются stable selection,
 Browser-visible конфигурация конкретного провайдера разбирается отдельным clean-room adapter
 и маппится в общий Media3 plan. Неизвестный или JS-only provider остаётся явно выбранным
 Web fallback, если безопасен.
+Выбор source и native/Web route принадлежит pre-launch selector; native HUD не дублирует
+эти два действия. Для смены route/source после старта пользователь возвращается в Details.
 
 Следствие: универсального небезопасного «парсера всех iframe» нет; каждый adapter имеет
 fixtures, limits и destination tests.
@@ -595,6 +599,8 @@ movie/episode units этого материала. Long OK/Enter и long tap о�
 default — `Отмена`, Back ничего не меняет. Delete/clear сериализованы после pending
 checkpoint writes. После удаления root читает точный store snapshot без merge со старым
 memory state. Полная очистка удаляет только history preference key.
+Для remote repeat long-OK диалог поглощает завершающий `KeyUp`; иначе он нажал бы
+первую сфокусированную кнопку и сразу закрыл меню. Pointer/semantics origin не включает guard.
 
 Следствие: нельзя удалять сериал через exact key `(contentId, null, null)`, запускать player
 из обычного History click или оставлять focus на исчезнувшем item.
@@ -636,6 +642,18 @@ package/version/signer verification → Android Package Installer pipeline. Mani
 делать бесконечные retry, показывать startup error поверх каталога либо устанавливать APK
 без системного подтверждения.
 
+## D-035 — Async Settings action сохраняет focusable identity
+
+- Дата: 26 августа 2026 года
+- Статус: принято для C-010 / `0.5.4`; source/Compose tests passed, TV pending
+
+После `OK` на проверке обновления, зеркала или другом async Settings action его composable
+остаётся тем же focusable node. Running state меняет label/mark и guard-ит повторный action,
+но не удаляет node и не делает его disabled.
+
+Следствие: async recomposition не может передавать фокус ближайшему rail item. Для
+динамических рядов stable actions идут до условных кнопок, чтобы их индекс не сдвигался.
+
 Общий уровень evidence D-032…D-034: exact source
 `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed candidate
 `KinogoATV-0.5.3-code17.apk` локально проверены. APK имеет `38,386,398` bytes, SHA-256
@@ -654,3 +672,11 @@ SHA-256 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issu
 ghfast/ghproxy/direct GitHub paths дали exact bytes. Publication доказана, но все transports
 зависят от GitHub assets. Hardware long-OK/restart-resume/in-app updater/install остаются
 **PENDING**; release tag не становится playback baseline.
+
+Общий уровень evidence для C-010/D-006/D-007/D-032/D-035: exact source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`, canonical 91 suites / 462 tests без
+failures/errors/skips, lint 0 errors, post-commit release rerun 50 tasks. Exact stable-signed
+`KinogoATV-0.5.4-code18.apk` имеет 38 402 782 bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, expected one-signer
+certificate и embedded exact source revision. Remote publication и hardware runtime ещё
+**PENDING**; baseline tag не создавался.
