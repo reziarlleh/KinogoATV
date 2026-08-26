@@ -1669,11 +1669,7 @@ fun KinogoAppRoot() {
         lastCheckedLabel = lastMirrorCheckLabel,
     )
     val detailsUiById = remember(liveDetailsById, history) {
-        liveDetailsById.mapValues { (contentId, details) ->
-            preferredResumeProgress(history, contentId)
-                ?.let { progress -> details.copy(resumeLabel = resumeActionLabel(progress)) }
-                ?: details
-        }
+        liveDetailsById.mapValues { (_, details) -> details.withLocalResume(history) }
     }
 
     val launchUi = playbackLaunchUi
@@ -1817,31 +1813,6 @@ fun KinogoAppRoot() {
             onAutomaticSourceRefreshRequested = { request ->
                 startPlayback(request.selection, recovery = request)
             },
-            onWebFallbackRequested = playbackSession.webFallbacks
-                .takeIf(List<ResolvedPlaybackEmbed>::isNotEmpty)
-                ?.let { availableFallbacks ->
-                    { currentSelection ->
-                        val handoffSelection = currentSelection.copy(resume = true)
-                        if (availableFallbacks.size == 1) {
-                            activeEmbeddedPlayback = ActiveEmbeddedPlaybackSession(
-                                selection = handoffSelection,
-                                source = availableFallbacks.single(),
-                            )
-                            activePlayback = null
-                            pendingPlaybackSelection = null
-                        } else {
-                            pendingPlaybackSelection = PendingPlaybackSelectionSession(
-                                title = title,
-                                selection = handoffSelection,
-                                mediaPlan = null,
-                                webFallbacks = availableFallbacks,
-                                initialPositionMs = 0L,
-                            )
-                            activePlayback = null
-                            activeEmbeddedPlayback = null
-                        }
-                    }
-                },
             onExit = exit@{
                 if (
                     !acceptsPlaybackCheckpoint(
@@ -2179,7 +2150,8 @@ fun KinogoAppRoot() {
             accountState = accountState,
             pendingSyncCount = librarySyncPendingCount,
             syncMessage = librarySyncMessage
-                ?: "Позиция и выбранная серия пока сохраняются локально на этом ТВ",
+                ?: "С сайтом синхронизируются только закладки; история и позиции просмотра " +
+                    "хранятся локально на этом ТВ",
             onAccountLogin = { rawLogin, password ->
                 val origin = activeMirrorOrigin
                 val login = rawLogin.trim()
@@ -2421,6 +2393,14 @@ internal fun preferredResumeProgress(
         .maxByOrNull(WatchProgress::updatedAtEpochMs)
     return latestActiveUnit?.takeUnless { it.isCompleted() }
 }
+
+/** Every Details entry point receives the same local checkpoint-derived Continue action. */
+internal fun com.kinogo.atv.ui.model.DetailsUiModel.withLocalResume(
+    entries: List<WatchProgress>,
+): com.kinogo.atv.ui.model.DetailsUiModel =
+    preferredResumeProgress(entries, id)
+        ?.let { progress -> copy(resumeLabel = resumeActionLabel(progress)) }
+        ?: this
 
 internal fun resumeActionLabel(progress: WatchProgress): String {
     val position = formatClock(progress.boundedPositionMs)

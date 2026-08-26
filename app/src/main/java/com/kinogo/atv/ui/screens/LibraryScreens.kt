@@ -49,6 +49,7 @@ import com.kinogo.atv.ui.components.TvActionButton
 import com.kinogo.atv.ui.components.TvChoiceChip
 import com.kinogo.atv.ui.components.TvIconButton
 import com.kinogo.atv.ui.components.TvPosterGrid
+import com.kinogo.atv.ui.components.PosterLongClickOrigin
 import com.kinogo.atv.ui.components.TvSectionTitle
 import com.kinogo.atv.ui.components.shouldRequestFirstPosterFocus
 import com.kinogo.atv.ui.model.BookmarkUiModel
@@ -409,7 +410,7 @@ internal fun PosterGrid(
     preferredFocusItemId: String? = null,
     requestPreferredFocus: Boolean = false,
     onFocusedItemChanged: (String) -> Unit = {},
-    onItemLongClick: ((String) -> Unit)? = null,
+    onItemLongClick: ((String, PosterLongClickOrigin) -> Unit)? = null,
     itemLongClickLabel: String = "Дополнительные действия",
 ) {
     TvPosterGrid(

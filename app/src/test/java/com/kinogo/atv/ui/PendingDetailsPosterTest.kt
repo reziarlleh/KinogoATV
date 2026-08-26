@@ -1,6 +1,7 @@
 package com.kinogo.atv.ui
 
 import com.kinogo.atv.ui.model.HistoryUiModel
+import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.PosterUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -30,9 +31,30 @@ class PendingDetailsPosterTest {
             catalog = emptyList(),
             searchResults = emptyList(),
             favorites = emptyList(),
+            bookmarks = emptyList(),
             history = history,
         )
 
         assertEquals(restoredPoster, result)
+    }
+
+    @Test
+    fun `status-only bookmark provides immediate pending details fallback`() {
+        val bookmarkPoster = PosterUiModel(
+            id = "47001",
+            title = "Сериал из закладок",
+            subtitle = "2025 • Сериал",
+        )
+
+        val result = pendingDetailsPoster(
+            id = bookmarkPoster.id,
+            catalog = emptyList(),
+            searchResults = emptyList(),
+            favorites = emptyList(),
+            bookmarks = listOf(BookmarkUiModel(poster = bookmarkPoster)),
+            history = emptyList(),
+        )
+
+        assertEquals(bookmarkPoster, result)
     }
 }

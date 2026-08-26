@@ -160,7 +160,6 @@ fun TvPlayerScreen(
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
     playbackSessionGeneration: Long = 0L,
-    onWebFallbackRequested: ((PlaybackSelectionUiModel) -> Unit)? = null,
     automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey> = emptySet(),
     onAutomaticSourceRefreshRequested: ((PlaybackSourceRefreshRequest) -> Unit)? = null,
     title: String = selection.contentId,
@@ -374,8 +373,6 @@ fun TvPlayerScreen(
                 voiceoverFocus = voiceoverFocus,
                 qualityFocus = qualityFocus,
                 subtitlesFocus = subtitlesFocus,
-                sourceFocus = sourceFocus,
-                onWebFallbackRequested = onWebFallbackRequested,
             )
         }
 
@@ -406,8 +403,6 @@ private fun PlayerHud(
     voiceoverFocus: FocusRequester,
     qualityFocus: FocusRequester,
     subtitlesFocus: FocusRequester,
-    sourceFocus: FocusRequester,
-    onWebFallbackRequested: ((PlaybackSelectionUiModel) -> Unit)?,
 ) {
     val state = runtime.state
     val duration = runtime.durationMs
@@ -606,23 +601,6 @@ private fun PlayerHud(
                         },
                         modifier = Modifier.focusRequester(subtitlesFocus),
                     )
-                }
-                item(key = "source") {
-                    PlayerControlButton(
-                        text = "Источник: ${compactHudValue(runtime.selectedSourceLabel, 18)}",
-                        onClick = {
-                            runtime.dispatch(PlayerIntent.OpenDrawer(PlayerDrawer.SOURCE))
-                        },
-                        modifier = Modifier.focusRequester(sourceFocus),
-                    )
-                }
-                if (onWebFallbackRequested != null) {
-                    item(key = "web-player") {
-                        PlayerControlButton(text = "Web-плеер", onClick = {
-                            runtime.checkpoint()
-                            onWebFallbackRequested(runtime.selectionForHandoff())
-                        })
-                    }
                 }
             }
             if (runtime.isEpisode) {

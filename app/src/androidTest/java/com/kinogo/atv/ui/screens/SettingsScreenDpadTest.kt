@@ -118,4 +118,43 @@ class SettingsScreenDpadTest {
             SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Выкл."),
         )
     }
+
+    @Test
+    fun manualUpdateCheckKeepsFocusOnItsStableAction() {
+        composeRule.setContent {
+            var update by remember {
+                mutableStateOf(
+                    AppUpdateUiModel(
+                        currentVersion = "0.5.4",
+                        phase = AppUpdateUiPhase.CURRENT,
+                        status = "Установлена актуальная версия",
+                        actionLabel = "Проверить снова",
+                    ),
+                )
+            }
+            MaterialTheme {
+                SettingsScreen(
+                    sections = emptyList(),
+                    appUpdate = update,
+                    onUpdateAction = {
+                        update = update.copy(
+                            phase = AppUpdateUiPhase.CHECKING,
+                            status = "Проверяем наличие обновлений…",
+                            actionLabel = null,
+                            actionEnabled = false,
+                        )
+                    },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("settings-list")
+            .performScrollToNode(hasTestTag("settings-update-action"))
+        val updateAction = composeRule.onNodeWithTag("settings-update-action")
+        updateAction.performSemanticsAction(SemanticsActions.RequestFocus)
+        updateAction.assertIsFocused().performClick()
+
+        composeRule.waitForIdle()
+        updateAction.assertIsFocused()
+    }
 }
