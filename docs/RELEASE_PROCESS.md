@@ -8,16 +8,19 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-009 / `0.5.3` (code 17, minSdk 28, targetSdk 37) — published validation release для
-Details-first History, delete/clear, codec v3 source persistence и видимого startup updater.
-Application source `777c8a0528f24db67402536631257d6cdc91f148`, final local canonical
-tests/lint, exact post-commit release rebuild и stable-signed APK/hash уже зафиксированы.
-Application/docs merge `0473a820eefedea16ce2f393df568c90e5b30bbe`, annotated tag/regular
-latest Release, Android CI, signed manifest merge
-`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`, Pages и live transports также
-зафиксированы. Только hardware History/resume/updater runtime и in-app installer до
-Android OS confirmation остаются **PENDING**. C-009 не получает playback baseline tag и
-не считается аппаратно проверенным только из-за успешной публикации.
+Текущий C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — local validation
+release candidate для startup title, History long-OK release guard, stable async Settings
+focus, pre-launch-only source/Web choice и единого local resume. Application source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`, canonical tests/lint, exact post-commit release
+rebuild и stable-signed APK/hash зафиксированы. GitHub app/docs merge/tag/Release, signed
+manifest, remote CI/Pages и live transports ещё **PENDING**. TV/ADB не использовались;
+hardware focus/player/updater runtime не подтверждён, baseline tag не создавался.
+
+C-009 / `0.5.3` (code 17) остаётся предыдущим published validation release:
+application/docs merge `0473a820eefedea16ce2f393df568c90e5b30bbe`, annotated tag/regular
+Release, Android CI, signed manifest merge `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`, Pages
+и live transports зафиксированы. Его hardware History/resume/updater runtime остаётся
+**PENDING**, и он также не является playback baseline.
 
 C-008 / `0.5.2` (code 16) остаётся предыдущим exact published validation release:
 application commit, local canonical tests/lint, stable-signed APK/hash, public merge,
@@ -147,6 +150,13 @@ git ls-files --others --exclude-standard
 
 Любая ошибка блокирует выпуск. Lint warnings оцениваются и фиксируются либо документируются.
 
+Для C-010 полный canonical набор
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
+завершён **SUCCESS за 4 мин 58 с**: 91 suites / 462 tests, 0 failures, 0 errors,
+0 skipped; lint 0 errors / 22 warnings / 2 hints. Результат привязан к application source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Exact post-commit
+`assembleRelease --rerun-tasks` — **SUCCESS за 3 мин 38 с**, 50 tasks.
+
 Для C-009 полный canonical набор
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
 завершён **SUCCESS за 7 мин 12 с**: 89 suites / 455 tests, 0 failures, 0 errors,
@@ -232,6 +242,14 @@ Get-FileHash <apk> -Algorithm SHA256
 - SHA сохранён.
 - имя файла точно совпадает с updater contract;
 - APK package/version/code/signer совпадают с metadata Release и установленным приложением.
+
+Для C-010 локально проверен exact `dist/KinogoATV-0.5.4-code18.apk`:
+38 402 782 bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
+`com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. GitHub Release/digest ещё **PENDING**.
 
 Для C-009 локально проверен exact `dist/KinogoATV-0.5.3-code17.apk`:
 38 386 398 bytes, SHA-256
@@ -516,7 +534,25 @@ Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist C-009
+## Release checklist C-010
+
+- [x] Version code увеличен до 18, version name — `0.5.4`.
+- [x] Application source commit: `b6b2d379dad90bd33ba35725cc9d329166d365e8`.
+- [x] Canonical local verification: 91 suites / 462 tests, 0 failures/errors/skips;
+      lint 0 errors / 22 warnings / 2 hints.
+- [x] Exact post-commit `assembleRelease --rerun-tasks`: 3 мин 38 с, 50 tasks.
+- [x] Exact stable-signed APK упакован как `KinogoATV-0.5.4-code18.apk`.
+- [x] Package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, embedded
+      revision, size и SHA-256 проверены локально.
+- [ ] Application/docs PR/main CI влиты и зелёные.
+- [ ] Annotated `v0.5.4`, regular latest validation Release и exact GitHub asset опубликованы.
+- [ ] Signed code 18 manifest создан из exact APK, merged и опубликован Pages.
+- [ ] Live manifest/APK transports сверены по exact bytes.
+- [x] Hardware boundary записана: TV/ADB runtime **PENDING**, baseline tag не создавался.
+- [ ] Владелец вручную проверил long-OK release, Settings focus, единый resume
+      и updater 0.5.4.
+
+### Historical completed checklist C-009
 
 - [x] Version code увеличен до 17, version name — `0.5.3`.
 - [x] Application source commit записан:

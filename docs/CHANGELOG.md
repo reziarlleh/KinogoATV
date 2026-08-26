@@ -7,6 +7,55 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [0.5.4] — 2026-08-26 (validation release)
+
+### TV-фокус и история
+
+- На стартовом Android View и в launcher metadata используется одно имя `KinogoATV`;
+  прежняя надпись `KINOGO TV` при запуске удалена.
+- Диалог долгого `OK` в Истории поглощает отпускающий `KeyUp` того же remote-жеста.
+  Меню больше не закрывается в момент отпускания кнопки; pointer/semantics long click
+  не получает лишнего подавления.
+- Кнопки асинхронных действий Settings, включая «Проверить обновление» и
+  проверку зеркал, сохраняют тот же focusable node во время запроса. Фокус не
+  переходит сам в боковое меню.
+
+### Плеер и продолжение
+
+- Из native HUD удалены кнопки «Источник» и «Web-плеер». Источник и
+  native/web route по-прежнему выбираются на отдельном экране до запуска;
+  сезон/серия/озвучка/качество/субтитры остались в HUD.
+- Все входы в Details — Главная, Каталог, Поиск, История, Закладки и
+  возврат из player — применяют одну `preferredResumeProgress` policy. Для status-only
+  закладки добавлен immediate poster fallback, поэтому карточка не теряет материал
+  до завершения сетевой загрузки Details.
+
+### Граница синхронизации
+
+- С Kinogo синхронизируются только взаимоисключающий статус закладки и
+  независимое «Избранное». `KinogoLibraryRepository` имеет только mutation kinds
+  `STATUS` и `FAVORITE`.
+- История, сезон, серия, озвучка, качество и точная позиция хранятся
+  только в `PlaybackProgressStore` на этом устройстве. В профиле сайта нет account endpoint
+  для точной позиции; provider `localStorage` не считается серверной синхронизацией.
+
+### Validation status
+
+- Application source: `b6b2d379dad90bd33ba35725cc9d329166d365e8`; code 18 / `0.5.4`,
+  minSdk 28, targetSdk 37.
+- Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+  assembleRelease` завершён **SUCCESS за 4 мин 58 с**: **91 suites / 462 tests**, 0
+  failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Exact post-commit
+  `assembleRelease --rerun-tasks` — **SUCCESS за 3 мин 38 с**, 50 tasks.
+- Exact stable-signed APK `dist/KinogoATV-0.5.4-code18.apk`: 38 402 782 bytes, SHA-256
+  `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`; package
+  `com.kinogo.atv`, code 18 / `0.5.4`, min/target SDK 28/37, zipalign PASS, v2 true,
+  ровно один signer, certificate SHA-256
+  `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
+  точно совпадает с application source.
+- ADB и реальный TV не использовались. OEM D-pad long-OK, settings focus и все
+  playback/resume сценарии 0.5.4 остаются ручной приёмкой владельца; baseline tag не создавался.
+
 ## [0.5.3] — 2026-08-26 (validation release)
 
 ### История и навигация

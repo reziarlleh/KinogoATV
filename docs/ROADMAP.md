@@ -6,30 +6,19 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: ручная приёмка 0.5.3
+## Сейчас: публикация и ручная приёмка 0.5.4
 
-C-009 дополняет C-008 управлением локальной Историей, Details-first routing,
-сохранением stable source ID в checkpoint и видимым startup update prompt с одной
-повторной попыткой. C-008 добавил buffer-aware one-shot recovery и новую player generation при
-fresh source, устойчивые checkpoint/resume writes, сохраняемый quality cap, реальную
-настройку Media3 buffer 5/10/15/20/30 с и in-memory preload ближайшей серии через
-границу сезона. Ручная refresh-кнопка и obsolete settings cycle удалены;
-updater-пункты собраны в конце Settings. Для C-009 локально проверены exact application
-source `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed APK
-`KinogoATV-0.5.3-code17.apk`: `38,386,398` bytes, SHA-256
-`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
-`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, один v2 signer с certificate
-SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
-revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
-post-commit release rerun — за `4m04s`. App/docs PR #5/main merge, annotated `v0.5.3`,
-regular latest Release с exact asset, code 17 signed manifest, Android CI, Pages и live
-transport checks — **PASS**. Manifest source PR #6 merged как
-`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; Pages manifest+APK, jsDelivr manifest после
-targeted purge и ghfast/ghproxy/direct GitHub APK дали exact bytes. Все эти transports
-зависят от GitHub assets; независимый host не заявлен. Аппаратная playback-приёмка и
-runtime встроенного updater остаются **PENDING**. C-007 остаётся исторической integration
-point, B-001 — полным playback rollback baseline; C-009 остаётся validation release и
-release tag сам по себе baseline не создаёт.
+C-010 закрепляет TV focus/history/player/resume и границу синхронизации: startup
+`KinogoATV`, поглощение release `KeyUp` после long-OK в Истории, stable focus node у
+async Settings actions, source/Web только в pre-launch selector, общий local resume для
+всех Details entry points и серверную sync только `STATUS`/`FAVORITE`. Exact application
+source `b6b2d379dad90bd33ba35725cc9d329166d365e8` и stable-signed
+`KinogoATV-0.5.4-code18.apk` локально проверены: 38 402 782 bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
+`com.kinogo.atv`, min/target SDK 28/37, zipalign PASS, один v2 signer с ожидаемым
+certificate. Canonical прошёл 91 suites / 462 tests за 4m58s; post-commit release — 3m38s.
+GitHub Release/signed manifest/Pages ещё не опубликованы, TV/ADB не использовались. C-009 —
+предыдущий published validation rollback candidate, B-001 — полный playback baseline.
 
 ### P0 — runtime-приёмка владельцем
 
@@ -43,11 +32,11 @@ release tag сам по себе baseline не создаёт.
   помогла, явный retry идёт только через Back → Details → «Смотреть».
 - Владелец проверяет signed-manifest update при недоступном GitHub API: metadata,
   fallback download, APK checks и передачу Package Installer с обязательным OS confirmation.
-- Владелец проверяет обычный/долгий `OK` в Истории, безопасный focus диалога,
-  удаление одного сериала со всеми его сериями, полную очистку и startup update prompt.
+- Владелец проверяет обычный/долгий `OK` в Истории, что диалог остаётся открыт
+  после отпускания `OK`, а также фокус «Проверить обновление» во время запроса.
 - Агент не подключается к TV по ADB, не устанавливает APK и не запускает hardware smoke
   без нового явного разрешения владельца на конкретный узкий сценарий.
-- Не назначать C-009 playback baseline, пока не закрыта эта runtime-матрица.
+- Не назначать C-010 playback baseline, пока не закрыта эта runtime-матрица.
 
 ### P1 — оставшиеся integration-регрессии
 
@@ -103,8 +92,8 @@ release tag сам по себе baseline не создаёт.
 - После ручной проверки решить, нужен ли отдельный режим удаления только одной серии;
   текущая карточка материала намеренно удаляет все его episode checkpoints.
 - Добавить настраиваемую локальную history retention; ручные delete/clear уже реализованы.
-- Исследовать отдельный opt-in sync service/companion для exact progress; не имитировать
-  серверную функцию сайта, которой нет.
+- Не добавлять account sync exact progress без появления подтверждённого серверного endpoint.
+  Текущий продуктовый контракт: с сайтом только закладки, exact progress — только локально.
 
 ### Воспроизведение
 
@@ -113,7 +102,8 @@ release tag сам по себе baseline не создаёт.
 - Реализовать визуальный countdown следующей серии с Cancel/Play now.
 - После TV evidence решить, нужен ли второй provider failover поверх реализованной одной
   fresh-source попытки; не увеличивать лимит без loop guards.
-- Решить, какие validated Web player capabilities можно безопасно подключить к единому HUD.
+- Не возвращать Web/source route в native HUD; provider-specific Web capabilities остаются
+  в изолированном fullscreen fallback, выбранном до запуска.
 - Добавить subtitle style и playback speed только после стабилизации основного HUD.
 
 ### Архитектура и качество
