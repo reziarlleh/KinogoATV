@@ -53,6 +53,15 @@
   ровно один signer, certificate SHA-256
   `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
   точно совпадает с application source.
+- Application/docs PR #8 вошёл merge `e472ca6`; annotated `v0.5.4` и regular Release
+  опубликованы с exact GitHub asset/digest. Signed manifest source `8e0a8aa` вошёл PR #9
+  merge `b569740`; PR/main Android и Pages runs `32970169960`, `32970708245`, `32971109889`,
+  `32971237800`, `32971237767` завершены SUCCESS.
+- Final signed code 18 manifest: 1 273 bytes, SHA-256
+  `CD947D90D92E54727111C1FF2EABC77BA9D7A93F6DCA7815035E4A194FC82EBE`, issued
+  `2026-08-26T12:52:04Z`, expires `2026-09-25T12:52:04Z`. Live Pages manifest+APK и ghfast
+  APK дали exact bytes; jsDelivr `@main` оставался на signed code 17, ghproxy full GET
+  превысил 90 секунд. Основной Pages code 18 работает.
 - ADB и реальный TV не использовались. OEM D-pad long-OK, settings focus и все
   playback/resume сценарии 0.5.4 остаются ручной приёмкой владельца; baseline tag не создавался.
 

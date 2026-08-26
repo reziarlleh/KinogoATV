@@ -4,7 +4,7 @@
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.4** (code 18), validation candidate
+Текущий application source выпускает **0.5.4** (code 18), published validation release
 **C-010**. Стартовый экран теперь называется `KinogoATV`. Remote long-OK в Истории
 передаёт диалогу origin жеста и поглощает завершающий `KeyUp`, поэтому меню не
 закрывается при отпускании кнопки. Async-действия Settings не удаляют и не отключают
@@ -19,12 +19,13 @@
 
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
-Локальный canonical и exact post-commit release зелёные. TV/ADB не использовались;
+Локальный canonical, remote CI, regular Release, signed manifest и Pages publish зелёные.
+TV/ADB не использовались;
 hardware long-OK/focus/playback/updater runtime остаются **PENDING**. C-009 / `0.5.3`
 остаётся предыдущим published validation rollback candidate, C-007 — integration point,
 B-001 — полным playback baseline.
 
-## Текущий validation candidate
+## Текущий validation release
 
 | Поле | Значение |
 | --- | --- |
@@ -38,14 +39,13 @@ B-001 — полным playback baseline.
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | `v0.5.4` готовится для regular validation Release; baseline tag не создавался |
+| Release tag | Annotated `v0.5.4` опубликован как regular validation Release; baseline tag не создавался |
 
 Exact artifact C-010: `dist/KinogoATV-0.5.4-code18.apk`, **38 402 782 bytes**, SHA-256
 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`; package
 `com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, Android TV LEANBACK
 launcher/banner, zipalign PASS, v2 true с ровно одним сертификатом. Embedded revision точно
-`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Publication evidence будет добавлен после
-GitHub Release и signed-manifest rollout.
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Publication evidence приведён ниже.
 
 ## Known-good baseline и откат
 
@@ -96,9 +96,9 @@ Rollback APK допустим только с совместимой подпи�
 | Нативный плеер | C-010 source implemented; hardware **PENDING** | Source/Web и refresh кнопок в HUD нет; buffer-aware recovery, same-unit resume и quality exact/≤/lowest-above сохранены |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-010 local artifact PASS; publication/runtime **PENDING** | Exact code 18 APK проверен; signed manifest/Release/Pages ещё не опубликованы |
+| Обновления | C-010 Release/manifest/Pages PASS; runtime **PENDING** | Exact code 18 APK и signed manifest опубликованы; основной Pages manifest+APK проверен по exact bytes |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-010 local PASS; remote pending | Canonical 91 suites / 462 tests, lint 0 errors; GitHub PR/main runs ещё не запускались |
+| CI | C-010 local/PR/main/Pages PASS | Canonical 91 suites / 462 tests, lint 0 errors; PR #8/#9, main Android и Pages runs зелёные |
 
 ## Проверка C-010
 
@@ -113,6 +113,35 @@ one-signer certificate, SHA-256 и embedded revision проверены лока
 `TvPosterGridTest`, `AppUpdateActionPresentationTest`, `SettingsScreenDpadTest`,
 `PendingDetailsPosterTest` и `KinogoAppRootResumeTest`. Compose/Dialog event propagation на
 конкретном OEM-пульте, native playback и in-app updater остаются **PENDING**.
+
+### Публикация C-010
+
+- Application/docs [PR #8](https://github.com/reziarlleh/KinogoATV/pull/8) прошёл CI
+  [32970169960](https://github.com/reziarlleh/KinogoATV/actions/runs/32970169960) и вошёл merge
+  `e472ca610abf7ddf762fc5f298295524c614ef95`; main Android CI
+  [32970708245](https://github.com/reziarlleh/KinogoATV/actions/runs/32970708245) — SUCCESS.
+- Annotated tag `v0.5.4` указывает на `e472ca610abf7ddf762fc5f298295524c614ef95`.
+  [Regular latest Release](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.4)
+  опубликован `2026-08-26T12:50:57Z`, `draft=false`, `prerelease=false`.
+- Exact [APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.4/KinogoATV-0.5.4-code18.apk)
+  — 38 402 782 bytes; GitHub digest точно
+  `sha256:541941c081136854d17fb7258e92149d98f1292a56dad02724bc1dcaa9f543ac`.
+- Signed manifest source `8e0a8aa66c90e7fe745d5e7ad4fb3d0d5371bc20`,
+  [PR #9](https://github.com/reziarlleh/KinogoATV/pull/9), merge
+  `b5697408482a59f8bc6e4855508345d05667ef0a`. PR CI
+  [32971109889](https://github.com/reziarlleh/KinogoATV/actions/runs/32971109889) — SUCCESS.
+- Final signed code 18 `update/manifest.json`: 1 273 bytes, SHA-256
+  `CD947D90D92E54727111C1FF2EABC77BA9D7A93F6DCA7815035E4A194FC82EBE`, issued
+  `2026-08-26T12:52:04Z`, expires `2026-09-25T12:52:04Z`. Final main Android CI
+  [32971237800](https://github.com/reziarlleh/KinogoATV/actions/runs/32971237800) и Pages
+  [32971237767](https://github.com/reziarlleh/KinogoATV/actions/runs/32971237767) — SUCCESS.
+- Live exact bytes: Pages manifest+APK и ghfast APK — PASS. ghproxy/direct GitHub HEAD
+  вернули HTTP 200 и exact Content-Length; GitHub Release digest подтверждает direct asset.
+  Full ghproxy GET не завершился за 90 секунд. jsDelivr `@main` после targeted purge всё ещё
+  отдавал signed code 17; это безопасный stale fallback, пока primary Pages уже отдаёт exact
+  signed code 18. Все эти пути зависят от GitHub assets и не являются operator-owned host.
+- Baseline tag не создавался: hardware/TV/ADB, OEM long-OK, Settings focus, real resume/player
+  и in-app installer runtime остаются **PENDING**.
 
 ## Проверка C-009
 

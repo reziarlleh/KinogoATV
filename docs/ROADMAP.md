@@ -6,7 +6,7 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: публикация и ручная приёмка 0.5.4
+## Сейчас: ручная приёмка 0.5.4
 
 C-010 закрепляет TV focus/history/player/resume и границу синхронизации: startup
 `KinogoATV`, поглощение release `KeyUp` после long-OK в Истории, stable focus node у
@@ -17,8 +17,10 @@ source `b6b2d379dad90bd33ba35725cc9d329166d365e8` и stable-signed
 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
 `com.kinogo.atv`, min/target SDK 28/37, zipalign PASS, один v2 signer с ожидаемым
 certificate. Canonical прошёл 91 suites / 462 tests за 4m58s; post-commit release — 3m38s.
-GitHub Release/signed manifest/Pages ещё не опубликованы, TV/ADB не использовались. C-009 —
-предыдущий published validation rollback candidate, B-001 — полный playback baseline.
+PR/main CI, regular Release, signed manifest и Pages опубликованы. Pages manifest+APK и
+ghfast APK дали exact bytes; jsDelivr `@main` при первой проверке ещё отдавал stale code 17.
+TV/ADB не использовались. C-009 — предыдущий published validation rollback candidate,
+B-001 — полный playback baseline.
 
 ### P0 — runtime-приёмка владельцем
 

@@ -33,8 +33,8 @@
 
 ### C-010 — 0.5.4 validation
 
-- Статус: exact application source, canonical local verification и stable-signed APK
-  verified; GitHub publication и hardware runtime — **PENDING**.
+- Статус: exact application source, canonical local verification, stable-signed APK,
+  regular Release, signed manifest, Android CI и Pages verified; hardware runtime — **PENDING**.
 - Metadata in source: version code 18, version `0.5.4`, minSdk 28, targetSdk 37.
 - Application source commit: `b6b2d379dad90bd33ba35725cc9d329166d365e8`.
 - APK: `dist/KinogoATV-0.5.4-code18.apk`, 38 402 782 bytes, SHA-256
@@ -51,6 +51,13 @@
 - Automated: canonical Gradle run — SUCCESS за 4 мин 58 с; 91 suites / 462 tests,
   0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints. Post-commit release rerun —
   SUCCESS за 3 мин 38 с, 50 tasks.
+- Publication: PR #8 merge `e472ca6`, tag/regular Release `v0.5.4`, exact GitHub asset;
+  signed manifest source `8e0a8aa`, PR #9 merge `b569740`; PR/main Android и Pages runs
+  `32970169960`, `32970708245`, `32971109889`, `32971237800`, `32971237767` — SUCCESS.
+- Manifest/live: 1 273 bytes, SHA-256
+  `CD947D90D92E54727111C1FF2EABC77BA9D7A93F6DCA7815035E4A194FC82EBE`; Pages
+  manifest+APK и ghfast APK дали exact bytes. jsDelivr `@main` оставался на signed code 17,
+  ghproxy full GET не завершился за 90 секунд; primary Pages code 18 работал.
 - Runtime: TV/ADB не использовались. OEM long-OK, Settings focus, real resume/player
   и in-app updater — **PENDING**.
 - Rollback: C-009 application source `777c8a0528f24db67402536631257d6cdc91f148` /
