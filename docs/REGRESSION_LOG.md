@@ -33,8 +33,8 @@
 
 ### C-009 — 0.5.3 validation
 
-- Статус: exact application source и stable-signed APK verified locally; tag, Release,
-  code 17 manifest, CI/Pages, live transports и hardware runtime — **PENDING**.
+- Статус: exact application source, stable-signed APK, regular Release, code 17 manifest,
+  CI/Pages и live transports verified; hardware runtime — **PENDING**.
 - Metadata in source: version code 17, version `0.5.3`, minSdk 28, targetSdk 37.
 - Application source commit: `777c8a0528f24db67402536631257d6cdc91f148`.
 - APK: `dist/KinogoATV-0.5.3-code17.apk`, 38,386,398 bytes, SHA-256
@@ -51,10 +51,20 @@
 - Automated: canonical Gradle run — SUCCESS за 7 мин 12 с; 89 suites / 455 tests,
   0 failures/errors/skips; lint 0 errors / 22 warnings / 2 hints. Post-commit release rerun —
   SUCCESS за 4 мин 04 с.
-- Publication: tag, Release asset, code 17 signed manifest, CI/Pages и live
-  metadata/download transports — **PENDING**.
-- Runtime: TV/ADB не использовались по указанию владельца. Long-OK, real resume и startup
-  updater dialog — **PENDING**.
+- App/docs publication: PR #5 merged как
+  `0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI `32920452170` и main CI
+  `32920746857` — **PASS**. Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
+  Release содержит exact asset `KinogoATV-0.5.3-code17.apk` с размером/SHA выше.
+- Manifest publication: source `7faebbba8d305a0c339f6966e7759ec7c7f96b90`, PR #6, merge
+  `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR CI `32921520976`, main Android
+  `32921627748` и Pages `32921627746` — **PASS**. Signed manifest имеет 1 273 bytes,
+  SHA-256 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+  `2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`.
+- Live transports: Pages manifest+APK, jsDelivr manifest после targeted purge и APK через
+  ghfast/ghproxy/direct GitHub дали exact bytes. Все эти пути по-прежнему зависят от GitHub
+  assets; независимый operator-owned host не заявлен.
+- Runtime: TV/ADB не использовались по указанию владельца. Long-OK, restart-resume,
+  startup updater dialog, in-app download/verify и Package Installer handoff — **PENDING**.
 - Rollback: C-008 application source `4cfa7ac8`; полный playback — B-001.
 
 ### C-008 — 0.5.2 validation
@@ -870,7 +880,7 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-028 — Resume терял выбранный provider и выглядел как сброс позиции
 
-- Статус: source fix и local C-009 candidate verification passed на exact source
+- Статус: source fix и published C-009 candidate verification passed на exact source
   `777c8a0528f24db67402536631257d6cdc91f148`; hardware **PENDING**.
 - Обнаружено: 25 августа 2026 года при аудите пользовательского сообщения о сброшенных
   временных метках/позициях.
@@ -896,8 +906,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-029 — Автопроверка находила обновление, но не показывала его при запуске
 
-- Статус: source fix и local C-009 candidate verification passed на exact source
-  `777c8a0528f24db67402536631257d6cdc91f148`; runtime **PENDING**.
+- Статус: source fix и published C-009 candidate verification passed на exact source
+  `777c8a0528f24db67402536631257d6cdc91f148`; in-app runtime **PENDING**.
 - Обнаружено: 25 августа 2026 года по симптому «при запуске не предложило, вручную нашло».
 - Affected: C-008 / `0.5.2` и предыдущий updater UI.
 - Last-known-good: отсутствует для startup prompt; C-008 доказал только публикацию и bytes.
@@ -913,7 +923,7 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-030 — История обходила карточку и не позволяла удалить локальные записи
 
-- Статус: source fix и local C-009 candidate verification passed на exact source
+- Статус: source fix и published C-009 candidate verification passed на exact source
   `777c8a0528f24db67402536631257d6cdc91f148`; TV long-press **PENDING**.
 - Обнаружено: 25 августа 2026 года.
 - Affected: C-008 / `0.5.2` и предыдущая History routing implementation.

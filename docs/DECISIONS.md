@@ -584,7 +584,7 @@ evidence для этой ветви; C-008 buffer/prefetch TV pass остаёт�
 ## D-032 — История использует Details-first routing и content-level destructive actions
 
 - Дата: 25 августа 2026 года
-- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, TV long-press pending
+- Статус: принято для C-009 / `0.5.3`; published candidate verified, TV long-press pending
 
 Короткий `OK` на карточке Истории использует тот же `openDetails`, что остальные poster
 grids. Прямой callback History → `startPlayback` удалён: Continue остаётся действием
@@ -602,7 +602,7 @@ memory state. Полная очистка удаляет только history pr
 ## D-033 — Stable source ID является частью checkpoint selection, но не history key
 
 - Дата: 25 августа 2026 года
-- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, runtime resume pending
+- Статус: принято для C-009 / `0.5.3`; published candidate verified, runtime resume pending
 
 `PlaybackSelection` сохраняет optional stable provider adapter `sourceId`. Codec v3 пишет
 его последним полем; v1/v2 остаются читаемыми с `null`. UI/domain mapping обязана переносить
@@ -621,7 +621,7 @@ hostname.
 ## D-034 — Automatic update обязан быть видимым и имеет один bounded retry
 
 - Дата: 25 августа 2026 года
-- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, in-app runtime pending
+- Статус: принято для C-009 / `0.5.3`; published candidate verified, in-app runtime pending
 
 Automatic и manual check различаются origin. Automatic check после загруженной enabled
 preference делает максимум две попытки с задержкой 10 секунд; manual — ровно одну. Только
@@ -643,5 +643,14 @@ package/version/signer verification → Android Package Installer pipeline. Mani
 `com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
 SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` и embedded
 revision exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`, post-commit
-release rerun — за `4m04s`. Эти решения приняты на уровне source/artifact; tag, Release,
-code 17 signed manifest, CI/Pages, live transports и hardware runtime остаются **PENDING**.
+release rerun — за `4m04s`. App/docs PR #5 merged как
+`0473a820eefedea16ce2f393df568c90e5b30bbe`; PR/main CI `32920452170`/`32920746857` —
+**PASS**; annotated `v0.5.3` указывает на `0473a820`, regular latest Release содержит exact
+asset. Manifest source `7faebbba8d305a0c339f6966e7759ec7c7f96b90` merged через PR #6 как
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; PR/main Android/Pages
+`32921520976`/`32921627748`/`32921627746` — **PASS**. Manifest имеет 1 273 bytes,
+SHA-256 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
+`2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`; live Pages/jsDelivr и
+ghfast/ghproxy/direct GitHub paths дали exact bytes. Publication доказана, но все transports
+зависят от GitHub assets. Hardware long-OK/restart-resume/in-app updater/install остаются
+**PENDING**; release tag не становится playback baseline.

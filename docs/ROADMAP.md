@@ -6,7 +6,7 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: выпуск и ручная приёмка 0.5.3
+## Сейчас: ручная приёмка 0.5.3
 
 C-009 дополняет C-008 управлением локальной Историей, Details-first routing,
 сохранением stable source ID в checkpoint и видимым startup update prompt с одной
@@ -21,18 +21,18 @@ source `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed APK
 `com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, один v2 signer с certificate
 SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
 revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
-post-commit release rerun — за `4m04s`. Tag, Release asset, code 17 signed manifest,
-CI/Pages, live metadata/download transports, аппаратная playback-приёмка и runtime
-встроенного updater остаются **PENDING**. Exact publication evidence для code 16 относится
-к C-008. C-007 остаётся исторической integration point, B-001 — полным playback rollback
-baseline; C-009 остаётся validation candidate и сам по себе baseline не меняет.
+post-commit release rerun — за `4m04s`. App/docs PR #5/main merge, annotated `v0.5.3`,
+regular latest Release с exact asset, code 17 signed manifest, Android CI, Pages и live
+transport checks — **PASS**. Manifest source PR #6 merged как
+`ff7f5f8eea9776ef626010fe57993dc1906f5d4a`; Pages manifest+APK, jsDelivr manifest после
+targeted purge и ghfast/ghproxy/direct GitHub APK дали exact bytes. Все эти transports
+зависят от GitHub assets; независимый host не заявлен. Аппаратная playback-приёмка и
+runtime встроенного updater остаются **PENDING**. C-007 остаётся исторической integration
+point, B-001 — полным playback rollback baseline; C-009 остаётся validation release и
+release tag сам по себе baseline не создаёт.
 
 ### P0 — runtime-приёмка владельцем
 
-- Для текущего C-009 создать tag, выпустить exact Release asset, сформировать code 17 signed
-  manifest, получить зелёные CI/Pages runs и live-проверить
-  каждого заявленного transport. Доказательства текущего выпуска зафиксированы в
-  `PROJECT_STATE.md` и `RELEASE_PROCESS.md`.
 - Владелец вручную проверяет выход из player в Details с активной «Смотреть»,
   exact серию/позицию после restart, переход через границу сезона и immediate-next
   preload. Для quality проверяется exact/ниже cap/lowest-above и сохранение между
@@ -211,8 +211,11 @@ evidence указан в `PROJECT_STATE.md`.
   confirmation.
 - Startup auto-check показывает global D-pad prompt при новой версии, делает одну bounded
   повторную попытку и запрашивает signed manifest с `Cache-Control: no-cache`.
-- Exact C-009 source и code 17 APK проверены локально; publication/tag/manifest/CI/live
-  transports и hardware runtime остаются отдельными pending уровнями evidence.
+- C-009 опубликован как regular latest validation Release: app/docs merge
+  `0473a820eefedea16ce2f393df568c90e5b30bbe`, annotated `v0.5.3`, exact code 17 APK,
+  signed manifest merge `ff7f5f8eea9776ef626010fe57993dc1906f5d4a`, зелёные PR/main CI и Pages.
+  Live Pages/jsDelivr/ghfast/ghproxy/direct bytes проверены; все transports зависят от
+  GitHub assets. Hardware runtime остаётся отдельным **PENDING** evidence.
 - Initial rail focus, Switch/dropdown Settings и newest applicable resume policy;
   updater controls собраны в конце, obsolete arrow-cycle settings path удалён.
 - Buffer-aware one-shot fresh playback source recovery с cross-screen loop guard, forced
