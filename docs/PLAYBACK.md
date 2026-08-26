@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Принцип
 
@@ -45,7 +45,8 @@ flowchart TD
 ### Direct media
 
 `DirectMediaResolver` принимает явно найденные HTTPS HLS, DASH и MP4 locations, прошедшие
-destination validation.
+destination validation. Его stable adapter ID всегда равен `direct-media`; HTML provider,
+hostname и конечный URL не используются как сохраняемая identity.
 
 ### Cinemar
 
@@ -267,6 +268,13 @@ Previous/Next не вычисляют номер простой арифмети
 
 Источник истины — `WatchProgress`, не Media3 URL.
 
+Начиная с C-009 сохраняемая `PlaybackSelection` также содержит optional stable
+`sourceId` адаптера (`cinemar`, `collaps`, `direct-media` и аналогичные безопасные
+идентификаторы). Это не URL и не token. Codec v3 пишет `sourceId`; записи v1/v2 читаются
+с `sourceId=null` и при следующей записи мигрируют без потери season/episode/voice/quality/
+position. `PlaybackProgressKey` по-прежнему состоит только из content/season/episode:
+смена источника обновляет ту же playback unit, а не создаёт параллельную историю.
+
 Checkpoint сохраняется:
 
 - каждые 10 секунд;
@@ -276,7 +284,10 @@ Checkpoint сохраняется:
 
 Resume начинает на 5 секунд раньше сохранённой позиции. Eligibility и completion определяет
 `WatchProgressRules`: учитывается минимальная просмотренная длительность, 90% и остаток до
-конца. История группируется по content ID, но хранит записи отдельных эпизодов.
+конца. История группируется по content ID, но хранит записи отдельных эпизодов. Исходная
+сохранённая unit остаётся эталоном для pre-play selector: если свежий source plan нормализует
+её в другой сезон/эпизод, старая позиция не применяется. После ручного возврата к той же unit
+в selector продолжение снова доступно.
 
 `PlaybackCheckpoint` несёт explicit `playbackEnded`: completion не выводится только из
 последней позиции Media3. При переходе на другую серию сначала записывается завершение
@@ -300,6 +311,13 @@ History, Catalog и Search используют одну `preferredResumeProgres
 фиктивного времени.
 
 Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта.
+
+Обычный `OK` в Истории открывает Details; он больше не вызывает resume напрямую.
+Экран показывает одну карточку на content ID, поэтому пользовательское удаление материала
+атомарно удаляет все его movie/episode checkpoints. Удаление и полная очистка сериализованы
+той же очередью, что checkpoint writes; после операции root заменяет память точным снимком
+store, не объединяя его с уже удалёнными записями. `clear()` удаляет только ключ playback
+history и сохраняет остальные Preferences DataStore.
 
 ## Auto-next
 
@@ -421,6 +439,15 @@ adaptive+fixed quality policy. Application source `4cfa7ac8ebd48b70c7b172e54a071
 установка APK и аппаратный smoke
 допустимы только после отдельного явного разрешения владельца на конкретный необходимый
 сценарий; до этого результат формулируется только по review и автоматическим тестам.
+
+C-009 добавляет Details-first History с content-level delete/clear, codec v3 `sourceId` и
+видимый startup update prompt/retry/no-cache, не меняя bounded playback recovery. Exact
+source `777c8a0528f24db67402536631257d6cdc91f148` прошёл canonical
+`89 suites / 455 tests` за `7m12s`, post-commit release rerun — за `4m04s`. Локальный
+stable-signed `KinogoATV-0.5.3-code17.apk` (`38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`) содержит exact
+embedded revision. Publication/tag/manifest/CI/live transports и hardware runtime, включая
+resume с non-default source и long-OK History flow, остаются **PENDING**.
 
 ## Сетевые ограничения плеера
 

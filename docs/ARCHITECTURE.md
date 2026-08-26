@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Цели архитектуры
 
@@ -204,6 +204,9 @@ flowchart TD
 Все media/embed/subtitle URL живут только в памяти подготовленной сессии. История сохраняет
 стабильный выбор и позицию, но не URL.
 
+Direct-media path использует постоянный internal adapter ID `direct-media`. HTML provider,
+hostname и конечный media URL не могут подменять этот ID в сохраняемом checkpoint.
+
 Cinemar разделяет URL policy по стадии. Новый offer проходит только exact-host
 `/embed/...` discovery. Уже найденный authenticated player document может использовать
 непрозрачный runtime path exact `cinemar.cc`; `validatedPlayerDocumentUri` допускает только
@@ -309,8 +312,9 @@ contentId + seasonId? + episodeId?
 
 Запись содержит selection, position, duration, timestamp, явный `playbackEnded` и snapshot
 карточки. Completion не выводится только из последней позиции: отдельный end-сигнал не
-должен быть потерян при закрытии или смене серии. `PlaybackProgressCodec` читает v1 и
-записывает v2. Snapshot обогащается атомарно, не перезаписывая более новый checkpoint.
+должен быть потерян при закрытии или смене серии. `PlaybackProgressCodec` читает v1/v2 и
+записывает v3. V3 добавляет только stable adapter `sourceId`; URL/token в persistent
+selection не допускаются. Snapshot обогащается атомарно, не перезаписывая более новый checkpoint.
 `LegacyHistoryDetailsResolver` восстанавливает старые numeric-only записи через строго
 ограниченные относительные пути.
 
@@ -328,6 +332,12 @@ Timestamp выдаётся монотонно относительно памя�
 memory snapshot с DataStore, поэтому немедленный выход и повторное «Продолжить» видят одну
 и ту же последнюю серию/позицию.
 
+UI Истории группирует units по content ID. Обычный click использует общий `openDetails`,
+а content-level delete удаляет все ключи сериала. Delete/clear идут через ту же очередь
+после pending checkpoints и затем заменяют root memory точным store snapshot; merge со
+старыми удалёнными rows запрещён. Shared poster long action включён опционально только для
+Истории, поэтому click-контракт остальных сеток не изменён.
+
 ### Обновления и remote bootstrap
 
 `AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
@@ -338,11 +348,26 @@ manifest endpoints, затем использует `GitHubReleaseUpdateClient` 
 package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
 системного confirmation.
 
+Startup orchestration различает automatic и manual check. Automatic flow имеет максимум
+две попытки с одной bounded задержкой; только результат `Available` открывает глобальный
+Compose TV-dialog. Dismiss скрывает его на текущий процесс, но не меняет настройку и не
+отменяет доступность update в Settings. Manual flow не выполняет скрытых retry.
+
 Для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
 metadata/download transports подтверждены после Release. Это проверяет deployment topology,
 но не runtime state machine на TV: in-app check/download/verify/installer остаётся
 **PENDING**. Pages/jsDelivr/proxy/direct transport в итоге зависит от GitHub publication;
 operator-owned non-GitHub endpoint пока отсутствует.
+
+Для C-009 / `0.5.3` exact application source
+`777c8a0528f24db67402536631257d6cdc91f148` и локальный stable-signed APK проверены:
+`KinogoATV-0.5.3-code17.apk`, `38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, один v2 signer с certificate
+SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
+revision совпадает с exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`,
+post-commit release rerun — за `4m04s`. Tag, Release, code 17 manifest, CI/Pages, live
+transports и hardware runtime остаются **PENDING**.
 
 `MirrorBootstrapClient` читает bounded exact-schema `config/mirrors.json` с operator-controlled
 GitHub raw path. Manifest не подписан и потому только добавляет quarantined discovery
@@ -456,7 +481,8 @@ Legacy `cycle`/`SettingCycleDirection` для Settings удалён в C-008. И
 
 Рефакторинг этих пунктов не должен одновременно менять сетевой контракт или playback UX.
 Сначала добавляется characterization test, затем переносится один поток, после чего
-выполняется аппаратная проверка. Для C-008 аппаратное evidence отсутствует:
+выполняется аппаратная проверка. Для C-009 локально проверены source/tests и exact APK, но
+History Details/delete/clear, codec v3 source resume, startup update prompt/retry/no-cache,
 recovery/resume/quality/buffer/prefetch на реальном TV остаются **PENDING**. ADB,
 установка APK и аппаратный smoke выполняются только после отдельного разрешения владельца
 на конкретный узкий сценарий, когда результат нельзя надёжно установить review и тестами.

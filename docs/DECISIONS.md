@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -580,3 +580,68 @@ k UI, менять его без пересоздания player identity, вк�
 resolver fan-out или выносить opaque result за пределы текущей playback session. C-007 не является hardware
 evidence для этой ветви; C-008 buffer/prefetch TV pass остаётся **PENDING** и требует
 отдельного разрешения владельца перед ADB-проверкой.
+
+## D-032 — История использует Details-first routing и content-level destructive actions
+
+- Дата: 25 августа 2026 года
+- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, TV long-press pending
+
+Короткий `OK` на карточке Истории использует тот же `openDetails`, что остальные poster
+grids. Прямой callback History → `startPlayback` удалён: Continue остаётся действием
+Details, а Back восстанавливает History destination и stable focused content ID.
+
+Экран группирует checkpoints по content ID, поэтому удаление одной карточки удаляет все
+movie/episode units этого материала. Long OK/Enter и long tap открывают диалог; безопасный
+default — `Отмена`, Back ничего не меняет. Delete/clear сериализованы после pending
+checkpoint writes. После удаления root читает точный store snapshot без merge со старым
+memory state. Полная очистка удаляет только history preference key.
+
+Следствие: нельзя удалять сериал через exact key `(contentId, null, null)`, запускать player
+из обычного History click или оставлять focus на исчезнувшем item.
+
+## D-033 — Stable source ID является частью checkpoint selection, но не history key
+
+- Дата: 25 августа 2026 года
+- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, runtime resume pending
+
+`PlaybackSelection` сохраняет optional stable provider adapter `sourceId`. Codec v3 пишет
+его последним полем; v1/v2 остаются читаемыми с `null`. UI/domain mapping обязана переносить
+поле в обе стороны. Значение не может быть пустым, URL, iframe address или transient token.
+Direct media всегда использует внутренний stable ID `direct-media`, а не HTML provider или
+hostname.
+
+Ключ истории остаётся `contentId + seasonId + episodeId`: source switch обновляет выбранный
+вариант той же unit. Если сохранённый source больше недоступен, normalizer выбирает
+безопасный доступный source; позиция применяется только когда normalized playback unit
+совпала с сохранённой.
+
+Следствие: нельзя терять source ID при persistence, включать его в unit key либо сохранять
+вместо него конечный media URL.
+
+## D-034 — Automatic update обязан быть видимым и имеет один bounded retry
+
+- Дата: 25 августа 2026 года
+- Статус: принято для C-009 / `0.5.3`; exact local candidate verified, in-app runtime pending
+
+Automatic и manual check различаются origin. Automatic check после загруженной enabled
+preference делает максимум две попытки с задержкой 10 секунд; manual — ровно одну. Только
+automatic `Available` открывает глобальный TV-dialog поверх текущего destination. Начальный
+фокус — `Позже`; dismiss действует до следующего процесса и не отключает preference.
+
+Действие обновления использует существующий signed-manifest → bounded download → SHA/size/
+package/version/signer verification → Android Package Installer pipeline. Manifest request
+добавляет `Cache-Control: no-cache`; trust policy и обязательное подтверждение ОС не меняются.
+
+Следствие: нельзя считать state, видимый только в Settings, пользовательским уведомлением,
+делать бесконечные retry, показывать startup error поверх каталога либо устанавливать APK
+без системного подтверждения.
+
+Общий уровень evidence D-032…D-034: exact source
+`777c8a0528f24db67402536631257d6cdc91f148` и stable-signed candidate
+`KinogoATV-0.5.3-code17.apk` локально проверены. APK имеет `38,386,398` bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
+SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` и embedded
+revision exact source. Canonical прошёл `89 suites / 455 tests` за `7m12s`, post-commit
+release rerun — за `4m04s`. Эти решения приняты на уровне source/artifact; tag, Release,
+code 17 signed manifest, CI/Pages, live transports и hardware runtime остаются **PENDING**.

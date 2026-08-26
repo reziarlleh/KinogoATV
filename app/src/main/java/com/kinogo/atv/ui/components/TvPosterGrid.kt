@@ -1,5 +1,6 @@
 package com.kinogo.atv.ui.components
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,6 +24,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -42,6 +44,33 @@ internal sealed interface PosterGridNavigationDecision {
     data object Exit : PosterGridNavigationDecision
 
     data object Stay : PosterGridNavigationDecision
+}
+
+internal data class PosterLongPressDecision(
+    val consume: Boolean,
+    val invokeLongClick: Boolean,
+    val longPressHandled: Boolean,
+)
+
+/** Handles repeat-based long OK/Enter consistently on TV remotes. */
+internal fun posterLongPressDecision(
+    key: Key,
+    type: KeyEventType,
+    repeatCount: Int,
+    alreadyHandled: Boolean,
+): PosterLongPressDecision {
+    if (!key.isPosterActivationKey()) {
+        return PosterLongPressDecision(false, false, alreadyHandled)
+    }
+    return when {
+        type == KeyEventType.KeyDown && repeatCount > 0 && !alreadyHandled ->
+            PosterLongPressDecision(true, true, true)
+        type == KeyEventType.KeyDown && alreadyHandled ->
+            PosterLongPressDecision(true, false, true)
+        type == KeyEventType.KeyUp && alreadyHandled ->
+            PosterLongPressDecision(true, false, false)
+        else -> PosterLongPressDecision(false, false, alreadyHandled)
+    }
 }
 
 /**
@@ -195,6 +224,8 @@ fun TvPosterGrid(
     preferredFocusItemId: String? = null,
     requestPreferredFocus: Boolean = false,
     onFocusedItemChanged: (String) -> Unit = {},
+    onItemLongClick: ((String) -> Unit)? = null,
+    itemLongClickLabel: String = "Дополнительные действия",
 ) {
     require(columns > 0) { "Poster grid column count must be positive" }
     require(preloadRows > 0) { "Poster grid preload row count must be positive" }
@@ -284,6 +315,18 @@ fun TvPosterGrid(
             key = { _, item -> item.id },
         ) { index, item ->
             val itemRequester = remember(item.id) { FocusRequester() }
+            var remoteLongPressHandled by remember(item.id) { mutableStateOf(false) }
+            var lastLongClickUptimeMs by remember(item.id) {
+                mutableLongStateOf(-LONG_CLICK_DEDUPLICATION_MS)
+            }
+            fun dispatchLongClick() {
+                val callback = onItemLongClick ?: return
+                val now = SystemClock.uptimeMillis()
+                if (now - lastLongClickUptimeMs >= LONG_CLICK_DEDUPLICATION_MS) {
+                    lastLongClickUptimeMs = now
+                    callback(item.id)
+                }
+            }
             val effectiveRequester = if (index == 0) firstFocus ?: itemRequester else itemRequester
             DisposableEffect(item.id, effectiveRequester) {
                 focusRequestersById[item.id] = effectiveRequester
@@ -297,6 +340,8 @@ fun TvPosterGrid(
             PosterCard(
                 item = item,
                 onClick = { onOpenDetails(item.id) },
+                onLongClick = onItemLongClick?.let { { dispatchLongClick() } },
+                onLongClickLabel = itemLongClickLabel,
                 focusRequester = effectiveRequester,
                 onFocused = {
                     onFocusedItemChanged(item.id)
@@ -314,11 +359,26 @@ fun TvPosterGrid(
                         onNearEnd()
                     }
                 },
-                modifier = Modifier.onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown || !event.key.isGridDirection()) {
-                        return@onPreviewKeyEvent false
+                modifier = Modifier
+                    .onFocusChanged {
+                        if (!it.isFocused) remoteLongPressHandled = false
                     }
-                    when (
+                    .onPreviewKeyEvent { event ->
+                        if (onItemLongClick != null && event.key.isPosterActivationKey()) {
+                            val longPress = posterLongPressDecision(
+                                key = event.key,
+                                type = event.type,
+                                repeatCount = event.nativeKeyEvent.repeatCount,
+                                alreadyHandled = remoteLongPressHandled,
+                            )
+                            remoteLongPressHandled = longPress.longPressHandled
+                            if (longPress.invokeLongClick) dispatchLongClick()
+                            if (longPress.consume) return@onPreviewKeyEvent true
+                        }
+                        if (event.type != KeyEventType.KeyDown || !event.key.isGridDirection()) {
+                            return@onPreviewKeyEvent false
+                        }
+                        when (
                         val decision = posterGridNavigationDecision(
                             index = index,
                             itemCount = items.size,
@@ -404,3 +464,10 @@ private fun Key.isGridDirection(): Boolean =
         this == Key.DirectionRight ||
         this == Key.DirectionUp ||
         this == Key.DirectionDown
+
+private fun Key.isPosterActivationKey(): Boolean =
+    this == Key.DirectionCenter ||
+        this == Key.Enter ||
+        this == Key.NumPadEnter
+
+private const val LONG_CLICK_DEDUPLICATION_MS = 400L

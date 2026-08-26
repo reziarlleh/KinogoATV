@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Принцип доказательств
 
@@ -108,6 +108,28 @@ lint — **0 errors / 22 warnings / 2 hints**. Post-commit `assembleRelease --re
 **SUCCESS за 5 мин 29 с**. Remote Android CI run `32598900494` на manifest/main merge
 `367bcf2` также завершён **SUCCESS**; аппаратная проверка C-008 остаётся **PENDING**.
 
+Для C-009 / `0.5.3` (code 17) добавлены/расширены:
+
+- `PlaybackProgressCodecTest` — v1/v2 backward compatibility, v3 source ID round-trip,
+  обновление той же episode unit при смене provider и content-level удаление всех серий;
+- `PlaybackProgressStoreTest` — атомарное удаление сериала и сохранность посторонних
+  Preferences при полной очистке history;
+- `KinogoAppRootResumeTest` — UI/domain source round-trip и checkpoint → delete ordering;
+- `HistoryPosterTest` — deterministic next/previous focus после удаления;
+- `TvPosterGridTest` — короткий OK остаётся click, repeat-based long OK срабатывает один раз
+  и подавляет последующий click на KeyUp;
+- `AutomaticUpdateCheckPolicyTest` — ожидание загруженной preference, один automatic retry,
+  отсутствие retry у manual check и global prompt только для automatic `Available`;
+- `SignedManifestUpdateClientTest` — manifest request явно требует `no-cache`.
+
+Canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+assembleRelease` завершён **SUCCESS за 7 мин 12 с**: **89 suites / 455 tests**, 0
+failures/errors/skips; lint — **0 errors / 22 warnings / 2 hints**. Результат привязан к
+application source `777c8a0528f24db67402536631257d6cdc91f148`. Exact post-commit
+`assembleRelease --rerun-tasks` также завершён **SUCCESS за 4 мин 04 с**
+(50 tasks). D-pad long-press, resume реального non-default provider и startup update
+dialog остаются ручной аппаратной приёмкой владельца.
+
 ### Buffer policy C-008
 
 В source зафиксирована одна pure `PlaybackBufferPolicy`, чтобы UI, Media3 и stall recovery
@@ -175,7 +197,19 @@ certificate verification; значения находятся в `PROJECT_STATE.
 certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 
-Для C-008 локально проверен exact release APK `dist/KinogoATV-0.5.2-code16.apk`:
+Для C-009 локально проверен exact stable-signed release APK
+`dist/KinogoATV-0.5.3-code17.apk`: 38 386 398 bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`; package
+`com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer с certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`. Embedded revision
+точно совпадает с application source
+`777c8a0528f24db67402536631257d6cdc91f148`. Publication/tag, Android CI, signed manifest,
+Pages/live transports и TV runtime для C-009 ещё **PENDING**; локальная проверка APK не
+заменяет эти уровни evidence.
+
+Исторически, для C-008 локально проверен exact release APK
+`dist/KinogoATV-0.5.2-code16.apk`:
 38 353 630 bytes, SHA-256
 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`; package
 `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
@@ -272,10 +306,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 `install -r` сохраняет данные только если applicationId и подпись совпадают.
 
-Для C-008 владелец выбрал ручную проверку updater. Поэтому агент не устанавливает кандидат
-на TV и не выполняет smoke без нового отдельного разрешения; публикация validation release
-может состояться на основании final automated/artifact evidence, но без baseline tag и без
-утверждений о hardware validation.
+Для C-009 владелец выбрал проверку без TV/ADB. Поэтому агент не устанавливает кандидат
+на TV и не выполняет smoke без нового отдельного разрешения. Локальные canonical
+и artifact checks закрыты, но History delete/clear, resume non-default provider и startup
+update dialog остаются hardware **PENDING**. C-009 не получает baseline tag до этой
+приёмки.
+
+Исторически C-008 был опубликован как validation release при той же границе: его updater/runtime
+проверял владелец, а публикация не создавала hardware baseline.
 
 ### Smoke matrix
 

@@ -69,9 +69,11 @@ import com.kinogo.atv.data.search.SearchHistoryCollection
 import com.kinogo.atv.data.search.SearchHistoryStore
 import com.kinogo.atv.data.settings.TvPreferencesStore
 import com.kinogo.atv.data.update.AppUpdateCheckResult
+import com.kinogo.atv.data.update.AppUpdateCheckOrigin
 import com.kinogo.atv.data.update.AppUpdateInstallResult
 import com.kinogo.atv.data.update.AppUpdateManager
 import com.kinogo.atv.data.update.AppUpdateRelease
+import com.kinogo.atv.data.update.AutomaticUpdateCheckPolicy
 import com.kinogo.atv.data.update.VerifiedAppUpdate
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.CatalogItem
@@ -453,6 +455,7 @@ fun KinogoAppRoot() {
     }
     var appUpdateJob by remember { mutableStateOf<Job?>(null) }
     var automaticUpdateCheckStarted by remember { mutableStateOf(false) }
+    var showAutomaticUpdatePrompt by remember { mutableStateOf(false) }
     var activePlayback by remember { mutableStateOf<ActivePlaybackSession?>(null) }
     var playbackSessionGeneration by remember { mutableLongStateOf(0L) }
     var lastCheckpointTimestampMs by remember { mutableLongStateOf(0L) }
@@ -1063,56 +1066,78 @@ fun KinogoAppRoot() {
         }
     }
 
-    fun requestAppUpdateCheck() {
+    fun requestAppUpdateCheck(origin: AppUpdateCheckOrigin = AppUpdateCheckOrigin.MANUAL) {
         if (appUpdateJob?.isActive == true) return
+        if (origin == AppUpdateCheckOrigin.MANUAL) showAutomaticUpdatePrompt = false
         verifiedAppUpdate?.apkFile?.delete()
         verifiedAppUpdate = null
         availableAppUpdate = null
         appUpdateUi = AppUpdateUiModel(
             currentVersion = BuildConfig.VERSION_NAME,
             phase = AppUpdateUiPhase.CHECKING,
-            status = "Проверяем GitHub Release…",
+            status = "Проверяем наличие обновлений…",
             actionLabel = null,
             actionEnabled = false,
         )
         appUpdateJob = scope.launch {
+            var attempt = 1
             try {
-                when (val result = appUpdateManager.check(BuildConfig.VERSION_CODE.toLong())) {
-                    is AppUpdateCheckResult.UpToDate -> {
-                        availableAppUpdate = null
-                        verifiedAppUpdate = null
-                        appUpdateUi = AppUpdateUiModel(
-                            currentVersion = BuildConfig.VERSION_NAME,
-                            phase = AppUpdateUiPhase.CURRENT,
-                            status = if (result.latestVersionName == null) {
-                                "Опубликованных обновлений пока нет"
-                            } else {
-                                "Установлена актуальная версия"
-                            },
-                            actionLabel = "Проверить снова",
-                        )
-                    }
-                    is AppUpdateCheckResult.Available -> {
-                        availableAppUpdate = result.release
-                        verifiedAppUpdate = null
-                        appUpdateUi = AppUpdateUiModel(
-                            currentVersion = BuildConfig.VERSION_NAME,
-                            phase = AppUpdateUiPhase.AVAILABLE,
-                            status = "Доступна версия ${result.release.versionName}",
-                            availableVersion = result.release.versionName,
-                            actionLabel = "Загрузить",
-                        )
+                while (true) {
+                    try {
+                        val result = appUpdateManager.check(BuildConfig.VERSION_CODE.toLong())
+                        when (result) {
+                            is AppUpdateCheckResult.UpToDate -> {
+                                availableAppUpdate = null
+                                verifiedAppUpdate = null
+                                appUpdateUi = AppUpdateUiModel(
+                                    currentVersion = BuildConfig.VERSION_NAME,
+                                    phase = AppUpdateUiPhase.CURRENT,
+                                    status = if (result.latestVersionName == null) {
+                                        "Опубликованных обновлений пока нет"
+                                    } else {
+                                        "Установлена актуальная версия"
+                                    },
+                                    actionLabel = "Проверить снова",
+                                )
+                            }
+                            is AppUpdateCheckResult.Available -> {
+                                availableAppUpdate = result.release
+                                verifiedAppUpdate = null
+                                appUpdateUi = AppUpdateUiModel(
+                                    currentVersion = BuildConfig.VERSION_NAME,
+                                    phase = AppUpdateUiPhase.AVAILABLE,
+                                    status = "Доступна версия ${result.release.versionName}",
+                                    availableVersion = result.release.versionName,
+                                    actionLabel = "Загрузить",
+                                )
+                            }
+                        }
+                        if (AutomaticUpdateCheckPolicy.shouldPrompt(origin, result)) {
+                            showAutomaticUpdatePrompt = true
+                        }
+                        break
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        if (AutomaticUpdateCheckPolicy.shouldRetry(origin, attempt)) {
+                            Log.w(
+                                APP_ROOT_LOG_TAG,
+                                "Automatic app update check failed; retrying once",
+                            )
+                            attempt++
+                            delay(AutomaticUpdateCheckPolicy.RETRY_DELAY_MS)
+                        } else {
+                            Log.w(APP_ROOT_LOG_TAG, "App update check failed")
+                            appUpdateUi = AppUpdateUiModel(
+                                currentVersion = BuildConfig.VERSION_NAME,
+                                phase = AppUpdateUiPhase.ERROR,
+                                status = "Не удалось проверить обновления",
+                                actionLabel = "Повторить",
+                            )
+                            break
+                        }
                     }
                 }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (_: Exception) {
-                appUpdateUi = AppUpdateUiModel(
-                    currentVersion = BuildConfig.VERSION_NAME,
-                    phase = AppUpdateUiPhase.ERROR,
-                    status = "Не удалось проверить обновления",
-                    actionLabel = "Повторить",
-                )
             } finally {
                 appUpdateJob = null
             }
@@ -1417,39 +1442,39 @@ fun KinogoAppRoot() {
                         Log.w(APP_ROOT_LOG_TAG, "Playback resume state could not be restored", error)
                     }
                 }
-                val normalizedSelection = if (plan != null) {
-                    effectiveSelection.normalizedFor(plan)
-                } else {
-                    effectiveSelection
-                }
                 if (
                     recovery != null &&
-                    plan != null &&
-                    isSamePlaybackUnit(requested, normalizedSelection)
+                    plan != null
                 ) {
-                    val recoveredSelection = normalizedSelection.copy(resume = true)
-                    val recoveredSourceId = recoveredSelection.sourceId ?: plan.defaultSourceId
-                    playbackInitialPositionMs = recovery.positionMs
-                    activePlayback = ActivePlaybackSession(
-                        generation = ++playbackSessionGeneration,
-                        selection = recoveredSelection,
-                        mediaPlan = PlaybackSourceSelectionModel.preferSource(
-                            plan,
-                            recoveredSourceId,
-                        ),
-                        webFallbacks = webFallbacks,
-                        automaticSourceRefreshAttempts =
-                            launchSafety.automaticSourceRefreshAttempts,
-                    )
-                    pendingPlaybackSelection = null
-                    activeEmbeddedPlayback = null
-                    playbackLaunchUi = null
-                    return@launch
+                    val normalizedSelection = effectiveSelection.normalizedFor(plan)
+                    if (isSamePlaybackUnit(requested, normalizedSelection)) {
+                        val recoveredSelection = normalizedSelection.copy(resume = true)
+                        val recoveredSourceId = recoveredSelection.sourceId ?: plan.defaultSourceId
+                        playbackInitialPositionMs = recovery.positionMs
+                        activePlayback = ActivePlaybackSession(
+                            generation = ++playbackSessionGeneration,
+                            selection = recoveredSelection,
+                            mediaPlan = PlaybackSourceSelectionModel.preferSource(
+                                plan,
+                                recoveredSourceId,
+                            ),
+                            webFallbacks = webFallbacks,
+                            automaticSourceRefreshAttempts =
+                                launchSafety.automaticSourceRefreshAttempts,
+                        )
+                        pendingPlaybackSelection = null
+                        activeEmbeddedPlayback = null
+                        playbackLaunchUi = null
+                        return@launch
+                    }
                 }
                 if (recovery != null) initialPosition = 0L
                 pendingPlaybackSelection = PendingPlaybackSelectionSession(
                     title = fresh.catalogItem.title,
-                    selection = normalizedSelection,
+                    // Preserve the saved/requested unit as the resume reference. The selector
+                    // normalizes it against the fresh plan and enables the timestamp only when
+                    // the effective movie/season/episode still matches this reference.
+                    selection = effectiveSelection,
                     mediaPlan = plan,
                     webFallbacks = webFallbacks,
                     initialPositionMs = initialPosition,
@@ -1542,12 +1567,13 @@ fun KinogoAppRoot() {
     }
 
     LaunchedEffect(tvPreferencesSnapshot?.autoCheckUpdates) {
-        if (
-            tvPreferencesSnapshot?.autoCheckUpdates == true &&
-            !automaticUpdateCheckStarted
+        if (AutomaticUpdateCheckPolicy.shouldStart(
+                autoCheckPreference = tvPreferencesSnapshot?.autoCheckUpdates,
+                alreadyStarted = automaticUpdateCheckStarted,
+            )
         ) {
             automaticUpdateCheckStarted = true
-            requestAppUpdateCheck()
+            requestAppUpdateCheck(AppUpdateCheckOrigin.AUTOMATIC)
         }
     }
 
@@ -2124,9 +2150,31 @@ fun KinogoAppRoot() {
                 }
             },
             onMirrorRetry = { origin -> requestMirrorRefresh(origin) },
-            onHistoryResume = { contentId ->
-                val saved = preferredResumeProgress(history, contentId)
-                saved?.let { startPlayback(it.selection.toUiSelection(resume = true)) }
+            onHistoryDelete = { contentId ->
+                if (historyFocusedItemId == contentId) historyFocusedItemId = null
+                checkpointWriteQueue.enqueue(scope) {
+                    try {
+                        progressStore.deleteContent(contentId)
+                        history = progressStore.list()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.e(APP_ROOT_LOG_TAG, "History item deletion failed", error)
+                    }
+                }
+            },
+            onHistoryClear = {
+                historyFocusedItemId = null
+                checkpointWriteQueue.enqueue(scope) {
+                    try {
+                        progressStore.clear()
+                        history = emptyList()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.e(APP_ROOT_LOG_TAG, "History clear failed", error)
+                    }
+                }
             },
             accountState = accountState,
             pendingSyncCount = librarySyncPendingCount,
@@ -2194,6 +2242,8 @@ fun KinogoAppRoot() {
             onRegistrationSubmit = ::submitRegistration,
             appUpdate = appUpdateUi,
             onUpdateAction = ::handleAppUpdateAction,
+            showAppUpdatePrompt = showAutomaticUpdatePrompt,
+            onUpdatePromptDismiss = { showAutomaticUpdatePrompt = false },
             appVersionName = BuildConfig.VERSION_NAME,
             onDonateOpen = {
                 activity?.openTrustedExternalUrl(DONATE_URL)
@@ -2265,7 +2315,7 @@ private fun Activity.openTrustedExternalUrl(rawUrl: String) {
     }
 }
 
-private suspend fun resolveFreshDirectPlan(
+internal suspend fun resolveFreshDirectPlan(
     resolver: DirectMediaResolver,
     contentId: String,
     documentOrigin: String,
@@ -2292,7 +2342,10 @@ private suspend fun resolveFreshDirectPlan(
                     listOf(
                         PlaybackMediaVariant(
                             id = source.id,
-                            sourceId = "direct:${source.providerId}",
+                            // providerId is display metadata parsed from untrusted HTML and may
+                            // contain a mirror hostname or arbitrary text. Only the internal
+                            // resolver id is stable and safe to persist in playback checkpoints.
+                            sourceId = resolver.id,
                             sourceLabel = source.label,
                             episodeNumber = null,
                             voiceover = voiceover,
@@ -2322,7 +2375,7 @@ private fun PlaybackSelectionUiModel.normalizedFor(
         )
         .toPlaybackSelection(this)
 
-private fun PlaybackSelectionUiModel.toDomainSelection(): PlaybackSelection {
+internal fun PlaybackSelectionUiModel.toDomainSelection(): PlaybackSelection {
     val hasEpisode = season != null && episode != null
     return PlaybackSelection(
         contentId = contentId,
@@ -2330,10 +2383,11 @@ private fun PlaybackSelectionUiModel.toDomainSelection(): PlaybackSelection {
         episodeId = if (hasEpisode) "episode-$episode" else null,
         voiceId = voiceover,
         qualityId = quality,
+        sourceId = sourceId,
     )
 }
 
-private fun PlaybackSelection.toUiSelection(resume: Boolean): PlaybackSelectionUiModel =
+internal fun PlaybackSelection.toUiSelection(resume: Boolean): PlaybackSelectionUiModel =
     PlaybackSelectionUiModel(
         contentId = contentId,
         season = seasonId?.trailingNumber(),
@@ -2341,6 +2395,7 @@ private fun PlaybackSelection.toUiSelection(resume: Boolean): PlaybackSelectionU
         voiceover = voiceId,
         quality = qualityId,
         resume = resume,
+        sourceId = sourceId,
     )
 
 internal fun WatchProgress.historyCatalogItem(): CatalogItem? =

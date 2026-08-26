@@ -2,6 +2,8 @@ package com.kinogo.atv
 
 import com.kinogo.atv.data.catalog.ParsedContentPage
 import com.kinogo.atv.data.catalog.PlayerEmbedCandidate
+import com.kinogo.atv.data.history.PlaybackProgressCollection
+import com.kinogo.atv.data.playback.DirectMediaResolver
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.ContentType
 import com.kinogo.atv.domain.PlaybackSelection
@@ -21,6 +23,29 @@ import org.junit.Test
 
 class KinogoAppRootResumeTest {
     @Test
+    fun `direct plan persists resolver id instead of untrusted provider metadata`() = runTest {
+        val resolver = DirectMediaResolver { }
+        val plan = resolveFreshDirectPlan(
+            resolver = resolver,
+            contentId = CONTENT_ID,
+            documentOrigin = "https://mirror.example",
+            documentUrl = "https://mirror.example/film/content-42.html",
+            candidates = listOf(
+                PlayerEmbedCandidate(
+                    url = "https://mirror.example/media/master.m3u8?token=short-lived",
+                    label = "Прямой источник",
+                    providerId = "mirror.example/session-token",
+                ),
+            ),
+            voiceover = "По умолчанию",
+            quality = "Авто",
+        )
+
+        assertEquals(resolver.id, requireNotNull(plan).defaultSourceId)
+        assertEquals("direct-media", plan.defaultSourceId)
+    }
+
+    @Test
     fun `checkpoint writes retain callback order before immediate continue`() = runTest {
         val queue = PlaybackCheckpointWriteQueue()
         val firstMayFinish = CompletableDeferred<Unit>()
@@ -36,6 +61,29 @@ class KinogoAppRootResumeTest {
         queue.awaitIdle()
 
         assertEquals(listOf(1, 2), writes)
+    }
+
+    @Test
+    fun `history deletion queued after checkpoint cannot be resurrected`() = runTest {
+        val queue = PlaybackCheckpointWriteQueue()
+        var entries = emptyList<WatchProgress>()
+        val checkpoint = progress(
+            season = 1,
+            episode = 2,
+            positionMs = 42_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 10L,
+        )
+
+        queue.enqueue(this) {
+            entries = PlaybackProgressCollection.upsert(entries, checkpoint)
+        }
+        queue.enqueue(this) {
+            entries = PlaybackProgressCollection.deleteContent(entries, CONTENT_ID)
+        }
+        queue.awaitIdle()
+
+        assertTrue(entries.isEmpty())
     }
 
     @Test
@@ -243,6 +291,23 @@ class KinogoAppRootResumeTest {
         assertTrue(isSamePlaybackUnit(requested, selection(season = 2, episode = 8)))
         assertFalse(isSamePlaybackUnit(requested, selection(season = 3, episode = 1)))
         assertFalse(isSamePlaybackUnit(requested, selection(season = 2, episode = 9)))
+    }
+
+    @Test
+    fun `resume mapping preserves the non-default playback source`() {
+        val selected = PlaybackSelectionUiModel(
+            contentId = CONTENT_ID,
+            season = 3,
+            episode = 7,
+            voiceover = "voice",
+            quality = "1080p",
+            resume = true,
+            sourceId = "collaps",
+        )
+
+        val restored = selected.toDomainSelection().toUiSelection(resume = true)
+
+        assertEquals(selected, restored)
     }
 
     @Test

@@ -91,11 +91,14 @@ data class PlaybackSelection(
     val episodeId: String? = null,
     val voiceId: String,
     val qualityId: String,
+    /** Stable provider adapter id only; never a media or iframe URL. */
+    val sourceId: String? = null,
 ) {
     init {
         require(contentId.isNotBlank())
         require(voiceId.isNotBlank())
         require(qualityId.isNotBlank())
+        require(sourceId == null || sourceId.isNotBlank())
         require((seasonId == null) == (episodeId == null)) {
             "Season and episode must either both be set or both be absent"
         }

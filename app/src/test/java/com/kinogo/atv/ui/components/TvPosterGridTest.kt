@@ -1,6 +1,7 @@
 package com.kinogo.atv.ui.components
 
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -150,6 +151,56 @@ class TvPosterGridTest {
             PosterGridNavigationDecision.Stay,
             posterGridNavigationDecision(0, 18, 0, Key.DirectionRight),
         )
+    }
+
+    @Test
+    fun `repeated center press invokes one long action and suppresses click on key up`() {
+        val firstRepeat = posterLongPressDecision(
+            key = Key.DirectionCenter,
+            type = KeyEventType.KeyDown,
+            repeatCount = 1,
+            alreadyHandled = false,
+        )
+        val laterRepeat = posterLongPressDecision(
+            key = Key.DirectionCenter,
+            type = KeyEventType.KeyDown,
+            repeatCount = 2,
+            alreadyHandled = firstRepeat.longPressHandled,
+        )
+        val release = posterLongPressDecision(
+            key = Key.DirectionCenter,
+            type = KeyEventType.KeyUp,
+            repeatCount = 0,
+            alreadyHandled = laterRepeat.longPressHandled,
+        )
+
+        assertTrue(firstRepeat.invokeLongClick)
+        assertTrue(firstRepeat.consume)
+        assertFalse(laterRepeat.invokeLongClick)
+        assertTrue(laterRepeat.consume)
+        assertFalse(release.invokeLongClick)
+        assertTrue(release.consume)
+        assertFalse(release.longPressHandled)
+    }
+
+    @Test
+    fun `short center press remains available to ordinary poster click`() {
+        val press = posterLongPressDecision(
+            key = Key.Enter,
+            type = KeyEventType.KeyDown,
+            repeatCount = 0,
+            alreadyHandled = false,
+        )
+        val release = posterLongPressDecision(
+            key = Key.Enter,
+            type = KeyEventType.KeyUp,
+            repeatCount = 0,
+            alreadyHandled = press.longPressHandled,
+        )
+
+        assertFalse(press.consume)
+        assertFalse(press.invokeLongClick)
+        assertFalse(release.consume)
     }
 
     @Test

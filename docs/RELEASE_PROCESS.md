@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **26 августа 2026 года**.
 
 ## Виды сборок
 
@@ -8,18 +8,23 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-008 / `0.5.2` (code 16, minSdk 28, targetSdk 37) — validation candidate для
-исправлений recovery/resume/quality, настраиваемого запаса буфера, bounded preload следующей
-серии и ручной проверки встроенного updater владельцем.
-Application commit, local canonical tests/lint, exact stable-signed APK/hash, public merge,
+Текущий C-009 / `0.5.3` (code 17, minSdk 28, targetSdk 37) — validation candidate для
+Details-first History, delete/clear, codec v3 source persistence и видимого startup updater.
+Application source `777c8a0528f24db67402536631257d6cdc91f148`, final local canonical
+tests/lint, exact post-commit release rebuild и stable-signed APK/hash уже зафиксированы.
+Public merge/tag/Release, Android CI, signed manifest, Pages/live transports и hardware
+History/resume/updater runtime остаются **PENDING**. C-009 не получает playback baseline
+tag и не считается аппаратно проверенным только из-за сборки или будущей публикации.
+
+C-008 / `0.5.2` (code 16) остаётся предыдущим exact published validation candidate:
+application commit, local canonical tests/lint, stable-signed APK/hash, public merge,
 regular latest Release, signed manifest, Android CI, Pages publish и live transport checks
-зафиксированы. Hardware playback и in-app updater runtime пока **PENDING**. C-008 не получает
-playback baseline tag и не считается аппаратно проверенным только из-за сборки или публикации.
+зафиксированы в `PROJECT_STATE.md`.
 
 C-007 / `0.5.1` (code 15) остаётся историческим integration rollback point. Его final local
 canonical run, exact stable-signed APK/signed manifest и focused KIVI native/navigation
 runtime проверены для application source `8b0be72`; эти числа, hash и device evidence нельзя
-переносить на C-008.
+переносить на C-009.
 
 Исторический локальный canonical result C-007:
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
@@ -139,6 +144,13 @@ git ls-files --others --exclude-standard
 
 Любая ошибка блокирует выпуск. Lint warnings оцениваются и фиксируются либо документируются.
 
+Для C-009 полный canonical набор
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease`
+завершён **SUCCESS за 7 мин 12 с**: 89 suites / 455 tests, 0 failures, 0 errors,
+0 skipped; lint 0 errors / 22 warnings / 2 hints. Результат привязан к application source
+`777c8a0528f24db67402536631257d6cdc91f148`. Exact post-commit
+`assembleRelease --rerun-tasks` — **SUCCESS за 4 мин 04 с**, 50 tasks.
+
 Предыдущий local integration pass C-006: 75 suites / 348 unit tests, 0 failures, 0 errors,
 0 skipped; lint 0 errors / 19 warnings / 2 hints; debug, AndroidTest APK и release assembly
 успешны и относятся к application commit `6567088`. Повторить команду, если application
@@ -218,7 +230,17 @@ Get-FileHash <apk> -Algorithm SHA256
 - имя файла точно совпадает с updater contract;
 - APK package/version/code/signer совпадают с metadata Release и установленным приложением.
 
-Для C-008 локально проверен exact `dist/KinogoATV-0.5.2-code16.apk`: 38 353 630 bytes,
+Для C-009 локально проверен exact `dist/KinogoATV-0.5.3-code17.apk`:
+38 386 398 bytes, SHA-256
+`3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`, package
+`com.kinogo.atv`, code 17 / `0.5.3`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+ровно один signer, certificate SHA-256
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`, embedded revision
+`777c8a0528f24db67402536631257d6cdc91f148`. Publication/tag, CI, signed manifest,
+Pages/live transports и TV runtime ещё **PENDING**.
+
+Исторически, для C-008 локально проверен exact
+`dist/KinogoATV-0.5.2-code16.apk`: 38 353 630 bytes,
 SHA-256 `FC70D02A2BC7A3F9E5E2F04A1A7B139037AC215C85166E72E9842D0DB3CB4B38`, package
 `com.kinogo.atv`, code 16 / `0.5.2`, minSdk 28, target/compile SDK 37, LEANBACK
 launcher/banner, zipalign OK, v2 true, embedded revision `4cfa7ac`, certificate SHA-256
@@ -266,10 +288,13 @@ adb install -r <apk>
    возврат в details;
 10. удалить только созданные тестовые записи точечным store API.
 
-Для C-008 владелец намеренно оставляет проверку автообновления за собой. Агент не
-устанавливает `0.5.2` на TV и не выполняет smoke без отдельного нового разрешения. В release
-evidence это фиксируется как `hardware PENDING (owner manual validation)`, а не как failure
-и не как подтверждённое поведение.
+Для C-009 владелец намеренно оставляет TV/ADB-проверку за собой. Агент не устанавливает
+`0.5.3` на TV и не выполняет smoke без отдельного нового разрешения. В release evidence это
+фиксируется как `hardware PENDING (owner manual validation)`, а не как failure и не как
+подтверждённое поведение.
+
+Исторически та же граница применялась к C-008: его публикация не создавала hardware
+baseline, а in-app updater/runtime оставались на ручную проверку владельца.
 
 Для C-006 / `0.5.0` расширенный focus/resume/source-refresh/update/registration checklist и
 полный playback pass закрыты лишь частично. Debug runtime уже подтвердил cold rail
@@ -457,7 +482,30 @@ Draft/prerelease не обслуживаются updater как stable update.
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist
+## Release checklist C-009
+
+- [x] Version code увеличен до 17, version name — `0.5.3`.
+- [x] Application source commit записан:
+      `777c8a0528f24db67402536631257d6cdc91f148`.
+- [x] Canonical local verification зелёная: 89 suites / 455 tests, 0
+      failures/errors/skips; lint 0 errors / 22 warnings / 2 hints.
+- [x] Exact post-commit `assembleRelease --rerun-tasks` зелёный: 4 мин 04 с,
+      50 tasks.
+- [x] Exact stable-signed APK упакован как `KinogoATV-0.5.3-code17.apk`.
+- [x] Package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, embedded
+      revision, size и SHA-256 проверены локально.
+- [ ] Application/docs PR влит в `main`, Android CI зелёный.
+- [ ] Annotated tag `v0.5.3`, regular GitHub Release и exact asset `sha256:` digest
+      совпадают.
+- [ ] Signed manifest создан из того же APK и опубликован после Release asset.
+- [ ] Pages workflow, Pages/jsDelivr metadata и все заявленные APK transports
+      проверены на exact bytes.
+- [x] Hardware boundary явно записана: TV/ADB runtime **PENDING**, baseline tag не
+      создаётся.
+- [ ] После ручной приёмки владельцем startup update prompt, Details-first History,
+      delete/clear, focus restore и source-aware resume проверены на TV.
+
+### Historical completed checklist C-008
 
 - [x] Version code увеличен до 16, version name — `0.5.2`.
 - [x] Application source commit C-008 записан: `4cfa7ac8ebd48b70c7b172e54a0716fec09669a1`.

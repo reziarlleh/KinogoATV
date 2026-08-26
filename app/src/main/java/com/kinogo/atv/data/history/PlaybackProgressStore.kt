@@ -65,6 +65,17 @@ class PlaybackProgressStore(
         }
     }
 
+    /** Removes all stored seasons/episodes represented by one History card. */
+    suspend fun deleteContent(contentId: String) {
+        require(contentId.isNotBlank())
+        dataStore.edit { preferences ->
+            val current = PlaybackProgressCodec.decode(preferences[RECORDS_KEY])
+            preferences[RECORDS_KEY] = PlaybackProgressCodec.encode(
+                PlaybackProgressCollection.deleteContent(current, contentId),
+            )
+        }
+    }
+
     /** Removes only playback history, preserving unrelated application preferences. */
     suspend fun clear() {
         dataStore.edit { preferences -> preferences.remove(RECORDS_KEY) }

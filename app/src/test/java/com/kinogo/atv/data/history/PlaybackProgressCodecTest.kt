@@ -21,6 +21,7 @@ class PlaybackProgressCodecTest {
                 episode = "episode\n5",
                 voice = "озвучка 2",
                 quality = "1080p+",
+                source = "collaps",
                 position = 1_234_567,
                 duration = 2_345_678,
                 updatedAt = 20,
@@ -38,6 +39,7 @@ class PlaybackProgressCodecTest {
         val decoded = PlaybackProgressCodec.decode(PlaybackProgressCodec.encode(listOf(movie, episode)))
 
         assertEquals(listOf(episode, movie), decoded)
+        assertEquals("collaps", decoded.first().selection.sourceId)
         assertNull(decoded.last().durationMs)
     }
 
@@ -52,6 +54,40 @@ class PlaybackProgressCodecTest {
         assertEquals("season-1", decoded.selection.seasonId)
         assertEquals(120_000L, decoded.positionMs)
         assertNull(decoded.contentSnapshot)
+        assertNull(decoded.selection.sourceId)
+    }
+
+    @Test
+    fun `version two checkpoint remains readable without a source id`() {
+        val legacyPayload = listOf(
+            "2",
+            "35182",
+            "season-1",
+            "episode-2",
+            "voice",
+            "720p",
+            "120000",
+            "2400000",
+            "42",
+            "0",
+            "0",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+            "~",
+        ).joinToString("\t")
+
+        val decoded = PlaybackProgressCodec.decode(legacyPayload).single()
+
+        assertEquals("episode-2", decoded.selection.episodeId)
+        assertEquals(120_000L, decoded.positionMs)
+        assertNull(decoded.selection.sourceId)
     }
 
     @Test
@@ -83,6 +119,7 @@ class PlaybackProgressCodecTest {
                 episode = "e2",
                 voice = "new-voice",
                 quality = "4k",
+                source = "collaps",
                 position = 90_000,
                 updatedAt = 20,
             )
@@ -92,6 +129,7 @@ class PlaybackProgressCodecTest {
         assertEquals(1, result.size)
         assertEquals("new-voice", result.single().selection.voiceId)
         assertEquals("4k", result.single().selection.qualityId)
+        assertEquals("collaps", result.single().selection.sourceId)
         assertEquals(90_000L, result.single().positionMs)
         assertEquals(snapshot, result.single().contentSnapshot)
     }
@@ -188,12 +226,27 @@ class PlaybackProgressCodecTest {
         assertTrue(result.none { it.selection.contentId == "movie" })
     }
 
+    @Test
+    fun `delete content removes every episode but preserves unrelated history`() {
+        val firstEpisode = progress("series", "s1", "e1", updatedAt = 30)
+        val secondEpisode = progress("series", "s2", "e4", updatedAt = 20)
+        val unrelated = progress(content = "movie", updatedAt = 10)
+
+        val result = PlaybackProgressCollection.deleteContent(
+            listOf(firstEpisode, secondEpisode, unrelated),
+            contentId = "series",
+        )
+
+        assertEquals(listOf(unrelated), result)
+    }
+
     private fun progress(
         content: String,
         season: String? = null,
         episode: String? = null,
         voice: String = "voice",
         quality: String = "auto",
+        source: String? = null,
         position: Long = 10_000,
         duration: Long? = 100_000,
         updatedAt: Long,
@@ -208,6 +261,7 @@ class PlaybackProgressCodecTest {
                     episodeId = episode,
                     voiceId = voice,
                     qualityId = quality,
+                    sourceId = source,
                 ),
             positionMs = position,
             durationMs = duration,

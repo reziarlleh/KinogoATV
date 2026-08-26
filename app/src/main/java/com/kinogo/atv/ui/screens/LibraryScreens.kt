@@ -409,6 +409,8 @@ internal fun PosterGrid(
     preferredFocusItemId: String? = null,
     requestPreferredFocus: Boolean = false,
     onFocusedItemChanged: (String) -> Unit = {},
+    onItemLongClick: ((String) -> Unit)? = null,
+    itemLongClickLabel: String = "Дополнительные действия",
 ) {
     TvPosterGrid(
         items = items,
@@ -422,5 +424,7 @@ internal fun PosterGrid(
         preferredFocusItemId = preferredFocusItemId,
         requestPreferredFocus = requestPreferredFocus,
         onFocusedItemChanged = onFocusedItemChanged,
+        onItemLongClick = onItemLongClick,
+        itemLongClickLabel = itemLongClickLabel,
     )
 }

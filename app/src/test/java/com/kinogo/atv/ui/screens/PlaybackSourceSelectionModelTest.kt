@@ -281,6 +281,44 @@ class PlaybackSourceSelectionModelTest {
     }
 
     @Test
+    fun `saved position is disabled when fresh plan normalizes to another episode`() {
+        val plan = episodicPlan()
+        val saved = selection(
+            season = 2,
+            episode = 3,
+            voiceover = "Original",
+            quality = "720p",
+        ).copy(sourceId = "collaps")
+        val normalized = PlaybackSourceSelectionModel.initial(plan, saved)
+            .toPlaybackSelection(saved)
+
+        assertEquals(1, normalized.season)
+        assertEquals(1, normalized.episode)
+        assertFalse(
+            shouldContinueFromPlaybackSelector(
+                requestedSelection = saved,
+                effectiveSelection = normalized,
+                resumePositionMs = 240_000L,
+            ),
+        )
+
+        val restoredUnit = PlaybackSourceSelectionModel.selectVoiceover(
+            plan = plan,
+            state = PlaybackSourceSelectionModel.selectSource(plan, normalized.toState(), "cinemar"),
+            voiceover = "Dub B",
+        ).toPlaybackSelection(saved)
+        assertEquals(2, restoredUnit.season)
+        assertEquals(3, restoredUnit.episode)
+        assertTrue(
+            shouldContinueFromPlaybackSelector(
+                requestedSelection = saved,
+                effectiveSelection = restoredUnit,
+                resumePositionMs = 240_000L,
+            ),
+        )
+    }
+
+    @Test
     fun `resume position label is deterministic`() {
         assertEquals("0:00", formatPlaybackPosition(-5L))
         assertEquals("1:05", formatPlaybackPosition(65_999L))
@@ -329,4 +367,13 @@ class PlaybackSourceSelectionModelTest {
         quality = quality,
         resume = true,
     )
+
+    private fun PlaybackSelectionUiModel.toState(): PlaybackSourceSelectionState =
+        PlaybackSourceSelectionState(
+            sourceId = requireNotNull(sourceId),
+            season = season,
+            episode = episode,
+            voiceover = voiceover,
+            quality = quality,
+        )
 }

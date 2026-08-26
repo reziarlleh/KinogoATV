@@ -79,7 +79,7 @@ data class PlaybackSelectionUiModel(
     val voiceover: String,
     val quality: String,
     val resume: Boolean,
-    /** Stable adapter/source id for in-memory refresh and handoff; never a media URL. */
+    /** Stable adapter/source id for refresh, handoff and progress restore; never a media URL. */
     val sourceId: String? = null,
 )
 
