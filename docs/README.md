@@ -32,14 +32,16 @@
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
 
-## Текущий validation candidate
+## Текущий validation release
 
 C-011 / `0.5.5` (code 19) исправляет near-end resume, source-independent S/E remap,
 ordered completed → next activation и перенос durable checkpoint queue в process scope.
 Canonical рабочего дерева прошёл `91 suites / 476 tests` за `7m52s`, lint без ошибок,
 debug/androidTest/release assembly. Exact application source
-`5223d81eefdc1b50b377cdcf74ced5174d553776` и stable-signed APK зафиксированы; GitHub Release,
-signed manifest и remote CI — **PENDING**. Hardware TV/ADB не использовались; реальный
+`5223d81eefdc1b50b377cdcf74ced5174d553776` и stable-signed APK зафиксированы. PR #11/#12,
+annotated `v0.5.5`, regular latest Release, signed manifest, Android CI и Pages publication
+прошли. Pages/ghfast/ghproxy отдали exact APK; jsDelivr после purge отдаёт code 19 manifest.
+Hardware TV/ADB не использовались; реальный
 cold-restart resume остаётся **PENDING**.
 
 C-010 / `0.5.4` остаётся предыдущим опубликованным validation release: exact source

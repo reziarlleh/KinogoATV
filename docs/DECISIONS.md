@@ -661,7 +661,7 @@ package/version/signer verification → Android Package Installer pipeline. Mani
 ## D-036 — Exact exit checkpoint отделён от near-end эвристики
 
 - Дата: 5 сентября 2026 года
-- Статус: принято для C-011 / `0.5.5`; local tests/lint/build passed, TV pending
+- Статус: принято для C-011 / `0.5.5`; local/release/CI/Pages passed, TV pending
 
 Порог `90% + remaining window` остаётся приблизительной классификацией истории, но не имеет
 права удалять точную точку выхода. `WatchProgress.resumePositionMs` подавляет позицию только
@@ -707,3 +707,12 @@ certificate и embedded exact source revision. PR #8/#9, regular Release, signed
 Android CI и Pages опубликованы; Pages manifest+APK и ghfast APK дали exact bytes. jsDelivr
 `@main` при первой проверке оставался на signed code 17, но primary Pages отдавал exact code 18.
 Hardware runtime ещё **PENDING**; baseline tag не создавался.
+
+Общий уровень evidence D-036/C-011: application source
+`5223d81eefdc1b50b377cdcf74ced5174d553776`, canonical 91 suites / 476 tests, lint 0 errors,
+exact stable-signed `KinogoATV-0.5.5-code19.apk` 38 419 162 bytes, SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`. App/docs PR #11
+merged как `a69c729`, annotated `v0.5.5` и regular latest Release опубликованы. Manifest
+source `47f0200` merged PR #12 как `419a537`; PR/main Android и Pages runs зелёные. Pages,
+ghfast и ghproxy дали exact APK; jsDelivr после purge отдал code 19 manifest. Hardware
+cold-restart/natural-end runtime ещё **PENDING**; release tag не становится playback baseline.

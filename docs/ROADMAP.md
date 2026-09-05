@@ -6,7 +6,7 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: выпуск и ручная приёмка 0.5.5
+## Сейчас: ручная приёмка 0.5.5
 
 C-011 исправляет потерю видимого прогресса возле конца серии: exact `Back`/lifecycle
 checkpoint больше не подавляется 90%-эвристикой, а season/episode остаются первичными при
@@ -15,8 +15,9 @@ auto-next; disappeared completed leaf разрешается к следующе
 серия не показывает ложное Continue. Durable writes перенесены в process-owned application
 scope. Версия source — `0.5.5` / code 19. Canonical рабочего дерева прошёл
 91 suites / 476 tests за 7m52s, lint 0 errors; exact post-commit artifact source
-`5223d81eefdc1b50b377cdcf74ced5174d553776` проверен, GitHub Release и signed manifest
-готовятся. TV/ADB не использовались. C-010 / `0.5.4` остаётся предыдущим
+`5223d81eefdc1b50b377cdcf74ced5174d553776` проверен. PR #11/#12, tag/Release, signed
+manifest, Android CI, Pages и exact live transports опубликованы. TV/ADB не использовались.
+C-010 / `0.5.4` остаётся предыдущим
 published validation rollback candidate, B-001 — полный playback baseline.
 
 ### P0 — runtime-приёмка владельцем

@@ -7,7 +7,7 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
-## [0.5.5] — 2026-09-05 (validation candidate)
+## [0.5.5] — 2026-09-05 (validation release)
 
 ### Сквозное продолжение просмотра
 
@@ -43,8 +43,15 @@
 - Exact stable-signed `KinogoATV-0.5.5-code19.apk`: 38 419 162 bytes, SHA-256
   `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
   zipalign, v2, one-signer certificate и embedded revision проверены.
-- GitHub Release, signed update manifest и remote CI фиксируются после публикации. ADB/TV
-  не использовались; реальный cold-restart resume остаётся ручной приёмкой владельца.
+- App/docs PR #11 merge `a69c729`, PR/main Android CI, annotated `v0.5.5`, regular latest
+  Release и exact GitHub asset — **PASS**.
+- Signed code 19 manifest source `47f0200` merged через PR #12 как `419a537`; PR/main
+  Android и Pages — **PASS**. Manifest: 1 273 bytes, SHA-256
+  `F5103CC4810A6918BE9D181481EA347C292DAA7A58710C359EAE7FFD1EC4CE1E`, 4 URLs, срок до
+  `2026-10-05T13:00:33Z`.
+- Pages, ghfast и ghproxy отдали exact APK; direct GitHub digest совпал. jsDelivr после
+  purge отдаёт exact code 19 manifest. ADB/TV не использовались; реальный cold-restart
+  resume остаётся ручной приёмкой владельца.
 
 ## [0.5.4] — 2026-08-26 (validation release)
 

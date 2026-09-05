@@ -128,8 +128,8 @@ SHA-256 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`, pack
 `com.kinogo.atv`, code 19 / `0.5.5`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
 ровно один signer, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
-точно совпадает с application source. PR/CI, regular Release и signed manifest C-011 —
-**PENDING**; TV runtime также остаётся **PENDING**.
+точно совпадает с application source. PR #11/#12, regular Release, signed manifest,
+Android CI и Pages publish завершены успешно; TV runtime остаётся **PENDING**.
 
 Предыдущий published snapshot C-010 / `0.5.4` code 18 привязан к application
 source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Canonical command прошёл

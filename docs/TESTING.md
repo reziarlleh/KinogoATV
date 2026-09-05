@@ -179,7 +179,11 @@ instrumentation и ADB не запускались. Application source
 за 10m28s (50 tasks). `KinogoATV-0.5.5-code19.apk`: 38 419 162 bytes, SHA-256
 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
 zipalign, v2, one signer и embedded revision проверены. Remote CI и TV runtime фиксируются
-отдельно.
+отдельно. App/docs PR #11 и main Android runs `33955399172` / `33955787571` — SUCCESS;
+manifest PR #12 и main Android/Pages runs `33967703322` / `33967791922` /
+`33967791953` — SUCCESS. Pages, ghfast и ghproxy скачали exact APK size/hash; direct GitHub
+digest совпал, jsDelivr после purge вернул exact code 19 manifest. TV runtime остаётся
+**PENDING**.
 
 ### Buffer policy C-008
 

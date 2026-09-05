@@ -423,4 +423,5 @@ source/Web из HUD проверены source/unit/Compose-тестами. OEM-�
 `KinogoATV-0.5.5-code19.apk` имеет 38 419 162 bytes и SHA-256
 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
 zipalign, v2, one signer и embedded revision проверены. TV/ADB не использовались;
-hardware near-end restart и natural-end callbacks остаются **PENDING**.
+hardware near-end restart и natural-end callbacks остаются **PENDING**. PR #11/#12,
+tag/regular Release, signed manifest, Android CI и Pages publication прошли.

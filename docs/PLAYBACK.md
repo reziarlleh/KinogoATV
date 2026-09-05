@@ -489,7 +489,9 @@ source/voice branches; natural-end exit сохраняет completed текущ�
 `KinogoATV-0.5.5-code19.apk` имеет 38 419 162 bytes, SHA-256
 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; metadata,
 stable signing и embedded revision проверены. TV/ADB не использовались; cold-restart и
-natural-end runtime остаются **PENDING**.
+natural-end runtime остаются **PENDING**. App/docs PR #11 merge `a69c729`, tag/Release,
+manifest PR #12 merge `419a537`, Android CI и Pages publication прошли; Pages, ghfast и
+ghproxy скачали exact APK.
 
 ## Сетевые ограничения плеера
 
