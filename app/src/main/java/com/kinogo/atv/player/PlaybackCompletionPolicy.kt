@@ -78,6 +78,12 @@ internal data class CompletedPlaybackCheckpoint(
     val durationMs: Long,
 )
 
+/** Ordered durable writes required before leaving the player after a real media end. */
+internal data class PlaybackExitCheckpointPlan(
+    val completed: CompletedPlaybackCheckpoint,
+    val nextEpisodeActivation: PlaybackEpisodeCoordinate?,
+)
+
 /**
  * Produces a final, non-zero checkpoint from the last values observed before Media3 changes the
  * current playlist item. For live/unknown-duration media the last position becomes the duration.
@@ -92,6 +98,29 @@ internal fun completedPlaybackCheckpoint(
         durationMs = lastDurationMs.takeIf { it > 0L } ?: completedPosition,
     )
 }
+
+/**
+ * Builds the single exit contract used by every Media3 end callback: persist the completed unit
+ * first, then activate the real next episode at zero when one exists.
+ */
+internal fun playbackExitCheckpointPlan(
+    lastPositionMs: Long,
+    lastDurationMs: Long,
+    mediaPlan: PlaybackMediaPlan,
+    sourceId: String,
+    seasonNumber: Int?,
+    episodeNumber: Int?,
+    voiceover: String,
+): PlaybackExitCheckpointPlan = PlaybackExitCheckpointPlan(
+    completed = completedPlaybackCheckpoint(lastPositionMs, lastDurationMs),
+    nextEpisodeActivation = nextEpisodeAfterCompletion(
+        mediaPlan = mediaPlan,
+        sourceId = sourceId,
+        seasonNumber = seasonNumber,
+        episodeNumber = episodeNumber,
+        voiceover = voiceover,
+    ),
+)
 
 /**
  * Resolves an actual Media3 end event without depending on UI or player state.
@@ -116,7 +145,8 @@ internal fun playbackCompletionDecision(
     ) {
         return PlaybackCompletionDecision.Exit
     }
-    val next = mediaPlan.nextEpisodeCoordinate(
+    val next = nextEpisodeAfterCompletion(
+        mediaPlan = mediaPlan,
         sourceId = sourceId,
         seasonNumber = seasonNumber,
         episodeNumber = episodeNumber,
@@ -124,4 +154,24 @@ internal fun playbackCompletionDecision(
     )
     return next?.let(PlaybackCompletionDecision::Advance)
         ?: PlaybackCompletionDecision.Exit
+}
+
+/**
+ * Resolves the durable continuation anchor after a real episode end independently of whether the
+ * current session is configured to auto-play it immediately.
+ */
+internal fun nextEpisodeAfterCompletion(
+    mediaPlan: PlaybackMediaPlan,
+    sourceId: String,
+    seasonNumber: Int?,
+    episodeNumber: Int?,
+    voiceover: String,
+): PlaybackEpisodeCoordinate? {
+    if (!mediaPlan.isEpisodic || seasonNumber == null || episodeNumber == null) return null
+    return mediaPlan.nextEpisodeCoordinate(
+        sourceId = sourceId,
+        seasonNumber = seasonNumber,
+        episodeNumber = episodeNumber,
+        voiceover = voiceover,
+    )
 }

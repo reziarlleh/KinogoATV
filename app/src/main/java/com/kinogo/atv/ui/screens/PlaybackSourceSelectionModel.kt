@@ -1,6 +1,7 @@
 package com.kinogo.atv.ui.screens
 
 import com.kinogo.atv.domain.PlaybackMediaPlan
+import com.kinogo.atv.domain.PlaybackEpisodeCoordinate
 import com.kinogo.atv.player.PlaybackQualityPolicy
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
 
@@ -32,14 +33,83 @@ internal object PlaybackSourceSelectionModel {
     fun initial(
         plan: PlaybackMediaPlan,
         requested: PlaybackSelectionUiModel,
-    ): PlaybackSourceSelectionState = normalize(
-        plan = plan,
-        desiredSourceId = requested.sourceId ?: plan.defaultSourceId,
-        desiredSeason = requested.season,
-        desiredEpisode = requested.episode,
-        desiredVoiceover = requested.voiceover,
-        desiredQuality = requested.quality,
-    )
+    ): PlaybackSourceSelectionState {
+        val resumeBranch = if (requested.resume) {
+            compatibleResumeBranch(
+                plan = plan,
+                desiredSourceId = requested.sourceId,
+                desiredSeason = requested.season,
+                desiredEpisode = requested.episode,
+                desiredVoiceover = requested.voiceover,
+            )
+        } else {
+            null
+        }
+        return normalize(
+            plan = plan,
+            desiredSourceId = resumeBranch?.sourceId
+                ?: requested.sourceId
+                ?: plan.defaultSourceId,
+            desiredSeason = requested.season,
+            desiredEpisode = requested.episode,
+            desiredVoiceover = resumeBranch?.voiceover ?: requested.voiceover,
+            desiredQuality = requested.quality,
+        )
+    }
+
+    /**
+     * Resolves the first playable unit after a persisted real end event. Provider refreshes may
+     * remove the completed leaf (or its whole source), so the lookup is coordinate-first and only
+     * then applies the saved source/translation preference.
+     */
+    fun continuationAfterCompletedEpisode(
+        plan: PlaybackMediaPlan,
+        requested: PlaybackSelectionUiModel,
+    ): PlaybackSourceSelectionState? {
+        val season = requested.season ?: return null
+        val episode = requested.episode ?: return null
+        if (!plan.isEpisodic) return null
+        val completed = PlaybackEpisodeCoordinate(season, episode)
+        val candidates = plan.variants
+            .asSequence()
+            .map { ResumePlaybackBranch(it.sourceId, it.voiceover) }
+            .distinct()
+            .mapNotNull { branch ->
+                val coordinates = plan.episodeCoordinatesFor(branch.sourceId, branch.voiceover)
+                val completedIndex = coordinates.indexOf(completed)
+                val next = if (completedIndex >= 0) {
+                    coordinates.getOrNull(completedIndex + 1)
+                } else {
+                    coordinates.firstOrNull { it.isAfter(completed) }
+                } ?: return@mapNotNull null
+                ResumeContinuationCandidate(
+                    branch = branch,
+                    coordinate = next,
+                    containsCompletedUnit = completedIndex >= 0,
+                )
+            }
+            .toList()
+        val exactCandidates = candidates.filter(ResumeContinuationCandidate::containsCompletedUnit)
+        val chosen = if (exactCandidates.isNotEmpty()) {
+            exactCandidates.minByOrNull { it.branch.preferenceRank(requested) }
+        } else {
+            candidates.minWithOrNull(
+                compareBy<ResumeContinuationCandidate>(
+                    { it.coordinate.seasonNumber },
+                    { it.coordinate.episodeNumber },
+                    { it.branch.preferenceRank(requested) },
+                ),
+            )
+        } ?: return null
+        return normalize(
+            plan = plan,
+            desiredSourceId = chosen.branch.sourceId,
+            desiredSeason = chosen.coordinate.seasonNumber,
+            desiredEpisode = chosen.coordinate.episodeNumber,
+            desiredVoiceover = chosen.branch.voiceover,
+            desiredQuality = requested.quality,
+        )
+    }
 
     fun selectSource(
         plan: PlaybackMediaPlan,
@@ -212,7 +282,60 @@ internal object PlaybackSourceSelectionModel {
             quality = quality,
         )
     }
+
+    /**
+     * A saved episode belongs to the content, not to a provider branch. During a resume launch,
+     * preserve its exact season/episode whenever any fresh source/voiceover still exposes it.
+     * Manual source and voice changes remain scoped to the branch explicitly chosen by the user.
+     */
+    private fun compatibleResumeBranch(
+        plan: PlaybackMediaPlan,
+        desiredSourceId: String?,
+        desiredSeason: Int?,
+        desiredEpisode: Int?,
+        desiredVoiceover: String,
+    ): ResumePlaybackBranch? {
+        if (!plan.isEpisodic || desiredSeason == null || desiredEpisode == null) return null
+        return plan.variants
+            .asSequence()
+            .filter {
+                it.effectiveSeasonNumber == desiredSeason &&
+                    it.episodeNumber == desiredEpisode
+            }
+            .minByOrNull { variant ->
+                ResumePlaybackBranch(variant.sourceId, variant.voiceover).preferenceRank(
+                    sourceId = desiredSourceId,
+                    voiceover = desiredVoiceover,
+                )
+            }
+            ?.let { ResumePlaybackBranch(it.sourceId, it.voiceover) }
+    }
 }
+
+private data class ResumePlaybackBranch(
+    val sourceId: String,
+    val voiceover: String,
+) {
+    fun preferenceRank(requested: PlaybackSelectionUiModel): Int =
+        preferenceRank(requested.sourceId, requested.voiceover)
+
+    fun preferenceRank(sourceId: String?, voiceover: String): Int = when {
+        this.sourceId == sourceId && this.voiceover == voiceover -> 0
+        this.sourceId == sourceId -> 1
+        this.voiceover == voiceover -> 2
+        else -> 3
+    }
+}
+
+private data class ResumeContinuationCandidate(
+    val branch: ResumePlaybackBranch,
+    val coordinate: PlaybackEpisodeCoordinate,
+    val containsCompletedUnit: Boolean,
+)
+
+private fun PlaybackEpisodeCoordinate.isAfter(other: PlaybackEpisodeCoordinate): Boolean =
+    seasonNumber > other.seasonNumber ||
+        (seasonNumber == other.seasonNumber && episodeNumber > other.episodeNumber)
 
 internal fun PlaybackSelectionUiModel.isSamePlaybackUnitAs(
     other: PlaybackSelectionUiModel,

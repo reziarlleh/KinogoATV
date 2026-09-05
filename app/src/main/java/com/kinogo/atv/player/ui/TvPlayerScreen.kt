@@ -127,6 +127,7 @@ import com.kinogo.atv.player.TvPlayerReducer
 import com.kinogo.atv.player.TvPlayerState
 import com.kinogo.atv.player.VisibleHudKeyKind
 import com.kinogo.atv.player.completedPlaybackCheckpoint
+import com.kinogo.atv.player.playbackExitCheckpointPlan
 import com.kinogo.atv.player.playbackItemTransitionCompletion
 import com.kinogo.atv.player.playbackPauseCompletion
 import com.kinogo.atv.player.preferredForQuality
@@ -1366,7 +1367,7 @@ private class TvPlayerRuntime(
                 PlaybackPauseCompletion.CHECKPOINT_AND_EXIT -> {
                     if (!completionHandled) {
                         completionHandled = true
-                        checkpointCompletedSelection()
+                        checkpointCompletedSelectionAndNextActivation()
                         skipCloseCheckpoint = true
                         onExitRequested()
                     }
@@ -1417,7 +1418,7 @@ private class TvPlayerRuntime(
                 PlaybackItemTransitionCompletion.CHECKPOINT_AND_EXIT -> {
                     if (!completionHandled) {
                         completionHandled = true
-                        checkpointCompletedSelection()
+                        checkpointCompletedSelectionAndNextActivation()
                         skipCloseCheckpoint = true
                         onExitRequested()
                     }
@@ -1488,7 +1489,6 @@ private class TvPlayerRuntime(
             }
             if (playbackState == Player.STATE_ENDED && !completionHandled) {
                 completionHandled = true
-                checkpointCompletedSelection()
                 handlePlaybackCompleted()
             }
         }
@@ -1969,6 +1969,7 @@ private class TvPlayerRuntime(
             )
         ) {
             is PlaybackCompletionDecision.Advance -> {
+                checkpointCompletedSelection()
                 val target = decision.coordinate
                 val variant = mediaPlan.preferredForQuality(
                     sourceId = selectedSourceId,
@@ -1989,6 +1990,7 @@ private class TvPlayerRuntime(
                 )
             }
             PlaybackCompletionDecision.Exit -> {
+                checkpointCompletedSelectionAndNextActivation()
                 skipCloseCheckpoint = true
                 onExitRequested()
             }
@@ -2142,6 +2144,44 @@ private class TvPlayerRuntime(
                 playbackEnded = true,
             ),
         )
+    }
+
+    /**
+     * Natural completion remains a navigation anchor even when auto-next is disabled. Every exit
+     * callback uses this same ordered plan, so a later close checkpoint cannot revive the old unit.
+     */
+    private fun checkpointCompletedSelectionAndNextActivation() {
+        val exitPlan = playbackExitCheckpointPlan(
+            lastPositionMs = positionMs,
+            lastDurationMs = durationMs,
+            mediaPlan = mediaPlan,
+            sourceId = selectedSourceId,
+            seasonNumber = currentSeasonNumber(),
+            episodeNumber = currentEpisodeNumber(),
+            voiceover = selectedVoiceover,
+        )
+        checkpointCallback(
+            PlaybackCheckpoint(
+                selection = currentSelection(),
+                positionMs = exitPlan.completed.positionMs,
+                durationMs = exitPlan.completed.durationMs,
+                playbackEnded = true,
+            ),
+        )
+        exitPlan.nextEpisodeActivation?.let { next ->
+            checkpointCallback(
+                PlaybackCheckpoint(
+                    selection = currentSelection().copy(
+                        season = next.seasonNumber,
+                        episode = next.episodeNumber,
+                        resume = true,
+                    ),
+                    positionMs = 0L,
+                    durationMs = 0L,
+                    playbackEnded = false,
+                ),
+            )
+        }
     }
 
     /** Records the chosen episode even before Media3 advances beyond position zero. */

@@ -165,6 +165,42 @@ class PlaybackCompletionPolicyTest {
     }
 
     @Test
+    fun `durable continuation still advances when immediate auto next is disabled`() {
+        val exitPlan = playbackExitCheckpointPlan(
+            lastPositionMs = 2_390_000L,
+            lastDurationMs = 2_400_000L,
+            mediaPlan = episodicPlan(),
+            sourceId = "provider",
+            seasonNumber = 1,
+            episodeNumber = 2,
+            voiceover = "Дубляж",
+        )
+
+        assertEquals(2_400_000L, exitPlan.completed.positionMs)
+        assertEquals(2_400_000L, exitPlan.completed.durationMs)
+        assertEquals(
+            PlaybackEpisodeCoordinate(seasonNumber = 3, episodeNumber = 4),
+            exitPlan.nextEpisodeActivation,
+        )
+    }
+
+    @Test
+    fun `terminal episode exit persists completion without a false next activation`() {
+        val exitPlan = playbackExitCheckpointPlan(
+            lastPositionMs = 2_390_000L,
+            lastDurationMs = 2_400_000L,
+            mediaPlan = episodicPlan(),
+            sourceId = "provider",
+            seasonNumber = 3,
+            episodeNumber = 4,
+            voiceover = "Дубляж",
+        )
+
+        assertEquals(2_400_000L, exitPlan.completed.positionMs)
+        assertEquals(null, exitPlan.nextEpisodeActivation)
+    }
+
+    @Test
     fun `film and final compatible episode return to details`() {
         val film = PlaybackMediaPlan(
             listOf(

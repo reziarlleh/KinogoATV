@@ -36,6 +36,14 @@ class WatchProgressTest {
     }
 
     @Test
+    fun `near end exit remains an exact resume point without a player end signal`() {
+        val progress = episodeProgress(37 * MINUTE, 40 * MINUTE)
+
+        assertTrue(progress.isCompleted())
+        assertEquals(37 * MINUTE - 5_000L, progress.resumePositionMs())
+    }
+
+    @Test
     fun `movie completion needs percentage and ten minute window`() {
         assertFalse(movieProgress(89 * MINUTE, 100 * MINUTE).isCompleted())
         assertTrue(movieProgress(90 * MINUTE, 100 * MINUTE).isCompleted())

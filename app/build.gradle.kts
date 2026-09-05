@@ -44,8 +44,8 @@ android {
         targetSdk {
             version = release(37)
         }
-        versionCode = 18
-        versionName = "0.5.4"
+        versionCode = 19
+        versionName = "0.5.5"
 
         buildConfigField(
             "String",

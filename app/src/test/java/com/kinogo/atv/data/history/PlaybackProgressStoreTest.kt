@@ -19,6 +19,46 @@ import org.junit.Test
 
 class PlaybackProgressStoreTest {
     @Test
+    fun `episode checkpoint survives store recreation`() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val original = progress("series", "season-2", "episode-1", 10L)
+        PlaybackProgressStore(dataStore).upsert(original)
+
+        val reopened = PlaybackProgressStore(dataStore)
+
+        assertEquals(original, reopened.get("series", "season-2", "episode-1"))
+    }
+
+    @Test
+    fun `source refresh updates the same durable episode key`() = runTest {
+        val dataStore = InMemoryPreferencesDataStore()
+        val store = PlaybackProgressStore(dataStore)
+        store.upsert(
+            progress(
+                contentId = "series",
+                seasonId = "season-2",
+                episodeId = "episode-1",
+                updatedAt = 10L,
+                sourceId = "cinemar",
+            ),
+        )
+        store.upsert(
+            progress(
+                contentId = "series",
+                seasonId = "season-2",
+                episodeId = "episode-1",
+                updatedAt = 20L,
+                sourceId = "collaps",
+            ),
+        )
+
+        val stored = store.list()
+
+        assertEquals(1, stored.size)
+        assertEquals("collaps", stored.single().selection.sourceId)
+    }
+
+    @Test
     fun `delete content removes every episode atomically`() = runTest {
         val dataStore = InMemoryPreferencesDataStore()
         val store = PlaybackProgressStore(dataStore)
@@ -50,6 +90,7 @@ class PlaybackProgressStoreTest {
         seasonId: String? = null,
         episodeId: String? = null,
         updatedAt: Long,
+        sourceId: String = "collaps",
     ) = WatchProgress(
         selection = PlaybackSelection(
             contentId = contentId,
@@ -57,7 +98,7 @@ class PlaybackProgressStoreTest {
             episodeId = episodeId,
             voiceId = "voice",
             qualityId = "720p",
-            sourceId = "collaps",
+            sourceId = sourceId,
         ),
         positionMs = 42_000L,
         durationMs = 2_400_000L,

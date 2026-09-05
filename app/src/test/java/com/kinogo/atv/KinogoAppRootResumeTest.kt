@@ -2,10 +2,13 @@ package com.kinogo.atv
 
 import com.kinogo.atv.data.catalog.ParsedContentPage
 import com.kinogo.atv.data.catalog.PlayerEmbedCandidate
+import com.kinogo.atv.data.history.PlaybackProgressCodec
 import com.kinogo.atv.data.history.PlaybackProgressCollection
 import com.kinogo.atv.data.playback.DirectMediaResolver
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.ContentType
+import com.kinogo.atv.domain.PlaybackMediaPlan
+import com.kinogo.atv.domain.PlaybackMediaVariant
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.WatchProgress
 import com.kinogo.atv.player.ui.PlaybackSourceRefreshRequest
@@ -346,23 +349,7 @@ class KinogoAppRootResumeTest {
 
     @Test
     fun `catalog search history bookmarks and player return share one details resume policy`() {
-        val details = ParsedContentPage(
-            catalogItem = CatalogItem(
-                id = CONTENT_ID,
-                relativePath = "/serialy/content-42.html",
-                title = "Series",
-                year = 2025,
-                type = ContentType.SERIES,
-            ),
-            description = "Description",
-            countries = emptyList(),
-            genres = emptyList(),
-            directors = emptyList(),
-            cast = emptyList(),
-            durationMinutes = null,
-            metadata = emptyMap(),
-            playerEmbeds = emptyList(),
-        ).toPlaybackDetailsUiModel()
+        val details = detailsModel()
         val checkpoint = progress(
             season = 4,
             episode = 2,
@@ -377,7 +364,7 @@ class KinogoAppRootResumeTest {
     }
 
     @Test
-    fun `newest completed unit never falls back to an older unfinished episode`() {
+    fun `newest completed episode remains the continuation anchor`() {
         val olderUnfinished = progress(
             season = 1,
             episode = 2,
@@ -394,11 +381,15 @@ class KinogoAppRootResumeTest {
             ended = true,
         )
 
-        assertNull(
-            preferredResumeProgress(
-                entries = listOf(olderUnfinished, latestCompleted),
-                contentId = CONTENT_ID,
-            ),
+        val selected = preferredResumeProgress(
+            entries = listOf(olderUnfinished, latestCompleted),
+            contentId = CONTENT_ID,
+        )
+
+        assertEquals(latestCompleted, selected)
+        assertEquals(
+            "Смотреть",
+            resumeActionLabel(requireNotNull(selected)),
         )
     }
 
@@ -465,22 +456,197 @@ class KinogoAppRootResumeTest {
     }
 
     @Test
-    fun `content with only completed checkpoints has no continue action`() {
-        assertNull(
-            preferredResumeProgress(
-                listOf(
-                    progress(
-                        season = 1,
-                        episode = 1,
-                        positionMs = 100L,
-                        durationMs = 1_000L,
-                        updatedAt = 1L,
-                        ended = true,
-                    ),
-                ),
-                CONTENT_ID,
+    fun `completed episode remains an internal continuation anchor`() {
+        val completed = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+            ended = true,
+        )
+
+        assertEquals(
+            completed,
+            preferredResumeProgress(listOf(completed), CONTENT_ID),
+        )
+    }
+
+    @Test
+    fun `completed episode without a known successor does not advertise continue`() {
+        val completed = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+            ended = true,
+        )
+
+        val baseDetails = detailsModel()
+        val details = baseDetails.withLocalResume(listOf(completed))
+        val target = playbackResumeTarget(
+            completed,
+            PlaybackMediaPlan(listOf(resumeVariant("s2e1", 2, 1))),
+        )
+
+        assertEquals(baseDetails.resumeLabel, details.resumeLabel)
+        assertFalse(details.resumeLabel.startsWith("Продолжить"))
+        assertEquals(2, target.selection.season)
+        assertEquals(1, target.selection.episode)
+        assertFalse(target.selection.resume)
+        assertEquals(0L, target.positionMs)
+    }
+
+    @Test
+    fun `completed episode and next activation survive codec reload`() {
+        val completed = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 10L,
+            ended = true,
+        )
+        val activated = progress(
+            season = 2,
+            episode = 2,
+            positionMs = 0L,
+            durationMs = 2_700_000L,
+            updatedAt = 11L,
+        )
+
+        val reloaded = PlaybackProgressCodec.decode(
+            PlaybackProgressCodec.encode(listOf(completed, activated)),
+        )
+        val selected = requireNotNull(preferredResumeProgress(reloaded, CONTENT_ID))
+        val target = playbackResumeTarget(selected, episodicResumePlan())
+
+        assertEquals("episode-2", selected.selection.episodeId)
+        assertEquals(2, target.selection.season)
+        assertEquals(2, target.selection.episode)
+        assertEquals(0L, target.positionMs)
+    }
+
+    @Test
+    fun `completed episode advances to next fresh coordinate instead of series start`() {
+        val completed = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+            ended = true,
+        )
+
+        val target = playbackResumeTarget(completed, episodicResumePlan())
+
+        assertEquals(2, target.selection.season)
+        assertEquals(2, target.selection.episode)
+        assertEquals(0L, target.positionMs)
+    }
+
+    @Test
+    fun `completed episode advances across a sparse season boundary`() {
+        val completed = progress(
+            season = 2,
+            episode = 2,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+            ended = true,
+        )
+
+        val target = playbackResumeTarget(completed, episodicResumePlan())
+
+        assertEquals(4, target.selection.season)
+        assertEquals(3, target.selection.episode)
+        assertEquals(0L, target.positionMs)
+    }
+
+    @Test
+    fun `completed episode missing after source refresh still advances by coordinate`() {
+        val saved = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_700_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+            ended = true,
+        )
+        val completed = saved.copy(
+            selection = saved.selection.copy(sourceId = "retired-provider"),
+        )
+        val refreshedPlan = PlaybackMediaPlan(
+            listOf(
+                resumeVariant("s1e1", 1, 1),
+                resumeVariant("s2e2", 2, 2),
+                resumeVariant("s4e3", 4, 3),
             ),
         )
+
+        val target = playbackResumeTarget(completed, refreshedPlan)
+
+        assertEquals("cinemar", target.selection.sourceId)
+        assertEquals(2, target.selection.season)
+        assertEquals(2, target.selection.episode)
+        assertEquals(0L, target.positionMs)
+    }
+
+    @Test
+    fun `near end exit resumes exact episode instead of using completion heuristic`() {
+        val nearEnd = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 2_580_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+        )
+
+        val target = playbackResumeTarget(nearEnd, episodicResumePlan())
+
+        assertEquals(2, target.selection.season)
+        assertEquals(1, target.selection.episode)
+        assertEquals(2_575_000L, target.positionMs)
+    }
+
+    @Test
+    fun `fresh provider replacement preserves the saved episode and position`() {
+        val savedProgress = progress(
+            season = 2,
+            episode = 1,
+            positionMs = 645_000L,
+            durationMs = 2_700_000L,
+            updatedAt = 1L,
+        )
+        val saved = savedProgress.copy(
+            selection = savedProgress.selection.copy(sourceId = "retired-provider"),
+        )
+
+        val target = playbackResumeTarget(saved, episodicResumePlan())
+
+        assertEquals("cinemar", target.selection.sourceId)
+        assertEquals(2, target.selection.season)
+        assertEquals(1, target.selection.episode)
+        assertEquals("720p", target.selection.quality)
+        assertEquals(640_000L, target.positionMs)
+    }
+
+    @Test
+    fun `real end of a movie does not restore its terminal position`() {
+        val completedMovie = WatchProgress(
+            selection = PlaybackSelection(
+                contentId = CONTENT_ID,
+                voiceId = "voice",
+                qualityId = "720p",
+            ),
+            positionMs = 5_400_000L,
+            durationMs = 5_400_000L,
+            updatedAtEpochMs = 1L,
+            playbackEnded = true,
+        )
+
+        assertNull(preferredResumeProgress(listOf(completedMovie), CONTENT_ID))
     }
 
     private fun progress(
@@ -511,6 +677,49 @@ class KinogoAppRootResumeTest {
         voiceover = "voice",
         quality = "720p",
         resume = true,
+    )
+
+    private fun episodicResumePlan(): PlaybackMediaPlan = PlaybackMediaPlan(
+        listOf(
+            resumeVariant("s1e1", 1, 1),
+            resumeVariant("s2e1", 2, 1),
+            resumeVariant("s2e2", 2, 2),
+            resumeVariant("s4e3", 4, 3),
+        ),
+    )
+
+    private fun detailsModel() = ParsedContentPage(
+        catalogItem = CatalogItem(
+            id = CONTENT_ID,
+            relativePath = "/serialy/content-42.html",
+            title = "Series",
+            year = 2025,
+            type = ContentType.SERIES,
+        ),
+        description = "Description",
+        countries = emptyList(),
+        genres = emptyList(),
+        directors = emptyList(),
+        cast = emptyList(),
+        durationMinutes = null,
+        metadata = emptyMap(),
+        playerEmbeds = emptyList(),
+    ).toPlaybackDetailsUiModel()
+
+    private fun resumeVariant(
+        id: String,
+        season: Int,
+        episode: Int,
+    ): PlaybackMediaVariant = PlaybackMediaVariant(
+        id = id,
+        sourceId = "cinemar",
+        sourceLabel = "Cinemar",
+        seasonNumber = season,
+        episodeNumber = episode,
+        voiceover = "voice",
+        quality = "720p",
+        mediaUrl = "https://media.example/$id.m3u8",
+        mimeType = "application/x-mpegURL",
     )
 
     private fun refreshUnit(episode: Int) = PlaybackSourceRefreshUnitKey(
