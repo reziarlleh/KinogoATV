@@ -41,9 +41,15 @@ data class WatchProgress(
     fun isCompleted(rules: WatchProgressRules = WatchProgressRules.DEFAULT): Boolean =
         rules.isCompleted(this)
 
-    /** A resume point for a details screen, even before the item qualifies for the home row. */
+    /**
+     * Exact player exit position for Details/player resume.
+     *
+     * The percentage/remaining-time completion heuristic is intentionally not used here. A Back
+     * or lifecycle checkpoint near the credits still represents an explicit user exit and must
+     * remain resumable. Only a real Media3 end signal suppresses the old position.
+     */
     fun resumePositionMs(rules: WatchProgressRules = WatchProgressRules.DEFAULT): Long? {
-        if (positionMs == 0L || isCompleted(rules)) return null
+        if (positionMs == 0L || playbackEnded) return null
         return (boundedPositionMs - rules.resumeRewindMs).coerceAtLeast(0)
     }
 

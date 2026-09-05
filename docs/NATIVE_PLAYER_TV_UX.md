@@ -1,6 +1,6 @@
 # Native Media3 player for Android TV — UX specification
 
-Последнее обновление: **23 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 > **Статус документа:** это целевая UX-спецификация и исторический план, а не перечень
 > полностью реализованных функций. Актуальное production-поведение зафиксировано в
@@ -9,7 +9,7 @@
 > announcements ещё остаются в roadmap. C-008 уже реализует automatic error/stall refresh,
 > generation-safe checkpoints, persistent quality cap, configurable real LoadControl и
 > bounded next-coordinate prefetch; их проверка на реальном TV пока не выполнена и не
-> наследуется от C-007.
+> наследуется от C-007. Контракт history/resume ниже актуализирован решением D-036/C-011.
 
 ## Purpose and boundaries
 
@@ -122,9 +122,13 @@ subtitles. Source and **Open Web player** are pre-launch choices and are not dup
 Optional future actions such as restart, speed, sleep timer, subtitle style and source reports
 belong in a single **More** drawer rather than making the main HUD taller.
 
-`WatchProgress` is the source of truth: `PlaybackSelection` + position + duration + monotonic updated time + explicit ended flag, never a signed media URL. Save on the existing 10-second cadence and on state boundaries. Callback order is serialized; a callback from a replaced Media3 generation is ignored, and an older durable write cannot overwrite the newer in-memory checkpoint. Resume rewinds 5 seconds. Continue Watching eligibility and completion continue to follow `WatchProgressRules`: episodes begin after two minutes; completed items are removed when the 90% plus remaining-time rule is met (or explicit end is reported). A newly activated episode is stored at position zero so it remains the active S/E before the first cadence tick. If the newest active unit is completed, Continue is absent rather than falling back to an older unfinished episode. Store history per episode, newest first, and allow Delete progress from the history detail action.
+`WatchProgress` is the source of truth: `PlaybackSelection` + position + duration + monotonic updated time + explicit ended flag, never a signed media URL. Save on the existing 10-second cadence and on state boundaries. Callback order is serialized; a callback from a replaced Media3 generation is ignored, and an older durable write cannot overwrite the newer in-memory checkpoint. Resume rewinds 5 seconds. The 90% plus remaining-time rule remains an approximate History/Continue-Watching classification only; it must not erase an exact Back/lifecycle resume point. Only explicit `playbackEnded=true` suppresses that old position. A newly activated episode is stored at position zero so it remains the active S/E before the first cadence tick. A completed episode remains an internal successor anchor, is not advertised as a resumable position, and never falls back to an older unfinished episode. Store history per episode, newest first, and allow content-level Delete/Clear from History.
 
-At episode end, show a 10-second “Next episode” countdown with Cancel/Play now; honour `autoNextEpisode=false` by stopping on the end panel. If a direct episode source cannot report a duration, keep position history but omit percentage and never mark it completed merely because playback ended unexpectedly.
+The visual 10-second “Next episode” countdown with Cancel/Play now remains a future UX item.
+Current production behavior advances immediately when `autoNextEpisode=true`; otherwise it returns
+to Details. Every real natural end first persists the completed unit and, when present, the next
+S/E activation at zero. If a direct episode source cannot report a duration, keep position history
+but omit percentage and never mark it completed merely because playback ended unexpectedly.
 
 Production C-008 flattens every real coordinate of compatible seasons for the selected
 source/translation into one Media3 playlist. `ExoPlayer.PreloadConfiguration` keeps only the

@@ -168,6 +168,11 @@ internal data class PlaybackLaunchSafety(
     val discardActivePlaybackOnExit: Boolean,
 )
 
+internal data class PlaybackResumeTarget(
+    val selection: PlaybackSelectionUiModel,
+    val positionMs: Long,
+)
+
 internal enum class PlaybackRecoveryEarlyFailure {
     CONTENT_UNAVAILABLE,
     MIRROR_UNAVAILABLE,
@@ -390,6 +395,7 @@ fun KinogoAppRoot() {
     val localContext = LocalContext.current
     val activity = localContext as? Activity
     val context = localContext.applicationContext
+    val application = context as KinogoApplication
     val scope = rememberCoroutineScope()
     val progressStore = remember(context) { PlaybackProgressStore(context.kinogoDataStore) }
     val favoriteStore = remember(context) { FavoriteStore(context.kinogoDataStore) }
@@ -459,7 +465,12 @@ fun KinogoAppRoot() {
     var activePlayback by remember { mutableStateOf<ActivePlaybackSession?>(null) }
     var playbackSessionGeneration by remember { mutableLongStateOf(0L) }
     var lastCheckpointTimestampMs by remember { mutableLongStateOf(0L) }
-    val checkpointWriteQueue = remember { PlaybackCheckpointWriteQueue() }
+    val checkpointWriteQueue = remember(application) {
+        application.playbackCheckpointWriteQueue
+    }
+    val checkpointWriteScope = remember(application) {
+        application.playbackCheckpointWriteScope
+    }
     var activeEmbeddedPlayback by remember {
         mutableStateOf<ActiveEmbeddedPlaybackSession?>(null)
     }
@@ -1432,8 +1443,9 @@ fun KinogoAppRoot() {
                             contentId = requested.contentId,
                         )
                         if (saved != null) {
-                            effectiveSelection = saved.selection.toUiSelection(resume = true)
-                            initialPosition = saved.resumePositionMs() ?: 0L
+                            val target = playbackResumeTarget(saved, plan)
+                            effectiveSelection = target.selection
+                            initialPosition = target.positionMs
                         }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
@@ -1533,6 +1545,7 @@ fun KinogoAppRoot() {
         }
         mirrorEntries = mirrorRegistry.all()
         try {
+            checkpointWriteQueue.awaitIdle()
             history = PlaybackProgressCollection.normalize(history + progressStore.list())
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -1794,12 +1807,9 @@ fun KinogoAppRoot() {
                     // The Details screen is restored synchronously after exit; publish the exact
                     // checkpoint before Media3 is removed, then serialize the durable writes.
                     history = PlaybackProgressCollection.upsert(history, progress)
-                    checkpointWriteQueue.enqueue(scope) {
+                    checkpointWriteQueue.enqueue(checkpointWriteScope) {
                         try {
                             progressStore.upsert(progress)
-                            history = PlaybackProgressCollection.normalize(
-                                history + progressStore.list(),
-                            )
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (error: Exception) {
@@ -2123,10 +2133,10 @@ fun KinogoAppRoot() {
             onMirrorRetry = { origin -> requestMirrorRefresh(origin) },
             onHistoryDelete = { contentId ->
                 if (historyFocusedItemId == contentId) historyFocusedItemId = null
-                checkpointWriteQueue.enqueue(scope) {
+                history = PlaybackProgressCollection.deleteContent(history, contentId)
+                checkpointWriteQueue.enqueue(checkpointWriteScope) {
                     try {
                         progressStore.deleteContent(contentId)
-                        history = progressStore.list()
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (error: Exception) {
@@ -2136,10 +2146,10 @@ fun KinogoAppRoot() {
             },
             onHistoryClear = {
                 historyFocusedItemId = null
-                checkpointWriteQueue.enqueue(scope) {
+                history = emptyList()
+                checkpointWriteQueue.enqueue(checkpointWriteScope) {
                     try {
                         progressStore.clear()
-                        history = emptyList()
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (error: Exception) {
@@ -2374,9 +2384,9 @@ internal fun WatchProgress.historyCatalogItem(): CatalogItem? =
     contentSnapshot ?: legacyHistoryLookupItem(selection.contentId)
 
 /**
- * One resume policy is shared by History, Catalog and Search entry points. The newest unfinished
- * playback unit wins; a completed checkpoint for a default first episode must never hide a later
- * unfinished episode.
+ * One resume policy is shared by every Details entry point. A heuristic near-end classification
+ * must never hide an exact Back/lifecycle checkpoint. A real completed episode remains a durable
+ * anchor from which a fresh media plan can choose the next available coordinate.
  */
 internal fun preferredResumeProgress(
     entries: Collection<WatchProgress>,
@@ -2386,12 +2396,63 @@ internal fun preferredResumeProgress(
         .asSequence()
         .filter { it.selection.contentId == contentId }
         .filter { progress ->
-            progress.resumePositionMs() != null ||
-                progress.isCompleted() ||
+            progress.positionMs > 0L ||
                 (progress.selection.isEpisode && progress.positionMs == 0L)
         }
         .maxByOrNull(WatchProgress::updatedAtEpochMs)
-    return latestActiveUnit?.takeUnless { it.isCompleted() }
+    return latestActiveUnit?.takeUnless {
+        it.playbackEnded && !it.selection.isEpisode
+    }
+}
+
+/** Resolves a persisted URL-free anchor against the freshly discovered provider matrix. */
+internal fun playbackResumeTarget(
+    progress: WatchProgress,
+    plan: PlaybackMediaPlan?,
+): PlaybackResumeTarget {
+    val requested = progress.selection.toUiSelection(resume = true)
+    val exactPositionMs = progress.resumePositionMs() ?: 0L
+    if (plan == null) {
+        return PlaybackResumeTarget(
+            selection = requested.copy(resume = exactPositionMs > 0L),
+            positionMs = exactPositionMs,
+        )
+    }
+
+    if (progress.playbackEnded && requested.season != null && requested.episode != null) {
+        val continuation = PlaybackSourceSelectionModel.continuationAfterCompletedEpisode(
+            plan = plan,
+            requested = requested,
+        )
+        if (continuation != null) {
+            return PlaybackResumeTarget(
+                selection = continuation.toPlaybackSelection(requested).copy(resume = true),
+                positionMs = 0L,
+            )
+        }
+    }
+
+    val normalized = PlaybackSourceSelectionModel
+        .initial(plan = plan, requested = requested)
+        .toPlaybackSelection(requested)
+    if (!isSamePlaybackUnit(requested, normalized)) {
+        return PlaybackResumeTarget(
+            selection = normalized.copy(resume = false),
+            positionMs = 0L,
+        )
+    }
+
+    if (progress.playbackEnded) {
+        return PlaybackResumeTarget(
+            selection = normalized.copy(resume = false),
+            positionMs = 0L,
+        )
+    }
+
+    return PlaybackResumeTarget(
+        selection = normalized.copy(resume = exactPositionMs > 0L),
+        positionMs = exactPositionMs,
+    )
 }
 
 /** Every Details entry point receives the same local checkpoint-derived Continue action. */
@@ -2399,10 +2460,12 @@ internal fun com.kinogo.atv.ui.model.DetailsUiModel.withLocalResume(
     entries: List<WatchProgress>,
 ): com.kinogo.atv.ui.model.DetailsUiModel =
     preferredResumeProgress(entries, id)
+        ?.takeUnless(WatchProgress::playbackEnded)
         ?.let { progress -> copy(resumeLabel = resumeActionLabel(progress)) }
         ?: this
 
 internal fun resumeActionLabel(progress: WatchProgress): String {
+    if (progress.playbackEnded) return "Смотреть"
     val position = formatClock(progress.boundedPositionMs)
     val season = progress.selection.seasonId?.trailingNumber()
     val episode = progress.selection.episodeId?.trailingNumber()

@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Цели архитектуры
 
@@ -30,7 +30,8 @@ flowchart TD
 
 Ключевые файлы:
 
-- `KinogoApplication.kt` — ранняя установка crash diagnostics и debug-настройка WebView;
+- `KinogoApplication.kt` — ранняя установка crash diagnostics, debug-настройка WebView и
+  process-owned очередь/scope долговечных playback checkpoint writes;
 - `MainActivity.kt` — нативный первый кадр, immersive mode, stall/error report и подключение
   Compose только после первого draw;
 - `ComposeHost.kt` — жизненный цикл `ComposeView`;
@@ -319,23 +320,28 @@ selection не допускаются. Snapshot обогащается атом�
 ограниченные относительные пути.
 
 `preferredResumeProgress` одинаково обслуживает Home, Catalog, Search, History, Bookmarks
-и возврат из player: для content ID
-сначала определяется самая новая активная единица, включая только что выбранную серию с
-позиции 0. Если эта newest запись завершена, Continue отсутствует: policy не откатывается к
-более старой незавершённой серии. Details получает явный resume label с
-season/episode/position; для нулевой позиции он указывает S/E без фиктивного `0:00`.
+и возврат из player: для content ID определяется самая новая точная единица, включая только
+что выбранную серию с позиции 0. Near-end эвристика не подавляет checkpoint после `Back`;
+resume запрещён только фактическим `playbackEnded`. Completed episode остаётся внутренним
+anchor и не откатывает policy к старой незавершённой серии. Обычно следующая series activation
+с position 0 уже является newest; если provider refresh удалил completed leaf, coordinate-first
+resolver находит следующую доступную S/E в свежей branch. Финальная серия не получает ложную
+Continue-метку. Details показывает season/episode/position, а для нулевой позиции — S/E без
+фиктивного `0:00`.
 
 Checkpoint callback несёт explicit end-state и generation активной Media3-сессии. Root
 отбрасывает callback прежней generation, публикует актуальную запись в UI синхронно, а
-durable DataStore writes выполняет последовательной `PlaybackCheckpointWriteQueue`.
+durable DataStore writes выполняет последовательной process-owned
+`PlaybackCheckpointWriteQueue` в scope `KinogoApplication`, который не уничтожается вместе с
+Compose host/Activity.
 Timestamp выдаётся монотонно относительно памяти и хранилища; `upsert` не позволяет поздней
 старой записи затереть новую. Перед вычислением Continue root ждёт очередь и объединяет
 memory snapshot с DataStore, поэтому немедленный выход и повторное «Продолжить» видят одну
 и ту же последнюю серию/позицию.
 
 UI Истории группирует units по content ID. Обычный click использует общий `openDetails`,
-а content-level delete удаляет все ключи сериала. Delete/clear идут через ту же очередь
-после pending checkpoints и затем заменяют root memory точным store snapshot; merge со
+а content-level delete удаляет все ключи сериала. Delete/clear сначала синхронно меняют root
+memory, затем идут через ту же process-owned очередь после pending checkpoints; merge со
 старыми удалёнными rows запрещён. Shared poster long action включён опционально только для
 Истории, поэтому click-контракт остальных сеток не изменён.
 Для repeat-based remote long-OK poster передаёт origin жеста; ancestor dialog поглощает
@@ -445,8 +451,10 @@ device-bound.
 - Desired fixed quality не заменяется actual variant/track; выбор следует порядку
   exact → highest not above cap → lowest above cap и учитывает adaptive и fixed кандидаты
   совместно.
-- Новая выбранная серия получает checkpoint с position 0; newest completed unit запрещает
-  скрытый fallback к более старой незавершённой записи.
+- Новая выбранная серия получает checkpoint с position 0; near-end Back остаётся точным resume,
+  а explicit completed unit запрещает скрытый fallback к более старой незавершённой записи.
+  При source refresh та же S/E ищется во всех branches; position никогда не переносится на
+  другую unit.
 - Recovery early return обязан discard-ить dead player и показать explicit error; ordinary
   preparation не наследует это поведение.
 - Registration rules никогда не принимаются автоматически; late async result обязан
@@ -511,3 +519,10 @@ remote long-OK release guard и stable async Settings actions без измен�
 Exact source `b6b2d379dad90bd33ba35725cc9d329166d365e8` прошёл 91 suites / 462
 tests и lint без errors; exact code 18 APK и embedded revision проверены. Аппаратный
 focus/player runtime остаётся **PENDING**.
+
+C-011 отделяет approximate completion classification от exact resume, разрешает сохранённую
+S/E coordinate через свежие provider branches и переносит ordered checkpoint queue в
+process-owned `KinogoApplication`. Exact source
+`5223d81eefdc1b50b377cdcf74ced5174d553776` прошёл 91 suites / 476 tests; exact code 19
+APK, stable signing и embedded revision проверены. Hardware cold-restart и Media3 callback
+order остаются **PENDING**.

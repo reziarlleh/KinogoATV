@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Принцип
 
@@ -286,12 +286,18 @@ Checkpoint сохраняется:
 - перед сменой variant/source/episode;
 - при error/end/exit.
 
-Resume начинает на 5 секунд раньше сохранённой позиции. Eligibility и completion определяет
-`WatchProgressRules`: учитывается минимальная просмотренная длительность, 90% и остаток до
-конца. История группируется по content ID, но хранит записи отдельных эпизодов. Исходная
-сохранённая unit остаётся эталоном для pre-play selector: если свежий source plan нормализует
-её в другой сезон/эпизод, старая позиция не применяется. После ручного возврата к той же unit
-в selector продолжение снова доступно.
+Resume начинает на 5 секунд раньше сохранённой позиции. `WatchProgressRules` с порогами
+минимальной длительности, 90% и остатка до конца используется только для приблизительной
+классификации просмотра. Точный checkpoint после `Back`/lifecycle boundary остаётся пригодным
+для resume даже у титров; старую позицию запрещает только фактический end-сигнал Media3
+(`playbackEnded=true`). История группируется по content ID, но хранит записи отдельных
+эпизодов.
+
+Сохранённая season/episode является первичной, а source/voiceover — предпочтением. При
+обновлении provider plan selector сначала ищет ту же S/E в любом свежем source/voiceover и
+только затем выбирает безопасный вариант. Если этой S/E больше нет нигде, позиция не
+переносится на другую серию. Для реально завершённой, исчезнувшей из plan серии ищется первая
+доступная следующая coordinate; это не позволяет stale provider вернуть сериал к S01E01.
 
 `PlaybackCheckpoint` несёт explicit `playbackEnded`: completion не выводится только из
 последней позиции Media3. При переходе на другую серию сначала записывается завершение
@@ -301,19 +307,23 @@ Resume начинает на 5 секунд раньше сохранённой 
 
 Root принимает callback только от текущей `ActivePlaybackSession.generation`. UI snapshot
 обновляется синхронно, durable DataStore writes последовательно проходят через
-`PlaybackCheckpointWriteQueue`, а timestamp растёт монотонно относительно memory и store.
+process-owned `PlaybackCheckpointWriteQueue`/`CoroutineScope` в `KinogoApplication`, а
+timestamp растёт монотонно относительно memory и store. Поэтому уничтожение Compose host или
+Activity не отменяет уже поставленную запись.
 `PlaybackProgressCollection.upsert` не позволяет поздней записи с меньшим timestamp затереть
 новую. Перед вычислением resume root ждёт очередь и нормализует объединение памяти с
 DataStore, поэтому закрытие плеера и немедленное повторное «Продолжить» видят один порядок.
 
 Home, Catalog, Search, History, Bookmarks и возврат из player используют одну
-`preferredResumeProgress` policy. Для content ID
-сначала выбирается newest активная единица: eligible progress, explicit completed checkpoint
-или episodic checkpoint с position 0. Только после этого проверяется completion. Если newest
-единица завершена, Continue action отсутствует и policy не откатывается к более старой
-незавершённой серии. Details показывает season/episode/position, например
-`Продолжить S03E07 с 17:42`; для новой серии с position 0 — `Продолжить S03E07` без
-фиктивного времени.
+`preferredResumeProgress` policy. Для content ID выбирается newest точная playback unit:
+checkpoint с позицией, episodic activation с position 0 либо explicit completed episode как
+внутренний fallback-anchor. Эвристическая near-end completion не скрывает Continue. Реальный
+completed checkpoint не откатывает пользователя к более старой незавершённой серии и сам не
+показывает ложное «Продолжить»: штатно более новая activation следующей серии становится
+видимой меткой. Если activation отсутствовала, fresh plan использует completed anchor для
+поиска successor; у финальной серии Details оставляет обычное действие «Смотреть».
+Details показывает season/episode/position, например `Продолжить S03E07 с 17:42`; для новой
+серии с position 0 — `Продолжить S03E07` без фиктивного времени.
 
 Точная позиция локальна для TV и не синхронизируется с аккаунтом сайта. Серверный
 контракт Kinogo в приложении охватывает только status/favorite закладок; provider
@@ -321,10 +331,10 @@ WebView `localStorage` — локальное web-to-web state, а не account 
 
 Обычный `OK` в Истории открывает Details; он больше не вызывает resume напрямую.
 Экран показывает одну карточку на content ID, поэтому пользовательское удаление материала
-атомарно удаляет все его movie/episode checkpoints. Удаление и полная очистка сериализованы
-той же очередью, что checkpoint writes; после операции root заменяет память точным снимком
-store, не объединяя его с уже удалёнными записями. `clear()` удаляет только ключ playback
-history и сохраняет остальные Preferences DataStore.
+атомарно удаляет все его movie/episode checkpoints. Удаление и полная очистка немедленно
+обновляют UI snapshot и сериализуются той же process-owned очередью после pending checkpoint
+writes. `clear()` удаляет только ключ playback history и сохраняет остальные Preferences
+DataStore.
 
 ## Auto-next
 
@@ -338,7 +348,8 @@ history и сохраняет остальные Preferences DataStore.
   продолжает её;
 - при отключённом auto-next `pauseAtEndOfMediaItems` выдаёт
   `PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM`: серия получает финальный checkpoint,
-  а fullscreen flow сразу возвращается в карточку;
+  затем доступная следующая серия получает activation с position 0, а fullscreen flow сразу
+  возвращается в карточку;
 - `STATE_ENDED` фильма или последней coordinate общего playlist передаётся
   `PlaybackCompletionPolicy` и возвращает в карточку.
 
@@ -469,6 +480,16 @@ native HUD, оставляя их в pre-launch selector, и применяет 
 38 402 782 bytes, SHA-256 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`
 и embedded exact source revision. Реальный player/resume runtime без ADB не повторялся и
 остаётся **PENDING**.
+
+C-011 исправляет ошибку C-010: heuristic near-end completion больше не подавляет exact
+checkpoint с `playbackEnded=false`. Saved S/E ищется coordinate-first во всех fresh
+source/voice branches; natural-end exit сохраняет completed текущей unit и следующую S/E@0,
+а queue/scope записи живут в `KinogoApplication`. Exact source
+`5223d81eefdc1b50b377cdcf74ced5174d553776` прошёл 91 suites / 476 tests. Exact
+`KinogoATV-0.5.5-code19.apk` имеет 38 419 162 bytes, SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; metadata,
+stable signing и embedded revision проверены. TV/ADB не использовались; cold-restart и
+natural-end runtime остаются **PENDING**.
 
 ## Сетевые ограничения плеера
 

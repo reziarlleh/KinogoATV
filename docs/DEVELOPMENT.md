@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Требования
 
@@ -118,18 +118,24 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
 
-Текущий local exact snapshot C-010 / `0.5.4` code 18 привязан к application
-source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Canonical command
+Текущий local exact snapshot C-011 / `0.5.5` code 19 привязан к application
+source `5223d81eefdc1b50b377cdcf74ced5174d553776`. Canonical command
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
-SUCCESS за 4 мин 58 с; 91 suites / 462 tests, 0 failures/errors/skips; lint —
-0 errors / 22 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
-3 мин 38 с, 50 tasks. Exact `dist/KinogoATV-0.5.4-code18.apk`: 38 402 782 bytes,
-SHA-256 `541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
-`com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
+SUCCESS за 7 мин 52 с; 91 suites / 476 tests, 0 failures/errors/skips; lint —
+0 errors / 24 warnings / 2 hints. Post-commit `assembleRelease --rerun-tasks` — SUCCESS за
+10 мин 28 с, 50 tasks. Exact `dist/KinogoATV-0.5.5-code19.apk`: 38 419 162 bytes,
+SHA-256 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`, package
+`com.kinogo.atv`, code 19 / `0.5.5`, minSdk 28, targetSdk 37, zipalign PASS, v2 true,
 ровно один signer, certificate SHA-256
 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded revision
-точно совпадает с application source. PR #8/#9, regular Release, signed manifest, main Android
-CI и Pages publish завершены успешно; TV runtime остаётся **PENDING**.
+точно совпадает с application source. PR/CI, regular Release и signed manifest C-011 —
+**PENDING**; TV runtime также остаётся **PENDING**.
+
+Предыдущий published snapshot C-010 / `0.5.4` code 18 привязан к application
+source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Canonical command прошёл
+91 suites / 462 tests; exact `KinogoATV-0.5.4-code18.apk` имеет 38 402 782 bytes и SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`. PR #8/#9,
+regular Release, signed manifest, main Android CI и Pages publish завершены успешно.
 
 Предыдущий published snapshot C-009 / `0.5.3` code 17 привязан к application
 source `777c8a0528f24db67402536631257d6cdc91f148`. Canonical command

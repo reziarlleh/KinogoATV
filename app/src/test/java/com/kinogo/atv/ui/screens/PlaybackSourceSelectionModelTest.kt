@@ -281,7 +281,7 @@ class PlaybackSourceSelectionModelTest {
     }
 
     @Test
-    fun `saved position is disabled when fresh plan normalizes to another episode`() {
+    fun `resume finds the same episode in another fresh source automatically`() {
         val plan = episodicPlan()
         val saved = selection(
             season = 2,
@@ -292,27 +292,36 @@ class PlaybackSourceSelectionModelTest {
         val normalized = PlaybackSourceSelectionModel.initial(plan, saved)
             .toPlaybackSelection(saved)
 
-        assertEquals(1, normalized.season)
-        assertEquals(1, normalized.episode)
-        assertFalse(
+        assertEquals("cinemar", normalized.sourceId)
+        assertEquals("Dub B", normalized.voiceover)
+        assertEquals(2, normalized.season)
+        assertEquals(3, normalized.episode)
+        assertTrue(
             shouldContinueFromPlaybackSelector(
                 requestedSelection = saved,
                 effectiveSelection = normalized,
                 resumePositionMs = 240_000L,
             ),
         )
+    }
 
-        val restoredUnit = PlaybackSourceSelectionModel.selectVoiceover(
-            plan = plan,
-            state = PlaybackSourceSelectionModel.selectSource(plan, normalized.toState(), "cinemar"),
-            voiceover = "Dub B",
-        ).toPlaybackSelection(saved)
-        assertEquals(2, restoredUnit.season)
-        assertEquals(3, restoredUnit.episode)
-        assertTrue(
+    @Test
+    fun `resume never moves a saved position to a different episode`() {
+        val plan = episodicPlan()
+        val missing = selection(
+            season = 4,
+            episode = 8,
+            voiceover = "Original",
+            quality = "720p",
+        ).copy(sourceId = "retired-provider")
+        val normalized = PlaybackSourceSelectionModel.initial(plan, missing)
+            .toPlaybackSelection(missing)
+
+        assertFalse(missing.isSamePlaybackUnitAs(normalized))
+        assertFalse(
             shouldContinueFromPlaybackSelector(
-                requestedSelection = saved,
-                effectiveSelection = restoredUnit,
+                requestedSelection = missing,
+                effectiveSelection = normalized,
                 resumePositionMs = 240_000L,
             ),
         )
@@ -368,12 +377,4 @@ class PlaybackSourceSelectionModelTest {
         resume = true,
     )
 
-    private fun PlaybackSelectionUiModel.toState(): PlaybackSourceSelectionState =
-        PlaybackSourceSelectionState(
-            sourceId = requireNotNull(sourceId),
-            season = season,
-            episode = episode,
-            voiceover = voiceover,
-            quality = quality,
-        )
 }

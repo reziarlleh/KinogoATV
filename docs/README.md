@@ -4,7 +4,7 @@
 Документы разделены по назначению, чтобы не смешивать пользовательское описание, текущее
 состояние, архитектурные контракты и исторические исследования.
 
-Последняя ревизия индекса: **26 августа 2026 года**.
+Последняя ревизия индекса: **5 сентября 2026 года**.
 
 ## Быстрый старт для нового чата
 
@@ -32,24 +32,21 @@
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
 
-## Текущий validation release
+## Текущий validation candidate
 
-C-010 / `0.5.4` опубликован как regular validation release на exact source
-`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Stable-signed
-`KinogoATV-0.5.4-code18.apk` имеет `38,402,782` bytes, SHA-256
-`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
-`com.kinogo.atv`, min/target SDK `28/37`, `zipalign` **PASS**, ровно один v2 signer с certificate
-SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`; embedded
-revision совпадает с exact source. Canonical прошёл `91 suites / 462 tests` за `4m58s`,
-post-commit release rerun — `3m38s`. Изменения закрепляют startup title, long-OK release
-guard, стабильный Settings focus, pre-launch-only source/web selection, bookmark-only
-server sync и один local resume contract для всех Details entry points. PR #8, tag/Release
-`v0.5.4`, signed code 18 manifest, Android CI и Pages deployment опубликованы; основной
-Pages manifest+APK и ghfast APK дали exact bytes. jsDelivr `@main` при первой проверке ещё
-отдавал безопасный, но устаревший code 17; основной Pages-канал уже отдаёт code 18.
-Hardware TV/ADB не использовались; OEM long-OK, Settings focus, real resume/player и
-in-app updater остаются **PENDING**. C-009 / `0.5.3` — предыдущий published validation
-rollback candidate; ни один release tag без hardware evidence не становится playback baseline.
+C-011 / `0.5.5` (code 19) исправляет near-end resume, source-independent S/E remap,
+ordered completed → next activation и перенос durable checkpoint queue в process scope.
+Canonical рабочего дерева прошёл `91 suites / 476 tests` за `7m52s`, lint без ошибок,
+debug/androidTest/release assembly. Exact application source
+`5223d81eefdc1b50b377cdcf74ced5174d553776` и stable-signed APK зафиксированы; GitHub Release,
+signed manifest и remote CI — **PENDING**. Hardware TV/ADB не использовались; реальный
+cold-restart resume остаётся **PENDING**.
+
+C-010 / `0.5.4` остаётся предыдущим опубликованным validation release: exact source
+`b6b2d379dad90bd33ba35725cc9d329166d365e8`, APK `38,402,782` bytes, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, regular Release,
+signed manifest, Android CI и Pages deployment. Без hardware evidence release tag не
+становится playback baseline.
 
 ## Операционные документы
 

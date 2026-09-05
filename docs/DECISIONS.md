@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -287,13 +287,14 @@ initial focus до явной активации контента. Focused и se
 ## D-020 — Resume и source refresh ограничены unit key
 
 - Дата: 15 августа 2026 года
-- Статус: unit-key часть действует; resume selection уточнена D-030 для C-008,
+- Статус: unit-key часть действует; resume selection уточнена D-030 и D-036,
   source-recovery runtime pending
 
-Первоначальный контракт выбирал newest unfinished eligible checkpoint content ID. D-030
-уточняет текущую policy: сначала выбирается newest активная unit, включая explicit completed
-и нулевую episodic activation; completed newest suppresses более старую unfinished. Details
-показывает S/E/position. Playback error допускает одну полную fresh details/provider
+Первоначальный контракт выбирал newest unfinished eligible checkpoint content ID. D-030 и
+D-036 уточняют текущую policy: сначала выбирается newest точная unit, включая explicit
+completed episode и нулевую episodic activation; completed newest suppresses более старую
+unfinished, но не выдаётся за точку позиции. Details показывает S/E/position только для
+реально resumable checkpoint. Playback error допускает одну полную fresh details/provider
 preparation на `content/season/episode`; attempted set переживает replacement player.
 Автоматическое восстановление position запускается только если normalized fresh selection
 совпадает с исходной exact unit; иначе пользователь возвращается в selector с нулевой
@@ -518,10 +519,12 @@ identity player host. Даже структурно равный свежий `P
 
 `PlaybackCheckpoint` передаёт explicit `playbackEnded`; новая серия получает checkpoint с
 position 0 сразу при активации. Root принимает callback только от активной generation,
-публикует его в UI до disposal и сериализует DataStore writes через одну очередь.
+публикует его в UI до disposal и сериализует DataStore writes через process-owned очередь
+в `KinogoApplication`, не зависящую от Compose/Activity lifecycle.
 Монотонный timestamp и timestamp-aware `upsert` не позволяют позднему callback затереть
-новую запись. Resume сначала выбирает newest активную unit; если она completed, более
-старая unfinished запись намеренно не используется.
+новую запись. Resume сначала выбирает newest активную unit; explicit completed episode
+остаётся только fallback-anchor для следующей coordinate, а более старая unfinished запись
+намеренно не используется.
 
 Desired quality хранится отдельно от actual plan variant/Media3 track и сохраняется между
 сериями. Fixed запрос разрешается против объединения adaptive tracks и fixed variants:
@@ -617,9 +620,10 @@ Direct media всегда использует внутренний stable ID `d
 hostname.
 
 Ключ истории остаётся `contentId + seasonId + episodeId`: source switch обновляет выбранный
-вариант той же unit. Если сохранённый source больше недоступен, normalizer выбирает
-безопасный доступный source; позиция применяется только когда normalized playback unit
-совпала с сохранённой.
+вариант той же unit. Если сохранённый source больше недоступен, coordinate-first normalizer
+ищет ту же S/E в другом безопасном source/voiceover. Позиция применяется только когда
+normalized playback unit совпала с сохранённой; если S/E отсутствует во всём fresh plan,
+position не переносится.
 
 Следствие: нельзя терять source ID при persistence, включать его в unit key либо сохранять
 вместо него конечный media URL.
@@ -653,6 +657,27 @@ package/version/signer verification → Android Package Installer pipeline. Mani
 
 Следствие: async recomposition не может передавать фокус ближайшему rail item. Для
 динамических рядов stable actions идут до условных кнопок, чтобы их индекс не сдвигался.
+
+## D-036 — Exact exit checkpoint отделён от near-end эвристики
+
+- Дата: 5 сентября 2026 года
+- Статус: принято для C-011 / `0.5.5`; local tests/lint/build passed, TV pending
+
+Порог `90% + remaining window` остаётся приблизительной классификацией истории, но не имеет
+права удалять точную точку выхода. `WatchProgress.resumePositionMs` подавляет позицию только
+при фактическом `playbackEnded=true`. Поэтому `Back` или lifecycle checkpoint возле титров
+возобновляет ту же S/E с сохранённой позиции минус пять секунд.
+
+Все natural-end exit callbacks используют единый ordered checkpoint plan: сначала completed
+текущей unit, затем activation реальной следующей coordinate с position 0, затем выход в
+Details. Это действует и при выключенном auto-next; настройка определяет немедленное
+воспроизведение, а не durable continuation. Если старая completed leaf исчезла после provider
+refresh, successor выбирается по season/episode среди fresh branches. Финальная completed
+series не показывает ложное «Продолжить» и не откатывает выбор к старой unfinished unit.
+
+Следствие: completion heuristic нельзя использовать для exact resume; source/voice/quality
+нельзя включать в history key; Activity-owned scope нельзя использовать для durable writes;
+позицию нельзя молча переносить на другую S/E.
 
 Общий уровень evidence D-032…D-034: exact source
 `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed candidate
