@@ -4,7 +4,8 @@
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.5** (code 19), validation candidate **C-011**.
+Текущий application source выпускает **0.5.5** (code 19), published validation release
+**C-011**.
 Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
 подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
 сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed
@@ -18,17 +19,17 @@ process scope `KinogoApplication`, а не lifecycle Compose host. Финаль�
 
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
-Local canonical рабочего дерева и exact post-commit stable-signed artifact зелёные; remote CI,
-regular Release и signed manifest C-011 — **PENDING**.
+Local canonical, exact post-commit stable-signed artifact, PR/main CI, regular Release,
+signed manifest и Pages publication C-011 зелёные.
 TV/ADB не использовались; hardware cold-restart/source-refresh resume остаётся **PENDING**.
 C-010 / `0.5.4` — предыдущий published validation rollback candidate, C-007 — integration
 point, B-001 — полный playback baseline.
 
-## Текущий validation candidate
+## Текущий validation release
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-011 / 0.5.5 validation** |
+| Release | **C-011 / 0.5.5 validation** |
 | Application source commit | `5223d81eefdc1b50b377cdcf74ced5174d553776` |
 | Application ID | `com.kinogo.atv` |
 | Version code | `19` |
@@ -38,7 +39,7 @@ point, B-001 — полный playback baseline.
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | `v0.5.5` ещё не опубликован; baseline tag не создаётся до hardware evidence |
+| Release tag | Annotated `v0.5.5` опубликован как regular latest validation Release; baseline tag не создаётся до hardware evidence |
 
 Exact artifact C-011: `dist/KinogoATV-0.5.5-code19.apk`, **38 419 162 bytes**, SHA-256
 `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`. Package
@@ -80,7 +81,7 @@ Rollback APK допустим только с совместимой подпи�
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
 | Запуск | C-011 source/build PASS; hardware **PENDING** | Startup title `KinogoATV`; TV/ADB не использовались |
-| Android TV launcher | C-011 exact APK PASS; publication pending | Package/code/name/min/target, zipalign, stable signing и embedded revision проверены |
+| Android TV launcher | C-011 exact APK/publication PASS | Package/code/name/min/target, zipalign, stable signing и embedded revision проверены |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
@@ -96,9 +97,9 @@ Rollback APK допустим только с совместимой подпи�
 | Нативный плеер | C-011 source/unit/build PASS; hardware **PENDING** | Near-end Back остаётся resumable; natural exit пишет completed → next activation; buffer recovery/quality policy сохранены |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-010 Release/manifest/Pages PASS; C-011 pending | До публикации C-011 updater продолжает безопасно видеть exact code 18 manifest |
+| Обновления | C-011 Release/manifest/Pages PASS; runtime **PENDING** | Exact code 19 APK и signed manifest опубликованы; Pages/ghfast/ghproxy скачали exact bytes |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-011 local PASS; remote pending | Canonical 91 suites / 476 tests, lint 0 errors; C-011 PR/main/Pages ещё не запускались |
+| CI | C-011 local/PR/main/Pages PASS | Canonical 91 suites / 476 tests, lint 0 errors; PR #11/#12, main Android и Pages runs зелёные |
 
 ## Проверка C-011
 
@@ -116,8 +117,20 @@ leaf, ordered completed → next S/E@0 и terminal episode без ложного
 
 Application source `5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit
 `assembleRelease --rerun-tasks` завершён **SUCCESS за 10 мин 28 с**, 50 tasks. Exact APK
-metadata/signature/revision/size/hash приведены выше. PR/main CI, Release и signed manifest
-записываются после публикации. ADB/TV не использовались;
+metadata/signature/revision/size/hash приведены выше. App/docs PR #11 вошёл merge
+`a69c72952446fa30f1c09e131f4b2e8d49618790`; PR/main Android CI runs
+`33955399172` / `33955787571` — **SUCCESS**. Annotated `v0.5.5` указывает на merge;
+regular latest Release содержит exact asset с GitHub digest
+`sha256:8a9ddddf61df4a7814e47b92a26b89fcbafefefd6cdeb85b2203b124803e9ae9`.
+
+Signed manifest source `47f0200` вошёл PR #12 merge
+`419a537742a1533f2e4e717acfe15fb3572e5937`; PR/main Android/Pages runs
+`33967703322` / `33967791922` / `33967791953` — **SUCCESS**. Manifest имеет 1 273 bytes,
+SHA-256 `F5103CC4810A6918BE9D181481EA347C292DAA7A58710C359EAE7FFD1EC4CE1E`, issued
+`2026-09-05T13:00:35Z`, expires `2026-10-05T13:00:33Z`. Pages manifest+APK, ghfast и
+ghproxy APK дали exact size/hash; jsDelivr после purge отдаёт exact signed code 19 manifest;
+direct GitHub Release digest совпадает. Все каналы в итоге зависят от GitHub assets.
+ADB/TV не использовались;
 реальное сохранение на устройстве после process restart остаётся **PENDING**.
 
 ## Проверка C-010

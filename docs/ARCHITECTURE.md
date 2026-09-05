@@ -524,5 +524,6 @@ C-011 отделяет approximate completion classification от exact resume, 
 S/E coordinate через свежие provider branches и переносит ordered checkpoint queue в
 process-owned `KinogoApplication`. Exact source
 `5223d81eefdc1b50b377cdcf74ced5174d553776` прошёл 91 suites / 476 tests; exact code 19
-APK, stable signing и embedded revision проверены. Hardware cold-restart и Media3 callback
-order остаются **PENDING**.
+APK, stable signing и embedded revision проверены. PR #11/#12, tag/regular Release, signed
+manifest, Android CI и Pages опубликованы; Pages/ghfast/ghproxy дали exact APK. Hardware
+cold-restart и Media3 callback order остаются **PENDING**.

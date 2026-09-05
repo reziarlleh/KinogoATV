@@ -8,12 +8,13 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — validation candidate исправления
+Текущий C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
 exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
 Canonical рабочего дерева прошёл 91 suites / 476 tests, lint без ошибок,
 debug/androidTest/release assembly. Application source
 `5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit APK/hash и stable signing
-проверены. GitHub Release, signed manifest и remote CI пока **PENDING**. TV/ADB не использовались.
+проверены. PR #11/#12, annotated tag, regular Release, signed manifest, Android CI и Pages
+опубликованы; exact bytes подтверждены через Pages, ghfast и ghproxy. TV/ADB не использовались.
 
 C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — предыдущий published validation
 release для startup title, History long-OK release guard, stable async Settings
@@ -399,17 +400,26 @@ digest. Затем из той же локальной stable-signed копии 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.AddDays(30)
 .\scripts\New-SignedUpdateManifest.ps1 `
-  -ApkPath .\dist\KinogoATV-0.5.3-code17.apk `
-  -VersionName 0.5.3 -VersionCode 17 -ExpiresAt $expires `
+  -ApkPath .\dist\KinogoATV-0.5.5-code19.apk `
+  -VersionName 0.5.5 -VersionCode 19 -ExpiresAt $expires `
   -DownloadUrl @(
-    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.3-code17.apk',
-    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk',
-    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk',
-    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.3/KinogoATV-0.5.3-code17.apk'
+    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.5-code19.apk',
+    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk',
+    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk',
+    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk'
   )
 ```
 
-Команда выше воспроизводит опубликованный C-009 contract. Final code 17
+Команда выше воспроизводит опубликованный C-011 contract. Final code 19
+`update/manifest.json`: 1 273 bytes, file SHA-256
+`F5103CC4810A6918BE9D181481EA347C292DAA7A58710C359EAE7FFD1EC4CE1E`, issued
+`2026-09-05T13:00:35Z`, expires `2026-10-05T13:00:33Z`; payload содержит exact APK
+size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest source
+`47f0200`, PR #12, main merge
+`419a537742a1533f2e4e717acfe15fb3572e5937`; PR CI run `33967703322`, main Android
+run `33967791922` и Pages run `33967791953` завершились SUCCESS.
+
+Исторический final code 17
 `update/manifest.json`: 1 273 bytes, file SHA-256
 `860D90C22D9F404A38E783BD313A9E9A0FDEFC5BC870F933A819D35145489977`, issued
 `2026-08-26T02:04:54Z`, expires `2026-09-25T02:04:54Z`; payload содержит exact APK
@@ -459,7 +469,14 @@ jsDelivr — отдельный CDN-транспорт для малого по�
 package/version/signer checks. Operator-owned non-GitHub manifest+APK hosting остаётся
 **PENDING**.
 
-Для C-009 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest
+Для C-011 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest
+после адресной очистки его кэша. APK через ghfast, ghproxy и direct GitHub совпал с
+38 419 162 bytes и SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`. Это закрывает
+publication/transport evidence, но не hardware/in-app installer runtime и не
+инфраструктурную независимость от GitHub.
+
+Для исторического C-009 live exact bytes подтверждены у Pages manifest+APK и jsDelivr manifest
 после адресной очистки его кэша. APK через ghfast, ghproxy и direct GitHub совпал с
 38 386 398 bytes и SHA-256
 `3C88DF356A9815865DB02F7821DA53BE3C6E25F03FE493516FCCAF0F48F0C17A`. Это закрывает
@@ -507,13 +524,13 @@ tests/lint, exact stable-signed artifact, manifest и CI всё равно об�
 validation release может быть технически regular Release, но его evidence-классификация
 остаётся validation, а не baseline.
 
-Пример C-009 validation GitHub Release после вычисления exact digest:
+Пример C-011 validation GitHub Release после вычисления exact digest:
 
 ```powershell
-gh release create v0.5.3 `
-  dist/KinogoATV-0.5.3-code17.apk `
+gh release create v0.5.5 `
+  dist/KinogoATV-0.5.5-code19.apk `
   dist/SHA256SUMS.txt `
-  --title "KinogoATV 0.5.3" `
+  --title "KinogoATV 0.5.5" `
   --notes-file <release-notes.md>
 ```
 
@@ -522,7 +539,18 @@ gh release create v0.5.3 `
 единственное исключение описано выше для явно обозначенной validation-публикации.
 Draft/prerelease не обслуживаются updater как stable update.
 
-Фактический C-009: application/docs PR #5 влит merge
+Фактический C-011: application/docs PR #11 влит merge
+`a69c72952446fa30f1c09e131f4b2e8d49618790`; PR CI run
+[33955399172](https://github.com/reziarlleh/KinogoATV/actions/runs/33955399172) и post-merge main
+[33955787571](https://github.com/reziarlleh/KinogoATV/actions/runs/33955787571) — SUCCESS.
+Annotated tag `v0.5.5` указывает на `a69c729`; regular latest
+[Release 0.5.5](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.5)
+опубликован с `draft=false`, `prerelease=false`. Exact
+[APK asset](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk)
+имеет 38 419 162 bytes и GitHub digest
+`sha256:8a9dddff61df4a7814e47b92a26b89fcbafefefd6cdeb85b2203b124803e9ae9`.
+
+Исторический C-009: application/docs PR #5 влит merge
 `0473a820eefedea16ce2f393df568c90e5b30bbe`; PR CI run
 [32920452170](https://github.com/reziarlleh/KinogoATV/actions/runs/32920452170) и post-merge main
 [32920746857](https://github.com/reziarlleh/KinogoATV/actions/runs/32920746857) за 4 мин 22 с — SUCCESS.
@@ -553,8 +581,8 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
       `assembleRelease --rerun-tasks` (10m28s, 50 tasks) записаны.
 - [x] Exact stable-signed APK упакован как `KinogoATV-0.5.5-code19.apk` и проверен по
       package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, revision/size/hash.
-- [ ] Application/docs PR/main CI зелёные; annotated `v0.5.5` и regular Release опубликованы.
-- [ ] Signed code 19 manifest проверен, влит и опубликован Pages; live transports сверены.
+- [x] Application/docs PR #11 и PR/main CI зелёные; annotated `v0.5.5` и regular Release опубликованы.
+- [x] Signed code 19 manifest проверен, влит PR #12 и опубликован Pages; live transports сверены.
 - [x] Hardware boundary записана: TV/ADB runtime **PENDING**, baseline tag не создаётся.
 - [ ] Владелец вручную подтвердил near-end cold restart, source replacement и natural end.
 

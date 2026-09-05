@@ -33,9 +33,9 @@
 
 ### C-011 — 0.5.5 validation
 
-- Статус: local source/tests/lint/debug/androidTest/release assembly и exact post-commit
-  stable-signed artifact **PASS**; GitHub publication, signed manifest и hardware runtime
-  **PENDING**.
+- Статус: local source/tests/lint/debug/androidTest/release assembly, exact post-commit
+  stable-signed artifact, GitHub publication, signed manifest, Android CI и Pages **PASS**;
+  hardware runtime **PENDING**.
 - Metadata in source: version code 19, version `0.5.5`, minSdk 28, targetSdk 37.
 - Scope: exact near-end resume, coordinate-first provider remap, completed → next S/E@0
   persistence и process-owned checkpoint write queue.
@@ -46,6 +46,12 @@
 - APK: `dist/KinogoATV-0.5.5-code19.apk`, 38 419 162 bytes, SHA-256
   `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
   zipalign, v2, one signer и embedded revision verified.
+- Publication: app/docs PR #11 merge `a69c729`, tag/regular latest Release `v0.5.5`, exact
+  asset; manifest source `47f0200`, PR #12 merge `419a537`; PR/main Android и Pages runs
+  `33955399172`, `33955787571`, `33967703322`, `33967791922`, `33967791953` — SUCCESS.
+- Manifest/live: 1 273 bytes, SHA-256
+  `F5103CC4810A6918BE9D181481EA347C292DAA7A58710C359EAE7FFD1EC4CE1E`; Pages, ghfast,
+  ghproxy и direct Release digest exact; jsDelivr exact после purge.
 - Protective tests: `WatchProgressTest`, `PlaybackProgressStoreTest`,
   `PlaybackSourceSelectionModelTest`, `PlaybackCompletionPolicyTest`,
   `KinogoAppRootResumeTest`.
