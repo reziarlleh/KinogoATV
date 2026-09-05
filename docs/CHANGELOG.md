@@ -7,6 +7,45 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [0.5.5] — 2026-09-05 (validation candidate)
+
+### Сквозное продолжение просмотра
+
+- Выход по `Back` или lifecycle checkpoint возле конца серии больше не считается реальным
+  окончанием только из-за порога 90%/трёх минут. Точная S/E и позиция сохраняются для
+  продолжения с обычным откатом на пять секунд.
+- Season/episode отделены от provider branch: после обновления источников та же серия
+  автоматически ищется в другом доступном source/voiceover, а её позиция никогда не
+  переносится на другую серию.
+- Если реально завершённая серия исчезла из свежего source plan, выбирается следующая
+  доступная coordinate, а не S01E01. Финальная серия без successor не показывает ложное
+  действие «Продолжить».
+
+### Окончание серии и долговечность
+
+- Все natural-end exit paths используют единый порядок: completed checkpoint текущей серии,
+  activation следующей S/E с позицией 0, затем возврат в карточку. Activation сохраняется и
+  при выключенном auto-next; настройка управляет немедленным запуском, а не точкой продолжения.
+- Очередь checkpoint writes и её coroutine scope перенесены в `KinogoApplication`, поэтому
+  уже поставленная DataStore-запись не отменяется при уничтожении Compose host/Activity.
+- Удаление и очистка Истории сначала обновляют UI, затем последовательно выполняются после
+  pending checkpoints в той же process-owned очереди.
+
+### Validation status
+
+- Source metadata: code 19 / `0.5.5`, minSdk 28, targetSdk 37.
+- Canonical run рабочего дерева
+  `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` —
+  **SUCCESS за 7 мин 52 с**: **91 suites / 476 tests**, 0 failures/errors/skips; lint —
+  **0 errors / 24 warnings / 2 hints**.
+- Application source `5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit
+  `assembleRelease --rerun-tasks` — **SUCCESS за 10 мин 28 с**, 50 tasks.
+- Exact stable-signed `KinogoATV-0.5.5-code19.apk`: 38 419 162 bytes, SHA-256
+  `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
+  zipalign, v2, one-signer certificate и embedded revision проверены.
+- GitHub Release, signed update manifest и remote CI фиксируются после публикации. ADB/TV
+  не использовались; реальный cold-restart resume остаётся ручной приёмкой владельца.
+
 ## [0.5.4] — 2026-08-26 (validation release)
 
 ### TV-фокус и история

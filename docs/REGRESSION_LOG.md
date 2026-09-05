@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,28 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-011 — 0.5.5 validation
+
+- Статус: local source/tests/lint/debug/androidTest/release assembly и exact post-commit
+  stable-signed artifact **PASS**; GitHub publication, signed manifest и hardware runtime
+  **PENDING**.
+- Metadata in source: version code 19, version `0.5.5`, minSdk 28, targetSdk 37.
+- Scope: exact near-end resume, coordinate-first provider remap, completed → next S/E@0
+  persistence и process-owned checkpoint write queue.
+- Проверка рабочего дерева: canonical command — **SUCCESS за 7 мин 52 с**,
+  91 suites / 476 tests, 0 failures/errors/skips; lint 0 errors / 24 warnings / 2 hints.
+- Application source: `5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit
+  `assembleRelease --rerun-tasks` — SUCCESS за 10m28s, 50 tasks.
+- APK: `dist/KinogoATV-0.5.5-code19.apk`, 38 419 162 bytes, SHA-256
+  `8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
+  zipalign, v2, one signer и embedded revision verified.
+- Protective tests: `WatchProgressTest`, `PlaybackProgressStoreTest`,
+  `PlaybackSourceSelectionModelTest`, `PlaybackCompletionPolicyTest`,
+  `KinogoAppRootResumeTest`.
+- Runtime: TV/ADB не использовались; cold restart возле конца серии, source replacement и
+  natural-end behavior остаются ручной приёмкой владельца.
+- Rollback: C-010 / `0.5.4` для общего integration state; полный playback baseline — B-001.
 
 ### C-010 — 0.5.4 validation
 
@@ -1018,6 +1040,40 @@ C-002 нельзя переименовывать в B-002 и помечать b
   `PlaybackProgressStore` — единственный источник exact progress.
 - Protective test: `KinogoAppRootResumeTest`, `PendingDetailsPosterTest`.
 - Rollback point: C-009 / `777c8a05`; полный playback rollback — B-001.
+
+### R-035 — Near-end checkpoint сериала исчезал после перезапуска
+
+- Статус: Resolved in C-011 source/local tests; hardware **PENDING**.
+- Обнаружено: 5 сентября 2026 года на сериале «Андромеда»: после выхода в конце S02E01
+  на следующий день карточка не показывала метку и предлагала выбор с начала.
+- Affected: C-010 / `0.5.4`; first-bad commit отдельно не изолирован, completion heuristic
+  существовала до C-010.
+- Last-known-good: B-001 подтверждает одиночный exact checkpoint, но не near-end threshold,
+  multi-episode cold restart или provider replacement.
+- Устройство/Android/source: пользовательский Android TV; ADB и DataStore устройства в
+  рамках исправления не читались.
+- Воспроизведение: checkpoint после `Back` сохранялся с `playbackEnded=false`, но
+  `WatchProgress.resumePositionMs()` вызывал приблизительный `isCompleted()` и возвращал null
+  при `>=90%` и остатке `<=3 минут`. Дополнительно source-first normalization могла выбрать
+  S01E01, если сохранённый provider исчезал.
+- Подтверждённая по source причина: визуальная completion heuristic ошибочно использовалась
+  как точный Media3 end. Без чтения DataStore телевизора нельзя утверждать, что именно в этом
+  эпизоде запись была отменена либо provider изменился. Аудит дополнительно выявил два риска:
+  очередь durable writes принадлежала Compose scope, а completed checkpoint не создавал
+  отдельную next activation.
+- Исправление: exact resume подавляется только `playbackEnded=true`; writes перенесены в
+  process-owned application scope; natural-end exit сохраняет completed и затем next S/E@0;
+  fresh plan ищет сохранённую или следующую coordinate во всех допустимых branches без
+  переноса позиции на другую unit. Финальная серия не показывает ложное Continue.
+- Protective test: near-end, store recreation, source-independent key, codec cold reload,
+  disappeared completed leaf, sparse season boundary и terminal episode cases в
+  `WatchProgressTest`, `PlaybackProgressStoreTest`, `PlaybackSourceSelectionModelTest`,
+  `PlaybackCompletionPolicyTest`, `KinogoAppRootResumeTest`.
+- Runtime verification: **PENDING**; требуется ручной cold-restart сценарий владельца после
+  установки C-011. Сборка APK не считается доказательством TV playback.
+- Rollback point: C-010 для общего UI/integration; playback baseline — B-001.
+- Связанные файлы: `WatchProgress.kt`, `KinogoAppRoot.kt`, `KinogoApplication.kt`,
+  `PlaybackSourceSelectionModel.kt`, `PlaybackCompletionPolicy.kt`, `TvPlayerScreen.kt`.
 
 ## Шаблон новой записи
 

@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Принцип доказательств
 
@@ -39,7 +39,8 @@ hardware-результат остаётся `PENDING`; агент не выпо
 - Cinemar/Collaps/direct/gateway playback discovery, включая deferred Cinemar leaf,
   exact-origin grant transport, lazy session registry и Media3 resolver ownership;
 - media plan mapping, dependent choices и cross-season episode coordinates;
-- history codec, legacy resolver, newest-unfinished resume/completion;
+- history codec/store recreation, legacy resolver, exact near-end resume, completed-to-next
+  activation и source-independent coordinate remap;
 - TV preferences;
 - player reducer, key mapper, focus retry, HUD routing, one-shot source refresh и
   cross-season completion policy;
@@ -154,6 +155,31 @@ application source `b6b2d379dad90bd33ba35725cc9d329166d365e8`. Exact post-commit
 `assembleDebugAndroidTest` только собрал test APK; instrumentation на TV не запускалась.
 Compose `Dialog` event propagation на конкретном OEM-пульте и Settings focus остаются
 ручной hardware-приёмкой.
+
+Для C-011 / `0.5.5` (code 19) добавлены/расширены:
+
+- `WatchProgressTest` — near-end checkpoint с `playbackEnded=false` остаётся exact resume,
+  несмотря на эвристическую 90%-классификацию;
+- `PlaybackProgressStoreTest` — episode checkpoint переживает recreation store, а смена
+  source обновляет тот же content/season/episode key;
+- `PlaybackSourceSelectionModelTest` — та же S/E автоматически находится в другой свежей
+  provider branch и позиция не переносится на отсутствующую unit;
+- `PlaybackCompletionPolicyTest` — единый exit plan содержит completed checkpoint и затем
+  next activation даже при выключенном auto-next; финальная серия не создаёт ложный successor;
+- `KinogoAppRootResumeTest` — codec cold reload completed → S/E@0, переход через sparse
+  season boundary, disappeared completed leaf после source refresh, near-end Back, terminal
+  episode label и source replacement с сохранением позиции.
+
+Полный canonical run рабочего дерева
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` завершён
+**SUCCESS за 7 мин 52 с**: **91 suites / 476 tests**, 0 failures/errors/skips; lint —
+**0 errors / 24 warnings / 2 hints**. `assembleDebugAndroidTest` только собрал test APK;
+instrumentation и ADB не запускались. Application source
+`5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit release rebuild прошёл
+за 10m28s (50 tasks). `KinogoATV-0.5.5-code19.apk`: 38 419 162 bytes, SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`; package/version/API,
+zipalign, v2, one signer и embedded revision проверены. Remote CI и TV runtime фиксируются
+отдельно.
 
 ### Buffer policy C-008
 

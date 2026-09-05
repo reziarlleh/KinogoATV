@@ -1,51 +1,51 @@
 # Текущее состояние проекта
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.4** (code 18), published validation release
-**C-010**. Стартовый экран теперь называется `KinogoATV`. Remote long-OK в Истории
-передаёт диалогу origin жеста и поглощает завершающий `KeyUp`, поэтому меню не
-закрывается при отпускании кнопки. Async-действия Settings не удаляют и не отключают
-сфокусированный node во время запроса; ручная проверка обновлений и зеркал не
-отдаёт фокус rail.
+Текущий application source выпускает **0.5.5** (code 19), validation candidate **C-011**.
+Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
+подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
+сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed
+leaf исчезла, выбирается следующая доступная coordinate вместо S01E01.
 
-Из native HUD удалены кнопки source и Web-плеера. Оба route остались в pre-launch
-`PlaybackSourceSelectionScreen`; в HUD остались управление сезоном, серией, озвучкой,
-качеством и субтитрами. Единая `withLocalResume`/`preferredResumeProgress` policy
-применяется к Details из Главной, Каталога, Поиска, Истории, Закладок и после
-возврата из player. Status-only bookmark тоже даёт pending poster до загрузки Details.
+Natural end теперь перед выходом последовательно пишет completed текущей серии и activation
+следующей S/E с position 0, включая выключенный auto-next. Durable writes принадлежат
+process scope `KinogoApplication`, а не lifecycle Compose host. Финальная серия без successor
+не показывает ложное «Продолжить». Единый контракт действует для Details из Главной,
+Каталога, Поиска, Истории, Закладок и после возврата из player.
 
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
-Локальный canonical, remote CI, regular Release, signed manifest и Pages publish зелёные.
-TV/ADB не использовались;
-hardware long-OK/focus/playback/updater runtime остаются **PENDING**. C-009 / `0.5.3`
-остаётся предыдущим published validation rollback candidate, C-007 — integration point,
-B-001 — полным playback baseline.
+Local canonical рабочего дерева и exact post-commit stable-signed artifact зелёные; remote CI,
+regular Release и signed manifest C-011 — **PENDING**.
+TV/ADB не использовались; hardware cold-restart/source-refresh resume остаётся **PENDING**.
+C-010 / `0.5.4` — предыдущий published validation rollback candidate, C-007 — integration
+point, B-001 — полный playback baseline.
 
-## Текущий validation release
+## Текущий validation candidate
 
 | Поле | Значение |
 | --- | --- |
-| Candidate | **C-010 / 0.5.4 validation** |
-| Application source commit | `b6b2d379dad90bd33ba35725cc9d329166d365e8` |
+| Candidate | **C-011 / 0.5.5 validation** |
+| Application source commit | `5223d81eefdc1b50b377cdcf74ced5174d553776` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `18` |
-| Version name | `0.5.4` |
+| Version code | `19` |
+| Version name | `0.5.5` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
-| Подпись APK | v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | Annotated `v0.5.4` опубликован как regular validation Release; baseline tag не создавался |
+| Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
+| Release tag | `v0.5.5` ещё не опубликован; baseline tag не создаётся до hardware evidence |
 
-Exact artifact C-010: `dist/KinogoATV-0.5.4-code18.apk`, **38 402 782 bytes**, SHA-256
-`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`; package
-`com.kinogo.atv`, code 18 / `0.5.4`, minSdk 28, targetSdk 37, Android TV LEANBACK
-launcher/banner, zipalign PASS, v2 true с ровно одним сертификатом. Embedded revision точно
-`b6b2d379dad90bd33ba35725cc9d329166d365e8`. Publication evidence приведён ниже.
+Exact artifact C-011: `dist/KinogoATV-0.5.5-code19.apk`, **38 419 162 bytes**, SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`. Package
+`com.kinogo.atv`, code/name `19/0.5.5`, min/target SDK `28/37`, zipalign PASS, v2 true,
+один signer; embedded revision совпадает с application source. Предыдущий exact published C-010:
+`dist/KinogoATV-0.5.4-code18.apk`, **38 402 782 bytes**, SHA-256
+`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`.
 
 ## Known-good baseline и откат
 
@@ -79,26 +79,46 @@ Rollback APK допустим только с совместимой подпи�
 
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | C-010 source/local artifact PASS; hardware **PENDING** | Startup title `KinogoATV`; TV/ADB не использовались |
-| Android TV launcher | C-010 local artifact PASS | Exact package/code/name/min/target, LEANBACK launcher/banner, zipalign, v2 signature, one-certificate signer и embedded revision проверены локально |
+| Запуск | C-011 source/build PASS; hardware **PENDING** | Startup title `KinogoATV`; TV/ADB не использовались |
+| Android TV launcher | C-011 exact APK PASS; publication pending | Package/code/name/min/target, zipalign, stable signing и embedded revision проверены |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | C-007 state/history + TV non-first verified | `Chris`, results и вторая карточка восстановлены после Details; recent-query row verified; long append pending |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
-| Карточка / resume | C-010 source/unit PASS; runtime pending | Единая local resume policy для Home/Catalog/Search/History/Bookmarks/player return; status-only bookmark имеет pending poster |
+| Карточка / resume | C-011 source/unit PASS; runtime pending | Exact near-end checkpoint, coordinate-first source remap и единая policy для Home/Catalog/Search/History/Bookmarks/player return |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-010 source/unit PASS; runtime pending | Details-first click, long-OK delete/clear, remote KeyUp guard, content-level series removal, deterministic focus, serialized mutations и codec v3 source ID |
-| Выбор источника | C-010 source implemented; runtime pending | Source/native/web только до запуска; source/voice/season/episode sparse-матрица и quality cap сохранены |
-| Нативный плеер | C-010 source implemented; hardware **PENDING** | Source/Web и refresh кнопок в HUD нет; buffer-aware recovery, same-unit resume и quality exact/≤/lowest-above сохранены |
+| История | C-011 source/unit PASS; runtime pending | Process-owned serialized checkpoints, Details-first click, long-OK delete/clear, content-level removal и codec v3 source ID |
+| Выбор источника | C-011 source/unit PASS; runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
+| Нативный плеер | C-011 source/unit/build PASS; hardware **PENDING** | Near-end Back остаётся resumable; natural exit пишет completed → next activation; buffer recovery/quality policy сохранены |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-010 Release/manifest/Pages PASS; runtime **PENDING** | Exact code 18 APK и signed manifest опубликованы; основной Pages manifest+APK проверен по exact bytes |
+| Обновления | C-010 Release/manifest/Pages PASS; C-011 pending | До публикации C-011 updater продолжает безопасно видеть exact code 18 manifest |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-010 local/PR/main/Pages PASS | Canonical 91 suites / 462 tests, lint 0 errors; PR #8/#9, main Android и Pages runs зелёные |
+| CI | C-011 local PASS; remote pending | Canonical 91 suites / 476 tests, lint 0 errors; C-011 PR/main/Pages ещё не запускались |
+
+## Проверка C-011
+
+Canonical run рабочего дерева
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` завершён
+**SUCCESS за 7 мин 52 с**: **91 suites / 476 tests**, 0 failures/errors/skips; lint —
+**0 errors / 24 warnings / 2 hints**. `assembleDebugAndroidTest` только собрал test APK;
+instrumentation не запускалась.
+
+Защитные проверки C-011: `WatchProgressTest`, `PlaybackProgressStoreTest`,
+`PlaybackSourceSelectionModelTest`, `PlaybackCompletionPolicyTest` и
+`KinogoAppRootResumeTest`. Они покрывают near-end exact resume, store/codec reload,
+source-independent key, remap той же S/E в другой provider branch, disappeared completed
+leaf, ordered completed → next S/E@0 и terminal episode без ложного Continue.
+
+Application source `5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit
+`assembleRelease --rerun-tasks` завершён **SUCCESS за 10 мин 28 с**, 50 tasks. Exact APK
+metadata/signature/revision/size/hash приведены выше. PR/main CI, Release и signed manifest
+записываются после публикации. ADB/TV не использовались;
+реальное сохранение на устройстве после process restart остаётся **PENDING**.
 
 ## Проверка C-010
 

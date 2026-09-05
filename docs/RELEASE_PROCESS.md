@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 ## Виды сборок
 
@@ -8,7 +8,14 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — published validation
+Текущий C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — validation candidate исправления
+exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
+Canonical рабочего дерева прошёл 91 suites / 476 tests, lint без ошибок,
+debug/androidTest/release assembly. Application source
+`5223d81eefdc1b50b377cdcf74ced5174d553776`; exact post-commit APK/hash и stable signing
+проверены. GitHub Release, signed manifest и remote CI пока **PENDING**. TV/ADB не использовались.
+
+C-010 / `0.5.4` (code 18, minSdk 28, targetSdk 37) — предыдущий published validation
 release для startup title, History long-OK release guard, stable async Settings
 focus, pre-launch-only source/Web choice и единого local resume. Application source
 `b6b2d379dad90bd33ba35725cc9d329166d365e8`, canonical tests/lint, exact post-commit release
@@ -537,25 +544,29 @@ Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist C-010
+## Release checklist C-011
 
-- [x] Version code увеличен до 18, version name — `0.5.4`.
-- [x] Application source commit: `b6b2d379dad90bd33ba35725cc9d329166d365e8`.
-- [x] Canonical local verification: 91 suites / 462 tests, 0 failures/errors/skips;
-      lint 0 errors / 22 warnings / 2 hints.
-- [x] Exact post-commit `assembleRelease --rerun-tasks`: 3 мин 38 с, 50 tasks.
-- [x] Exact stable-signed APK упакован как `KinogoATV-0.5.4-code18.apk`.
-- [x] Package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, embedded
-      revision, size и SHA-256 проверены локально.
-- [x] Application/docs PR #8, PR/main CI влиты и зелёные.
-- [x] Annotated `v0.5.4`, regular latest validation Release и exact GitHub asset опубликованы.
-- [x] Signed code 18 manifest создан из exact APK, merged PR #9 и опубликован Pages.
-- [ ] Все live transports сверены по exact bytes: Pages manifest+APK и ghfast APK PASS;
-      direct GitHub digest/Content-Length PASS; ghproxy full GET timed out, jsDelivr `@main`
-      при первой проверке после purge ещё отдавал signed code 17.
-- [x] Hardware boundary записана: TV/ADB runtime **PENDING**, baseline tag не создавался.
-- [ ] Владелец вручную проверил long-OK release, Settings focus, единый resume
-      и updater 0.5.4.
+- [x] Version code увеличен до 19, version name — `0.5.5`.
+- [x] Предварительная canonical local verification: 91 suites / 476 tests,
+      0 failures/errors/skips; lint 0 errors / 24 warnings / 2 hints.
+- [x] Application commit `5223d81eefdc1b50b377cdcf74ced5174d553776` и exact post-commit
+      `assembleRelease --rerun-tasks` (10m28s, 50 tasks) записаны.
+- [x] Exact stable-signed APK упакован как `KinogoATV-0.5.5-code19.apk` и проверен по
+      package/version/minSdk/targetSdk, zipalign, v2, one-signer certificate, revision/size/hash.
+- [ ] Application/docs PR/main CI зелёные; annotated `v0.5.5` и regular Release опубликованы.
+- [ ] Signed code 19 manifest проверен, влит и опубликован Pages; live transports сверены.
+- [x] Hardware boundary записана: TV/ADB runtime **PENDING**, baseline tag не создаётся.
+- [ ] Владелец вручную подтвердил near-end cold restart, source replacement и natural end.
+
+### Historical completed checklist C-010
+
+- [x] Version code 18, version name `0.5.4`; application source
+      `b6b2d379dad90bd33ba35725cc9d329166d365e8`.
+- [x] Canonical 91 suites / 462 tests, lint 0 errors / 22 warnings / 2 hints;
+      post-commit release 3 мин 38 с, 50 tasks.
+- [x] Exact `KinogoATV-0.5.4-code18.apk`, metadata/signature/hash, PR #8, tag/Release,
+      signed manifest PR #9 и Pages опубликованы.
+- [ ] Hardware long-OK/Settings focus/resume/updater 0.5.4 не подтверждены; C-010 не baseline.
 
 ### Historical completed checklist C-009
 

@@ -1,31 +1,28 @@
 # Roadmap
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **5 сентября 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: ручная приёмка 0.5.4
+## Сейчас: выпуск и ручная приёмка 0.5.5
 
-C-010 закрепляет TV focus/history/player/resume и границу синхронизации: startup
-`KinogoATV`, поглощение release `KeyUp` после long-OK в Истории, stable focus node у
-async Settings actions, source/Web только в pre-launch selector, общий local resume для
-всех Details entry points и серверную sync только `STATUS`/`FAVORITE`. Exact application
-source `b6b2d379dad90bd33ba35725cc9d329166d365e8` и stable-signed
-`KinogoATV-0.5.4-code18.apk` локально проверены: 38 402 782 bytes, SHA-256
-`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`, package
-`com.kinogo.atv`, min/target SDK 28/37, zipalign PASS, один v2 signer с ожидаемым
-certificate. Canonical прошёл 91 suites / 462 tests за 4m58s; post-commit release — 3m38s.
-PR/main CI, regular Release, signed manifest и Pages опубликованы. Pages manifest+APK и
-ghfast APK дали exact bytes; jsDelivr `@main` при первой проверке ещё отдавал stale code 17.
-TV/ADB не использовались. C-009 — предыдущий published validation rollback candidate,
-B-001 — полный playback baseline.
+C-011 исправляет потерю видимого прогресса возле конца серии: exact `Back`/lifecycle
+checkpoint больше не подавляется 90%-эвристикой, а season/episode остаются первичными при
+смене provider. Natural end сохраняет ordered completed → next S/E@0 даже при выключенном
+auto-next; disappeared completed leaf разрешается к следующей fresh coordinate, а финальная
+серия не показывает ложное Continue. Durable writes перенесены в process-owned application
+scope. Версия source — `0.5.5` / code 19. Canonical рабочего дерева прошёл
+91 suites / 476 tests за 7m52s, lint 0 errors; exact post-commit artifact source
+`5223d81eefdc1b50b377cdcf74ced5174d553776` проверен, GitHub Release и signed manifest
+готовятся. TV/ADB не использовались. C-010 / `0.5.4` остаётся предыдущим
+published validation rollback candidate, B-001 — полный playback baseline.
 
 ### P0 — runtime-приёмка владельцем
 
-- Владелец вручную проверяет выход из player в Details с активной «Смотреть»,
-  exact серию/позицию после restart, переход через границу сезона и immediate-next
+- Владелец вручную проверяет выход из player возле конца серии, exact серию/позицию после
+  restart, смену источника, переход через границу сезона и immediate-next
   preload. Для quality проверяется exact/ниже cap/lowest-above и сохранение между
   сериями.
 - Владелец проверяет все пять buffer values и один контролируемый stall/error:
@@ -38,7 +35,7 @@ B-001 — полный playback baseline.
   после отпускания `OK`, а также фокус «Проверить обновление» во время запроса.
 - Агент не подключается к TV по ADB, не устанавливает APK и не запускает hardware smoke
   без нового явного разрешения владельца на конкретный узкий сценарий.
-- Не назначать C-010 playback baseline, пока не закрыта эта runtime-матрица.
+- Не назначать C-011 playback baseline, пока не закрыта эта runtime-матрица.
 
 ### P1 — оставшиеся integration-регрессии
 
@@ -163,9 +160,10 @@ evidence указан в `PROJECT_STATE.md`.
 - Replaceable mirror registry, manual HTTPS origin и safe redirect discovery.
 - Account credentials + automatic re-login.
 - Server statuses/favorite with local outbox.
-- Local episode/position history and legacy ID recovery; checkpoint queue, generation guard,
-  monotonic timestamps, unit activation at `0` и newest-completed suppression защищают
-  exact resume от late writes и возврата к старой серии.
+- Local episode/position history and legacy ID recovery; process-owned checkpoint queue,
+  generation guard, monotonic timestamps, unit activation at `0`, exact end flag и
+  coordinate-first remap защищают resume от near-end suppression, late writes, provider
+  replacement и возврата к старой серии.
 - History использует Details-first navigation; long `OK` открывает безопасный delete/clear
   dialog, удаление сериала охватывает все его episode checkpoints и сохраняет соседний фокус.
 - Codec v3 сохраняет stable playback source ID без transient URL; v1/v2 остаются читаемыми,
