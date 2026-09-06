@@ -16,7 +16,9 @@ Stable-signed APK: 6 703 237 bytes, SHA-256
 min/target 28/37, zipalign PASS, v2 true, один прежний signer, embedded revision exact.
 PR #17 merge `ff5d26dc3e94ef289e2c1800618ac62258a79e96`, PR/main CI
 `34027297259` / `34027481401`, annotated tag `v0.6.1` и regular Release зелёные. Signed
-manifest локально проверен; его merge/Pages/live transports и TV runtime пока **PENDING**.
+manifest PR #18 merge `1adb451657d59ba8e12152e8e011b3b44047ab77`; PR/main Android/Pages
+`34027882588` / `34027997264` / `34027997193` зелёные. Pages/jsDelivr manifest и все четыре
+APK transport дали exact bytes. TV runtime пока **PENDING**.
 
 Поверх C-011 выпущен C-012 / `0.6.0` code 20. Release переведён на
 R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
@@ -69,9 +71,9 @@ process scope `KinogoApplication`, а не lifecycle Compose host. Финаль�
 
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
-Local canonical, exact post-commit stable-signed artifact, PR/main CI и regular Release C-013
-зелёные; signed manifest publication ещё выполняется. Hardware playback cold-restart/
-source-refresh resume остаётся **PENDING**. C-012 / `0.6.0` — предыдущий published rollback
+Local canonical, exact post-commit stable-signed artifact, PR/main CI, regular Release,
+signed manifest, Pages и public exact-byte transports C-013 зелёные. Hardware playback
+cold-restart/source-refresh resume остаётся **PENDING**. C-012 / `0.6.0` — предыдущий published rollback
 candidate, C-007 — integration point, B-001 — полный playback baseline.
 
 ## Текущий release
@@ -129,8 +131,8 @@ Rollback APK допустим только с совместимой подпи�
 
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | C-012 source/build + KIVI smoke PASS | Android TV 14: cold launch `MainActivity`, process alive, no crash |
-| Android TV launcher | C-012 exact APK/publication/KIVI PASS | `0.5.5 → 0.6.0` через `install -r`, package data сохранены |
+| Запуск | C-013 source/build PASS; C-012 KIVI smoke | Android TV 14: последний hardware cold launch C-012 открыл `MainActivity`; C-013 TV pending |
+| Android TV launcher | C-013 exact APK/publication PASS; C-012 KIVI | Code 21 package/API/signer verified; последняя install-r проверка была `0.5.5 → 0.6.0` |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
@@ -141,14 +143,32 @@ Rollback APK допустим только с совместимой подпи�
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-012 source/unit PASS; extended runtime pending | Process-owned serialized checkpoints, Details-first click, long-OK delete/clear, content-level removal и codec v3 source ID |
-| Выбор источника | C-012 source/unit PASS; playback runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
-| Нативный плеер | C-012 source/unit/release PASS; playback hardware **PENDING** | R8 startup проверен; near-end/natural-end/source-refresh playback в этом smoke не запускались |
+| История | C-013 source/unit PASS; extended runtime pending | Zero checkpoint guard, visible completed anchor, serialized writes, Details-first, content-level removal и codec v3 source ID |
+| Выбор источника | C-013 inherited source/unit PASS; playback runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
+| Нативный плеер | C-013 source/unit/release PASS; playback hardware **PENDING** | Explicit end/activation and zero guard verified in code; hardware resume/natural-end/source-refresh pending |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-012 Release/manifest/Pages/public bytes PASS; in-app runtime **PENDING** | Exact code 20 APK и signed manifest опубликованы; Pages/jsDelivr/ghfast/ghproxy/direct сверены |
+| Обновления | C-013 Release/manifest/Pages/public bytes PASS; in-app runtime **PENDING** | Exact code 21 APK и signed manifest опубликованы; Pages/jsDelivr/ghfast/ghproxy/direct сверены |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-012 local/PR/main/Pages PASS | Canonical 90 suites / 473 tests, lint 0 errors; PR #14/#15, main Android и Pages runs зелёные |
+| CI | C-013 local/PR/main/Pages PASS | Canonical 90 suites / 471 test, lint 0 errors; PR #17/#18, main Android и Pages runs зелёные |
+
+## Проверка C-013
+
+Canonical: **90 suites / 471 test**, 0 failures/errors/skips; lint **0 errors / 2 warnings**;
+debug, androidTest APK и R8 release собраны за 8 мин 45 с. Exact application commit
+`2de9d7b91c903e69fc68c1d17800f4c34570e2f3`, release rerun — 13 мин 51 с / 52 tasks.
+PR #17 merge `ff5d26dc3e94ef289e2c1800618ac62258a79e96`; PR/main Android CI
+`34027297259` / `34027481401` — SUCCESS.
+
+Annotated `v0.6.1` и regular Release опубликованы с exact APK. Manifest issued
+`2026-09-06T10:33:00Z`, expires `2026-10-06T10:33:00Z`, размер 1 273 bytes, SHA-256
+`CBA5C2643A2D3F3FF75D950A0FF896A0D7EE5B6132FEEF28E9290210BC517F42`. PR #18 merge
+`1adb451657d59ba8e12152e8e011b3b44047ab77`; PR/main Android/Pages
+`34027882588` / `34027997264` / `34027997193` — SUCCESS. Live Pages и jsDelivr manifest
+имеют exact hash; Pages, ghfast, ghproxy и direct GitHub APK имеют exact release hash.
+
+TV/ADB не использовались. Quick-open/Back, lifecycle pause + cold restart, обычный Back после
+прогресса, ручная смена серии, natural end и in-app updater/installer остаются **PENDING**.
 
 ## Проверка C-012
 

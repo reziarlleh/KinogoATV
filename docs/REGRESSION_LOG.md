@@ -1162,7 +1162,7 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-039 — Нулевой lifecycle checkpoint мог затереть временную отметку
 
-- Статус: Resolved in C-013 source/unit tests; hardware **PENDING**.
+- Статус: Resolved and published in C-013 / `0.6.1`; hardware **PENDING**.
 - Обнаружено: 6 сентября 2026 года после уточнения исходного пользовательского симптома и
   повторного полного аудита всех путей записи/выбора/показа playback progress.
 - Affected version/commit: C-012 / `0.6.0` и более ранние версии с episodic zero activation;
@@ -1182,8 +1182,9 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Protective test: `KinogoAppRootResumeTest` проверяет rejection обычного zero и acceptance
   explicit activation, видимый completed anchor и старые resume/remap сценарии;
   `WatchProgressTest` закрепляет exact positive timestamp и explicit Media3 end contract.
-- Runtime verification: **PENDING**; нужен узкий TV-сценарий quick open/Back + cold restart,
-  обычный Back с позицией, lifecycle pause, смена серии и natural end.
+- Runtime verification: local canonical, exact APK, PR/main CI, Release, signed manifest,
+  Pages и live exact-byte transports зелёные. Нужен узкий TV-сценарий quick open/Back +
+  cold restart, обычный Back с позицией, lifecycle pause, смена серии и natural end.
 - Rollback point: опубликованный C-012 / `v0.6.0`; полный playback baseline — B-001.
 - Связанные файлы: `PlaybackCheckpoint.kt`, `TvPlayerScreen.kt`, `KinogoAppRoot.kt`,
   `WatchProgress.kt`, соответствующие unit tests.

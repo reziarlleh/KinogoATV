@@ -18,9 +18,11 @@ episode activation остаётся durable, completed anchor виден в Deta
 `F38C65F37FEF08191C00A4C803CA648AE545BB0D27CA64F366A722C7F76C1B2C`. Package/version/API,
 zipalign, v2, one-signer certificate и embedded revision проверены. PR #17 merge `ff5d26d`,
 PR/main CI `34027297259` / `34027481401`, annotated tag и regular Release зелёные. Signed
-manifest локально проверен; его merge/Pages/live transport checks пока **PENDING**.
+manifest PR #18 merge `1adb451`; PR/main Android/Pages runs `34027882588` / `34027997264` /
+`34027997193` зелёные. Pages/jsDelivr manifest и Pages/ghfast/ghproxy/direct APK дали exact
+bytes. Hardware playback и in-app Package Installer flow остаются **PENDING**.
 
-Текущий C-012 / `0.6.0` (code 20) — опубликованный release с R8/resource
+Предыдущий C-012 / `0.6.0` (code 20) — опубликованный release с R8/resource
 shrinking, dependency verification и cancellable network paths. Local strict canonical:
 90 suites / 473 tests, lint 0 errors. Application commit
 `108519861faf67bc50dcdc574cecf38f94c00a13`; exact post-commit release rebuild — 15 мин 3 с.
@@ -430,17 +432,25 @@ digest. Затем из той же локальной stable-signed копии 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.AddDays(30)
 .\scripts\New-SignedUpdateManifest.ps1 `
-  -ApkPath .\dist\KinogoATV-0.6.0-code20.apk `
-  -VersionName 0.6.0 -VersionCode 20 -ExpiresAt $expires `
+  -ApkPath .\dist\KinogoATV-0.6.1-code21.apk `
+  -VersionName 0.6.1 -VersionCode 21 -ExpiresAt $expires `
   -DownloadUrl @(
-    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.0-code20.apk',
-    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk',
-    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk',
-    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk'
+    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.1-code21.apk',
+    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.1/KinogoATV-0.6.1-code21.apk',
+    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.1/KinogoATV-0.6.1-code21.apk',
+    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.1/KinogoATV-0.6.1-code21.apk'
   )
 ```
 
-Команда выше воспроизводит опубликованный C-012 contract. Final code 20
+Команда выше воспроизводит опубликованный C-013 contract. Final code 21
+`update/manifest.json`: 1 273 bytes, file SHA-256
+`CBA5C2643A2D3F3FF75D950A0FF896A0D7EE5B6132FEEF28E9290210BC517F42`, issued
+`2026-09-06T10:33:00Z`, expires `2026-10-06T10:33:00Z`; payload содержит exact APK
+size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest source `854b945`,
+PR #18, main merge `1adb451657d59ba8e12152e8e011b3b44047ab77`; PR CI `34027882588`,
+main Android `34027997264` и Pages `34027997193` завершились SUCCESS.
+
+Исторический final C-012 code 20
 `update/manifest.json`: 1 273 bytes, file SHA-256
 `E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1`, issued
 `2026-09-06T05:40:23Z`, expires `2026-10-06T05:40:23Z`; payload содержит exact APK
@@ -601,7 +611,22 @@ Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist C-012
+## Release checklist C-013
+
+- [x] Version code увеличен до 21, version name — `0.6.1`.
+- [x] Обычный zero checkpoint отделён от explicit episode activation; completed anchor видим.
+- [x] Local canonical зелёный: 90 suites / 471 test, 0 failures/errors/skips, lint 0 errors;
+      debug/androidTest/release assembly прошли.
+- [x] Exact application commit `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` и post-commit
+      `assembleRelease --rerun-tasks` (13 мин 51 с, 52 tasks) зафиксированы.
+- [x] Exact stable-signed APK и R8 mapping проверены и сохранены в ignored private archive
+      `.signing/release-evidence/0.6.1-code21-2de9d7b/`.
+- [x] PR/main CI зелёные, annotated tag/regular Release и signed manifest опубликованы.
+- [x] Pages/jsDelivr manifest и Pages/ghfast/ghproxy/direct APK совпали с exact bytes.
+- [ ] Quick-open/Back, lifecycle cold restart, обычный resume, episode transition и natural
+      end проверены на пользовательском TV.
+
+## Historical completed checklist C-012
 
 - [x] Version code увеличен до 20, version name — `0.6.0`.
 - [x] R8/resource shrinking и dependency verification включены; wrapper checksum закреплён.
