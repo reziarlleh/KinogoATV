@@ -1,19 +1,13 @@
 package com.kinogo.atv.data.catalog
 
 import com.kinogo.atv.data.mirror.KinogoHtmlFingerprint
-import com.kinogo.atv.data.mirror.MirrorUrlNormalizer
-import com.kinogo.atv.data.mirror.NetworkDestinationValidator
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.net.URI
 import java.nio.charset.Charset
 import java.util.Locale
-import javax.net.ssl.HttpsURLConnection
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
 
 data class HtmlResponse(
     val requestedOrigin: String,
@@ -23,12 +17,10 @@ data class HtmlResponse(
     val body: String,
 )
 
-fun interface HtmlTransport {
-    suspend fun get(rawOrigin: String, rawRelativePath: String): HtmlResponse
-}
-
 /** Stateful HTML transport required by the server-side xSort catalog protocol. */
-interface CatalogFilterHtmlTransport : HtmlTransport {
+interface CatalogFilterHtmlTransport {
+    suspend fun get(rawOrigin: String, rawRelativePath: String): HtmlResponse
+
     /**
      * Opaque per-origin version of the cookie session.
      *
@@ -42,128 +34,6 @@ interface CatalogFilterHtmlTransport : HtmlTransport {
         rawRelativePath: String,
         form: Map<String, String>,
     ): HtmlResponse
-}
-
-/**
- * Small HTTPS-only transport for untrusted mirror HTML.
- *
- * Redirects are checked one by one and a catalog generation stays pinned to the selected origin.
- * Cross-origin redirects are reported to the mirror manager instead of being followed silently.
- */
-class SafeHtmlClient internal constructor(
-    private val connectTimeoutMs: Int,
-    private val readTimeoutMs: Int,
-    private val maxRedirects: Int,
-    private val maxBodyBytes: Int,
-    private val destinationValidator: (URI) -> Unit,
-    private val connectionFactory: (URI) -> HttpsURLConnection,
-) : HtmlTransport {
-    constructor(
-        connectTimeoutMs: Int = 7_000,
-        readTimeoutMs: Int = 12_000,
-        maxRedirects: Int = 4,
-        maxBodyBytes: Int = 2 * 1_024 * 1_024,
-    ) : this(
-        connectTimeoutMs = connectTimeoutMs,
-        readTimeoutMs = readTimeoutMs,
-        maxRedirects = maxRedirects,
-        maxBodyBytes = maxBodyBytes,
-        destinationValidator = { uri -> NetworkDestinationValidator.validateHttpsPublic(uri) },
-        connectionFactory = { uri -> uri.toURL().openConnection() as HttpsURLConnection },
-    )
-
-    init {
-        require(connectTimeoutMs > 0)
-        require(readTimeoutMs > 0)
-        require(maxRedirects >= 0)
-        require(maxBodyBytes > 0)
-    }
-
-    override suspend fun get(rawOrigin: String, rawRelativePath: String): HtmlResponse =
-        withContext(Dispatchers.IO) {
-            val origin = MirrorUrlNormalizer.normalize(rawOrigin)
-            val relativePath = CatalogRouteNormalizer.normalize(rawRelativePath)
-            var currentUri = URI.create(origin).resolve(relativePath)
-            var redirects = 0
-
-            try {
-                while (true) {
-                    currentCoroutineContext().ensureActive()
-                    destinationValidator(currentUri)
-                    val connection = connectionFactory(currentUri).apply {
-                        instanceFollowRedirects = false
-                        connectTimeout = connectTimeoutMs
-                        readTimeout = readTimeoutMs
-                        requestMethod = "GET"
-                        setRequestProperty("Accept", "text/html,application/xhtml+xml")
-                        setRequestProperty("Accept-Language", "ru,en;q=0.7")
-                        setRequestProperty("User-Agent", USER_AGENT)
-                    }
-
-                    try {
-                        val statusCode = connection.responseCode
-                        if (statusCode in 300..399) {
-                            if (redirects >= maxRedirects) {
-                                throw CatalogNetworkException(IllegalStateException("Too many redirects"))
-                            }
-                            val location = connection.getHeaderField("Location")
-                                ?: throw CatalogNetworkException(
-                                    IllegalStateException("Redirect without Location"),
-                                )
-                            val redirected = currentUri.resolve(location)
-                            destinationValidator(redirected)
-                            val redirectedOrigin = originOf(redirected)
-                            if (redirectedOrigin != origin) {
-                                throw CatalogRedirectException(redirectedOrigin)
-                            }
-                            currentUri = redirected
-                            redirects++
-                            continue
-                        }
-
-                        if (statusCode !in 200..299) throw CatalogHttpStatusException(statusCode)
-                        val body = readBody(connection, statusCode)
-                        CatalogHtmlDocumentPolicy.validate(body)
-                        return@withContext HtmlResponse(
-                            requestedOrigin = origin,
-                            resolvedOrigin = originOf(currentUri),
-                            relativePath = relativePath,
-                            statusCode = statusCode,
-                            body = body,
-                        )
-                    } finally {
-                        // Cleanup must never replace cancellation or a more useful request error.
-                        runCatching(connection::disconnect)
-                    }
-                }
-                @Suppress("UNREACHABLE_CODE")
-                error("Unreachable")
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (known: CatalogException) {
-                throw known
-            } catch (error: Exception) {
-                throw CatalogNetworkException(error)
-            }
-        }
-
-    private fun originOf(uri: URI): String {
-        val authority = requireNotNull(uri.rawAuthority) { "HTTPS origin is missing" }
-        return MirrorUrlNormalizer.normalize("https://$authority")
-    }
-
-    private suspend fun readBody(connection: HttpsURLConnection, statusCode: Int): String {
-        val stream = if (statusCode in 200..399) connection.inputStream else connection.errorStream
-        return CatalogHtmlBodyDecoder(maxBodyBytes).read(
-            input = stream,
-            contentType = connection.contentType,
-            declaredLength = connection.contentLengthLong,
-        )
-    }
-
-    private companion object {
-        const val USER_AGENT = "KinogoATV/0.5 (Android TV; native catalog)"
-    }
 }
 
 /** Canonicalizes a route without ever allowing it to replace the selected mirror origin. */

@@ -1081,6 +1081,51 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Связанные файлы: `WatchProgress.kt`, `KinogoAppRoot.kt`, `KinogoApplication.kt`,
   `PlaybackSourceSelectionModel.kt`, `PlaybackCompletionPolicy.kt`, `TvPlayerScreen.kt`.
 
+### R-036 — Неизвестный content ID мог запустить development fixture video
+
+- Статус: Resolved in C-012 source/local tests; hardware **PENDING**.
+- Обнаружено: 5 сентября 2026 года при финальном code/dead-code аудите.
+- Affected version/commit: C-011 / `5223d81e` и более ранний production path; first-bad
+  commit отдельно не изолирован.
+- Last-known-good: для этого отрицательного сценария ранее не фиксировался.
+- Устройство/Android/source: source review; TV/ADB не использовались.
+- Воспроизведение: при отсутствии карточки в `knownCatalogItems()` идентификатор из
+  `KinogoFixtures.catalog` мог создать `PlaybackMediaPlan` на публичный ExoPlayer test MP4.
+- Причина: ранняя UI fixture осталась fallback-веткой production `startPlayback`, хотя
+  development video прямо запрещено использовать в live-flow.
+- Исправление: fixture plan/URL/voice/quality удалены; launch разрешает только карточку из
+  фактического known catalog/history/library snapshot и иначе завершает подготовку fail-closed.
+- Protective test: `KinogoAppRootResumeTest` проверяет, что fixture-like `title-1` не
+  разрешается как production playback item.
+- Runtime verification: не требуется для доказательства отсутствия URL в source/APK; общий
+  shrunk release TV smoke остаётся **PENDING**.
+- Rollback point: C-011 / `5223d81e`; полный playback rollback — B-001.
+- Связанные файлы: `KinogoAppRoot.kt`, `KinogoAppRootResumeTest.kt`.
+
+### R-037 — Отмена mirror/update coroutine не всегда отменяла активный HTTP
+
+- Статус: Resolved in C-012 source/local tests; hardware **PENDING**.
+- Обнаружено: 6 сентября 2026 года при глобальном network audit.
+- Affected version/commit: C-011 / `5223d81e` и более ранние blocking/duplicated paths;
+  first-bad commit отдельно не изолирован.
+- Last-known-good: для cancellation во время response body ранее не фиксировался.
+- Устройство/Android/source: source review и JVM fake-call tests; TV/ADB не использовались.
+- Симптом: отменённый scope мог оставить blocking update/mirror request или чтение body;
+  mirror probe мог опубликовать отмену как `UNREACHABLE`.
+- Причина: часть clients использовала `execute()`, а дублированный await helper снимал
+  cancellation handler сразу после headers; общий `catch (Exception)` поглощал coroutine
+  cancellation.
+- Исправление: общий `Call.awaitResponse/useCancellableResponse`, handler живёт до окончания
+  body processing, `CancellationException` mirror probe пробрасывается.
+- Protective test: `OkHttpCoroutinesTest` проверяет отмену до response и во время body;
+  `MirrorHealthCheckerTest.probeDoesNotConvertCancellationIntoAnUnreachableReport` проверяет
+  classification.
+- Runtime verification: не требуется для semantics fake-call; end-to-end network/TV smoke
+  C-012 остаётся **PENDING**.
+- Rollback point: C-011 / `5223d81e`.
+- Связанные файлы: `OkHttpCoroutines.kt`, update/mirror clients,
+  `MirrorHealthChecker.kt`, соответствующие unit tests.
+
 ## Шаблон новой записи
 
 ```markdown

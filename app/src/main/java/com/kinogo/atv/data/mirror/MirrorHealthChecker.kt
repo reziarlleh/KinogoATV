@@ -1,6 +1,8 @@
 package com.kinogo.atv.data.mirror
 
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.awaitResponse
+import com.kinogo.atv.data.network.kinogoUserAgent
 import java.io.ByteArrayOutputStream
 import java.io.InterruptedIOException
 import java.net.Inet4Address
@@ -13,6 +15,7 @@ import javax.net.ssl.SSLException
 import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -76,10 +79,10 @@ class MirrorHealthChecker(
                     .header("Accept", "text/html,application/xhtml+xml")
                     .header("Accept-Language", "ru,en;q=0.7")
                     .header("Range", "bytes=0-${MAX_BODY_BYTES - 1}")
-                    .header("User-Agent", USER_AGENT)
+                    .header("User-Agent", kinogoUserAgent("mirror health check"))
                     .build()
 
-                val response = client.newCall(request).execute()
+                val response = client.newCall(request).awaitResponse()
                 try {
                     val statusCode = response.code
                     if (statusCode in 300..399) {
@@ -137,6 +140,8 @@ class MirrorHealthChecker(
                 }
             }
             requireNotNull(completedReport)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             MirrorProbeReport(
                 requestedOrigin = requestedOrigin,
@@ -195,7 +200,6 @@ class MirrorHealthChecker(
     private companion object {
         const val MAX_BODY_BYTES = 128 * 1_024
         const val DEGRADED_LATENCY_MS = 2_500L
-        const val USER_AGENT = "KinogoATV/0.5 (Android TV; mirror health check)"
     }
 }
 

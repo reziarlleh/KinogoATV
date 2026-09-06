@@ -1,6 +1,8 @@
 package com.kinogo.atv.data.update
 
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.kinogoUserAgent
+import com.kinogo.atv.data.network.useCancellableResponse
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URI
@@ -26,8 +28,8 @@ internal class GitHubReleaseUpdateClient(
             .header("User-Agent", USER_AGENT)
             .get()
             .build()
-        client.newCall(request).execute().use { response ->
-            if (response.code == 404) return@withContext AppUpdateCheckResult.UpToDate(null)
+        client.newCall(request).useCancellableResponse { response ->
+            if (response.code == 404) return@useCancellableResponse AppUpdateCheckResult.UpToDate(null)
             require(response.isSuccessful) { "Update server returned HTTP ${response.code}" }
             val body = response.body ?: throw IllegalStateException("Update response is empty")
             val bytes = body.byteStream().use { it.readLimited(MAX_RELEASE_DOCUMENT_BYTES) }
@@ -54,7 +56,7 @@ internal class GitHubReleaseUpdateClient(
         }
     }
 
-    private fun downloadValidated(release: AppUpdateRelease, destination: File) {
+    private suspend fun downloadValidated(release: AppUpdateRelease, destination: File) {
         var uri = URI.create(release.downloadUrl)
         repeat(MAX_REDIRECTS + 1) { redirectIndex ->
             require(isAllowedUpdateDownloadUri(uri, release, initial = redirectIndex == 0)) {
@@ -66,17 +68,19 @@ internal class GitHubReleaseUpdateClient(
                 .header("User-Agent", USER_AGENT)
                 .get()
                 .build()
-            client.newCall(request).execute().use { response ->
+            val completed = client.newCall(request).useCancellableResponse { response ->
                 if (response.code in REDIRECT_CODES) {
                     require(redirectIndex < MAX_REDIRECTS) { "Too many update redirects" }
                     val location = response.header("Location")
                         ?: throw IllegalStateException("Update redirect has no destination")
                     uri = uri.resolve(location)
-                    return@repeat
+                    false
+                } else {
+                    writeVerifiedResponse(response, destination, release)
+                    true
                 }
-                writeVerifiedResponse(response, destination, release)
-                return
             }
+            if (completed) return
         }
         error("Update download did not reach an APK")
     }
@@ -119,7 +123,7 @@ internal class GitHubReleaseUpdateClient(
     companion object {
         const val LATEST_RELEASE_URL =
             "https://api.github.com/repos/reziarlleh/KinogoATV/releases/latest"
-        private const val USER_AGENT = "KinogoATV/0.5 (Android TV; update client)"
+        private val USER_AGENT = kinogoUserAgent("update client")
         private const val PENDING_APK_NAME = "KinogoATV-pending-update.apk"
         private const val MAX_RELEASE_DOCUMENT_BYTES = 512 * 1_024
         private const val MAX_REDIRECTS = 4

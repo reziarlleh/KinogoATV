@@ -1,7 +1,9 @@
 package com.kinogo.atv.data.mirror
 
 import java.net.InetAddress
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
+import okhttp3.Dns
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -21,6 +23,25 @@ class MirrorHealthCheckerTest {
     fun cloudflareInterstitialIsDetected() {
         assertTrue(KinogoHtmlFingerprint.isChallenge("<title>Just a moment...</title>"))
         assertFalse(KinogoHtmlFingerprint.isChallenge("<title>KinoGo</title>"))
+    }
+
+    @Test
+    fun probeDoesNotConvertCancellationIntoAnUnreachableReport() = runTest {
+        val checker = MirrorHealthChecker(
+            dns = object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> =
+                    throw CancellationException("cancelled")
+            },
+        )
+
+        var cancellation: CancellationException? = null
+        try {
+            checker.probe("https://cancelled-mirror.tv")
+        } catch (error: CancellationException) {
+            cancellation = error
+        }
+
+        assertEquals("cancelled", cancellation?.message)
     }
 
     @Test

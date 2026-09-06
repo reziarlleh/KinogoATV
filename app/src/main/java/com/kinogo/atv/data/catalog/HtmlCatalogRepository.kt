@@ -1,7 +1,5 @@
 package com.kinogo.atv.data.catalog
 
-import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import com.kinogo.atv.domain.CatalogBrowseFilters
 import com.kinogo.atv.domain.CatalogControls
 import com.kinogo.atv.domain.CatalogItem
@@ -284,43 +282,5 @@ class HtmlCatalogRepository(
             "xs_field" to field,
             "xs_value" to value,
         )
-    }
-}
-
-/** One paging generation is permanently pinned to [origin]. */
-class HtmlCatalogPagingSource(
-    private val repository: CatalogRepository,
-    private val origin: String,
-    private val query: CatalogQuery,
-) : PagingSource<Int, CatalogItem>() {
-    override fun getRefreshKey(state: PagingState<Int, CatalogItem>): Int? {
-        val anchorPosition = state.anchorPosition ?: return null
-        val anchorPage = state.closestPageToPosition(anchorPosition) ?: return null
-        return anchorPage.prevKey?.plus(1) ?: anchorPage.nextKey?.minus(1)
-    }
-
-    override suspend fun load(params: LoadParams<Int>): LoadResult<Int, CatalogItem> {
-        val page = params.key ?: query.page
-        if (page < 1) {
-            return LoadResult.Error(IllegalArgumentException("Catalog page must be positive"))
-        }
-        return try {
-            val result = repository.loadPage(origin, query.copy(page = page))
-            val nextPage = result.nextPage?.takeIf { it > page }
-                ?: result.nextPage?.let {
-                    return LoadResult.Error(
-                        CatalogParseException("Каталог вернул повторяющуюся страницу $it"),
-                    )
-                }
-            LoadResult.Page(
-                data = result.items,
-                prevKey = page.takeIf { it > 1 }?.minus(1),
-                nextKey = nextPage,
-            )
-        } catch (cancelled: CancellationException) {
-            throw cancelled
-        } catch (error: Exception) {
-            LoadResult.Error(error)
-        }
     }
 }

@@ -1,6 +1,23 @@
 # Стратегия тестирования
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
+
+## C-012 cleanup candidate
+
+Canonical рабочего дерева с `--write-verification-metadata sha256` завершён **SUCCESS за
+23 мин 55 с**, а повторный обычный strict-run `testDebugUnitTest lintDebug assembleDebug
+assembleDebugAndroidTest assembleRelease` — **SUCCESS за 1 мин 20 с**: **90 suites / 473
+tests**, 0 failures/errors/skips; lint — **0 errors**, только два version advisory.
+`assembleDebugAndroidTest` только собрал test APK; instrumentation и TV/ADB не запускались.
+Shrunk stable-signed release имеет один DEX, 6 703 237 bytes и прошёл
+package/API/zipalign/v2/one-signer verification. Добавлены cancellation guards для общего
+OkHttp adapter и mirror probe, а instrumentation source переведён на `junit4.v2`. Перед
+публикацией R8/Media3-кандидата остаётся ручной TV smoke.
+
+Дополнительно прошли self-test операторских утилит: Python
+`verify_update_manifest.py self-test` и Java `UpdateManifestSigner.java self-test`; Gradle
+verification metadata успешно разбирается как XML. Это не заменяет проверку final signed
+manifest после публикации exact APK.
 
 ## Принцип доказательств
 

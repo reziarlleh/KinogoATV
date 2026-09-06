@@ -1,6 +1,6 @@
 # Процесс выпуска APK
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 ## Виды сборок
 
@@ -8,7 +8,13 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
+Текущий source C-012 / `0.6.0` (code 20) — непубликованный cleanup candidate с R8/resource
+shrinking, dependency verification и cancellable network paths. Local strict canonical:
+90 suites / 473 tests, lint 0 errors; working-tree APK 6 703 237 bytes, SHA-256
+`9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`. Это не final release
+asset: после commit нужны exact rebuild/hash/mapping, remote CI и TV smoke.
+
+Текущий опубликованный C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
 exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
 Canonical рабочего дерева прошёл 91 suites / 476 tests, lint без ошибок,
 debug/androidTest/release assembly. Application source
@@ -221,6 +227,10 @@ Release candidate:
 ```
 
 Release task без stable key должна завершиться до выдачи пригодного артефакта.
+Release-конфигурация включает R8 и resource shrinking. Нельзя отключать shrink только ради
+ускорения финальной сборки: проверить `minifyReleaseWithR8`, `lintVitalRelease` и сохранить
+`app/build/outputs/mapping/release/mapping.txt` рядом с приватными release-артефактами. Mapping
+не публикуется как update asset, но должен соответствовать exact source/APK.
 
 ## 5. Проверка APK
 
@@ -391,6 +401,9 @@ KinogoATV-<version>-code<versionCode>.apk
 
 Обновить `dist/SHA256SUMS.txt`. Значение должно быть вычислено с точной копии APK, которая
 будет опубликована.
+
+Для shrunk release отдельно архивировать exact `mapping.txt` с привязкой к application commit,
+versionCode и APK SHA-256; без этого obfuscated crash stack невозможно надёжно восстановить.
 
 ## 8. Подписанный update manifest
 
@@ -572,7 +585,19 @@ Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist C-011
+## Release checklist C-012
+
+- [x] Version code увеличен до 20, version name — `0.6.0`.
+- [x] R8/resource shrinking и dependency verification включены; wrapper checksum закреплён.
+- [x] Local strict canonical зелёный: 90 suites / 473 tests, 0 failures/errors/skips,
+      lint 0 errors и два version advisory; debug/androidTest/release assembly прошли.
+- [x] Working-tree stable-signed APK проверен: 6 703 237 bytes, один DEX, package/code/name,
+      API, zipalign, v2 и один прежний signer корректны.
+- [ ] Созданы application commit и exact post-commit rebuild; mapping привязан к APK hash.
+- [ ] Remote PR/main CI зелёные, tag/regular Release и signed manifest опубликованы.
+- [ ] Exact public transports и разрешённый владельцем TV smoke подтверждены.
+
+## Historical completed checklist C-011
 
 - [x] Version code увеличен до 19, version name — `0.5.5`.
 - [x] Предварительная canonical local verification: 91 suites / 476 tests,

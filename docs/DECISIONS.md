@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -678,6 +678,35 @@ series не показывает ложное «Продолжить» и не �
 Следствие: completion heuristic нельзя использовать для exact resume; source/voice/quality
 нельзя включать в history key; Activity-owned scope нельзя использовать для durable writes;
 позицию нельзя молча переносить на другую S/E.
+
+## D-037 — Coroutine-facing OkHttp paths обязаны быть cancellable до конца body processing
+
+- Дата: 6 сентября 2026 года
+- Статус: принято для C-012 / `0.6.0`; unit/canonical passed, TV pending
+
+Все suspend-операции поверх OkHttp используют один общий adapter. Он отменяет `Call`, если
+coroutine завершена до headers, и сохраняет completion handler до конца bounded обработки
+response body. `CancellationException` всегда пробрасывается и не конвертируется в network,
+mirror-health или update error.
+
+Следствие: нельзя возвращать blocking `execute()` в suspend path, дублировать несовместимые
+await helpers либо снимать cancellation handler сразу после получения headers, если body ещё
+читается. Protective tests покрывают отмену до response, во время body processing и mirror
+probe classification.
+
+## D-038 — Release dependency graph проверяется и минимизируется как часть C-012
+
+- Дата: 6 сентября 2026 года
+- Статус: принято для C-012 / `0.6.0`; strict canonical passed
+
+Release всегда собирается с R8/resource shrinking. Gradle distribution закреплён официальной
+SHA-256 суммой, а artifacts — verification metadata. Неиспользуемые production dependencies
+удаляются после source/compile проверки. Обновление metadata выполняется только намеренно и
+проверяется обычной сборкой без режима записи.
+
+Следствие: R8 нельзя выключать для final artifact; exact mapping хранится вместе с приватными
+release evidence. Major-миграции вроде OkHttp 5 и toolchain update не смешиваются с cleanup
+release без отдельного compatibility прохода.
 
 Общий уровень evidence D-032…D-034: exact source
 `777c8a0528f24db67402536631257d6cdc91f148` и stable-signed candidate

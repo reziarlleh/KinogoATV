@@ -300,19 +300,6 @@ fun SearchScreen(
 }
 
 @Composable
-fun FavoritesScreen(
-    favorites: List<PosterUiModel>,
-    onOpenDetails: (String) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    BookmarksScreen(
-        bookmarks = favorites.map { BookmarkUiModel(it, favorite = true) },
-        onOpenDetails = onOpenDetails,
-        modifier = modifier,
-    )
-}
-
-@Composable
 fun BookmarksScreen(
     bookmarks: List<BookmarkUiModel>,
     onOpenDetails: (String) -> Unit,

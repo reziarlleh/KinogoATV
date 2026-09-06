@@ -26,6 +26,20 @@ import org.junit.Test
 
 class KinogoAppRootResumeTest {
     @Test
+    fun `unknown or development fixture id cannot enter production playback`() {
+        val known = CatalogItem(
+            id = CONTENT_ID,
+            relativePath = "/serialy/content-42.html",
+            title = "Series",
+            year = 2025,
+            type = ContentType.SERIES,
+        )
+
+        assertEquals(known, findKnownPlaybackItem(listOf(known), CONTENT_ID))
+        assertNull(findKnownPlaybackItem(listOf(known), "title-1"))
+    }
+
+    @Test
     fun `direct plan persists resolver id instead of untrusted provider metadata`() = runTest {
         val resolver = DirectMediaResolver { }
         val plan = resolveFreshDirectPlan(

@@ -6,7 +6,6 @@ package com.kinogo.atv.player.ui
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.ViewGroup
@@ -77,6 +76,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.findViewTreeLifecycleOwner
+import androidx.core.net.toUri
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -2294,7 +2294,7 @@ private class TvPlayerRuntime(
         if (variant.subtitleTracks.isNotEmpty()) {
             builder.setSubtitleConfigurations(
                 variant.subtitleTracks.map { track ->
-                    MediaItem.SubtitleConfiguration.Builder(Uri.parse(track.mediaUrl))
+                    MediaItem.SubtitleConfiguration.Builder(track.mediaUrl.toUri())
                         .setId(track.id)
                         .setLabel(track.label)
                         .setMimeType(track.mimeType)

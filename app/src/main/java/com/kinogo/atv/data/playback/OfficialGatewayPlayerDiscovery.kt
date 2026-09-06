@@ -5,8 +5,9 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.kinogo.atv.data.mirror.NetworkDestinationValidator
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.awaitResponse
+import com.kinogo.atv.data.network.kinogoUserAgent
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -17,10 +18,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.CookieJar
 import okhttp3.Dns
 import okhttp3.OkHttpClient
@@ -274,7 +272,7 @@ internal class OfficialGatewayHttpClient(
                     config.appSignatureSha256?.let { header("X-App-Signature", it) }
                 }
                 .build()
-            val response = executeCancellable(request)
+            val response = client.newCall(request).awaitResponse()
             try {
                 OfficialGatewayHttpResponse(
                     statusCode = response.code,
@@ -283,29 +281,6 @@ internal class OfficialGatewayHttpClient(
             } finally {
                 response.close()
             }
-        }
-
-    private suspend fun executeCancellable(request: Request): Response =
-        suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(
-                object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        if (continuation.isActive) {
-                            continuation.resumeWith(Result.failure(e))
-                        }
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) {
-                            continuation.resume(response) { _, value, _ -> value.close() }
-                        } else {
-                            response.close()
-                        }
-                    }
-                },
-            )
         }
 
     private fun readLimitedBody(input: java.io.InputStream?, declaredLength: Long?): String {
@@ -330,7 +305,7 @@ internal class OfficialGatewayHttpClient(
 
     private companion object {
         const val MAX_BODY_BYTES = 512 * 1_024
-        const val USER_AGENT = "KinogoATV/0.5 (Android TV; optional player discovery)"
+        val USER_AGENT = kinogoUserAgent("optional player discovery")
     }
 }
 

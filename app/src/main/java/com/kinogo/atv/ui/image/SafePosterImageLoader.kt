@@ -3,6 +3,7 @@ package com.kinogo.atv.ui.image
 import android.content.Context
 import coil3.ImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.kinogo.atv.data.network.kinogoUserAgent
 import com.kinogo.atv.player.PublicOnlyDns
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -45,7 +46,7 @@ object SafePosterImageLoader {
             }
             chain.proceed(
                 request.newBuilder()
-                    .header("User-Agent", "KinogoATV/0.5 (Android TV; poster loader)")
+                    .header("User-Agent", kinogoUserAgent("poster loader"))
                     .build(),
             )
         }

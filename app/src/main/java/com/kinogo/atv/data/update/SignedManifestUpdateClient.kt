@@ -3,6 +3,8 @@ package com.kinogo.atv.data.update
 import android.content.Context
 import android.content.pm.PackageManager
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.kinogoUserAgent
+import com.kinogo.atv.data.network.useCancellableResponse
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URI
@@ -120,7 +122,7 @@ internal class SignedManifestUpdateClient internal constructor(
         throw IllegalStateException("Independent update download is unavailable")
     }
 
-    private fun fetchVerifiedRelease(manifestUrl: String): AppUpdateRelease {
+    private suspend fun fetchVerifiedRelease(manifestUrl: String): AppUpdateRelease {
         val request = Request.Builder()
             .url(manifestUrl)
             .header("Accept", "application/json")
@@ -130,7 +132,7 @@ internal class SignedManifestUpdateClient internal constructor(
             .build()
         val call = client.newCall(request)
         call.timeout().timeout(MANIFEST_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        call.execute().use { response ->
+        return call.useCancellableResponse { response ->
             require(response.isSuccessful) { "Independent update manifest request failed" }
             val body = response.body ?: throw IllegalStateException("Update manifest is empty")
             val bytes = body.byteStream().use { it.readSignedManifestLimited(MAX_MANIFEST_BYTES) }
@@ -140,11 +142,11 @@ internal class SignedManifestUpdateClient internal constructor(
                 trustedPublicKeys = trustedPublicKeys,
                 nowEpochSeconds = nowEpochSeconds(),
             )
-            return (result as AppUpdateCheckResult.Available).release
+            (result as AppUpdateCheckResult.Available).release
         }
     }
 
-    private fun downloadValidated(
+    private suspend fun downloadValidated(
         rawUrl: String,
         release: AppUpdateRelease,
         destination: File,
@@ -159,17 +161,19 @@ internal class SignedManifestUpdateClient internal constructor(
                 .header("User-Agent", USER_AGENT)
                 .get()
                 .build()
-            client.newCall(request).execute().use { response ->
+            val completed = client.newCall(request).useCancellableResponse { response ->
                 if (response.code in REDIRECT_CODES) {
                     require(redirectIndex < MAX_REDIRECTS) { "Too many update redirects" }
                     val location = response.header("Location")
                         ?: throw IllegalStateException("Update redirect is invalid")
                     uri = uri.resolve(location)
-                    return@repeat
+                    false
+                } else {
+                    writeVerifiedResponse(response, destination, release)
+                    true
                 }
-                writeVerifiedResponse(response, destination, release)
-                return
             }
+            if (completed) return
         }
         error("Update download did not reach an APK")
     }
@@ -226,7 +230,7 @@ internal class SignedManifestUpdateClient internal constructor(
     )
 
     companion object {
-        private const val USER_AGENT = "KinogoATV/0.5 (Android TV; signed update client)"
+        private val USER_AGENT = kinogoUserAgent("signed update client")
         private const val PENDING_APK_NAME = "KinogoATV-pending-update.apk"
         private const val MAX_MANIFEST_BYTES = 256 * 1_024
         private const val MAX_MANIFEST_URLS = 4

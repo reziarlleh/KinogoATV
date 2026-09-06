@@ -1,11 +1,31 @@
 # Текущее состояние проекта
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
+
+## Текущий рабочий кандидат C-012
+
+Поверх опубликованного C-011 подготовлен C-012 / `0.6.0` code 20. Release переведён на
+R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
+`SafeHtmlClient`, wrapper, шесть production и одна test-only dependency declaration. Устранены fixture playback для
+неизвестного content ID и потеря coroutine cancellation в mirror/update HTTP paths.
+Сетевые User-Agent теперь соответствуют версии сборки. Stable Media3/Coil/Gson/jsoup
+обновлены; dependency checksums и checksum Gradle wrapper зафиксированы.
+
+Canonical с генерацией dependency verification metadata завершён **SUCCESS за 23 мин 55 с**;
+повторный canonical в обычном strict-режиме — **SUCCESS за 1 мин 20 с**: **90 suites /
+473 tests**, 0 failures/errors/skips; lint — **0 errors**, два version advisory; debug,
+androidTest APK и release собраны. Stable-signed working-tree candidate `app-release.apk`:
+**6 703 237 bytes**, SHA-256
+`9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`, один DEX,
+package/code/name `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS,
+v2 true, один прежний signer. Экономия относительно published C-011 —
+**31 715 925 bytes / 82,55%**. Exact post-commit rebuild, remote CI, publication и TV/ADB
+runtime ещё **PENDING**; R8/Media3 candidate требует ручного smoke перед публикацией.
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.5** (code 19), published validation release
-**C-011**.
+Текущий application source выпускает **0.6.0** (code 20) как непубликованный C-012;
+published validation release остаётся **C-011 / 0.5.5**.
 Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
 подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
 сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed

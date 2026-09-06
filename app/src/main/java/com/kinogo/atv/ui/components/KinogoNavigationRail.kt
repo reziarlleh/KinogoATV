@@ -46,8 +46,8 @@ import com.kinogo.atv.ui.model.TvDestination
 fun KinogoNavigationRail(
     selected: TvDestination,
     onSelected: (TvDestination) -> Unit,
-    onAboutRequested: () -> Unit = {},
     modifier: Modifier = Modifier,
+    onAboutRequested: () -> Unit = {},
     requestInitialFocus: Boolean = false,
 ) {
     val destinations = TvDestination.entries

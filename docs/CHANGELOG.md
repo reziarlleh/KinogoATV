@@ -7,6 +7,49 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
+## [Unreleased] — C-012 / 0.6.0 release candidate
+
+### Размер и производительность
+
+- Release-сборка теперь использует R8 и resource shrinking. Локальный code 20 candidate APK
+  уменьшен с опубликованных 38 419 162 до 6 703 237 bytes: −31 715 925 bytes / −82,55%,
+  один DEX.
+- Удалены неиспользуемые `lifecycle-viewmodel-compose`, `lifecycle-runtime-compose`,
+  `ui-tooling-preview`, `paging-*` и `media3-ui-compose-material3`; production остаётся на
+  существующей ручной пагинации.
+- Media3 обновлён до 1.11.0, Coil до 3.6.2, Gson до 2.14.0, jsoup до 1.23.2. Это стабильные
+  ветки с исправлениями concurrency, R8/Compose, parser correctness и производительности;
+  отдельная миграция OkHttp 5 в этот релиз не включена.
+
+### Удаление мёртвого кода и исправление
+
+- Удалены неподключённые `PlayerJsCapabilities`, расширенные Web quality/audio/subtitle/find
+  команды, старый `FavoritesScreen` wrapper и оба неиспользуемых PagingSource с тестами
+  только для этого мёртвого пути.
+- Удалён неиспользуемый `SafeHtmlClient` и его тестовый fake transport; общий route/body HTML
+  policy сохранён для production `KinogoSessionHttpClient`.
+- Неизвестный `contentId` больше не может попасть в development fixture playback с внешним
+  тестовым MP4. Production launch принимает только реально известную карточку; добавлен
+  защитный unit-тест fail-closed поведения.
+- Все OkHttp-клиенты используют общий cancellable await; update download сохраняет связь
+  отмены с `Call` и во время чтения body. Mirror probe больше не превращает
+  `CancellationException` в ложный статус `UNREACHABLE`.
+- User-Agent всех сетевых подсистем формируется из фактического `BuildConfig.VERSION_NAME`.
+- Устранены все production lint-замечания по boxing, `Modifier`, URI KTX и обоснованным
+  WebView suppressions; instrumentation переведён на Compose test API `junit4.v2`.
+- Добавлены Gradle dependency verification metadata и SHA-256 wrapper distribution.
+
+### Validation status
+
+- Canonical с генерацией verification metadata — **SUCCESS за 23 мин 55 с**; повторный
+  canonical без trust-on-first-use — **SUCCESS за 1 мин 20 с**: **90 suites / 473 tests**,
+  0 failures/errors/skips. Lint — **0 errors**, только два version advisory (Gradle и
+  намеренно отложенный OkHttp 5); debug, androidTest APK и release собраны.
+- Stable-signed working-tree candidate `app-release.apk`: **6 703 237 bytes**, SHA-256
+  `9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`; package/code/name
+  `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS, v2 true, один signer,
+  прежний certificate SHA-256. Post-commit exact rebuild, publication и TV smoke ещё PENDING.
+
 ## [0.5.5] — 2026-09-05 (validation release)
 
 ### Сквозное продолжение просмотра

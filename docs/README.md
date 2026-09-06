@@ -32,7 +32,13 @@
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
 
-## Текущий validation release
+## Текущий source candidate и опубликованный validation release
+
+Рабочее дерево готовит C-012 / `0.6.0` code 20: R8/resource shrinking, удаление мёртвых
+Paging/PlayerJS/legacy transport веток, cancellable HTTP и dependency verification. Local
+strict canonical: 90 suites / 473 tests, lint 0 errors. Candidate ещё не зафиксирован exact
+commit/rebuild и не опубликован; подробности — в
+[`CODE_AUDIT_2026-09-05.md`](CODE_AUDIT_2026-09-05.md).
 
 C-011 / `0.5.5` (code 19) исправляет near-end resume, source-independent S/E remap,
 ordered completed → next activation и перенос durable checkpoint queue в process scope.
@@ -68,6 +74,7 @@ signed manifest, Android CI и Pages deployment. Без hardware evidence releas
 | [`ROADMAP.md`](ROADMAP.md) | Предстоящая работа и приоритеты | После планирования и завершения пунктов |
 | [`CHANGELOG.md`](CHANGELOG.md) | История пользовательских и инженерных изменений | В каждой задаче, меняющей поведение |
 | [`HANDOFF_TEMPLATE.md`](HANDOFF_TEMPLATE.md) | Шаблон передачи незавершённой работы | Перед завершением неполной сессии |
+| [`CODE_AUDIT_2026-09-05.md`](CODE_AUDIT_2026-09-05.md) | C-012: размер, мёртвый код, найденные риски и следующие cleanup-проходы | После продолжения финального аудита |
 
 ## Специализированные исследования и спецификации
 

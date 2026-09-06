@@ -1,6 +1,6 @@
 # Безопасность и границы доверия
 
-Последнее обновление: **26 августа 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 ## Модель угроз
 
@@ -92,7 +92,7 @@ default-decline, explicit accept и безопасный выход из ниж�
 
 ## SSRF и destination validation
 
-`NetworkDestinationValidator`, `SafeHtmlClient`, `ProviderEmbedDocumentClient` и
+`NetworkDestinationValidator`, `KinogoSessionHttpClient`, `ProviderEmbedDocumentClient` и
 `SafePlaybackDataSources` блокируют:
 
 - IP literals;
@@ -108,6 +108,18 @@ DNS rebinding учитывается проверкой всех получен�
 
 Нельзя исправлять provider 404/timeout отключением этой проверки. Нужно исследовать свежий
 browser-visible contract и добавить bounded adapter.
+
+Отмена coroutine должна отменять соответствующий OkHttp `Call`, включая время bounded
+чтения response body. Нельзя превращать `CancellationException` в сетевой health-result:
+это публикует устаревшее состояние после отмены владельцем scope.
+
+## Целостность build dependencies
+
+- Gradle distribution закреплён официальной SHA-256 суммой в wrapper properties.
+- Разрешённые artifacts закреплены SHA-256 в `gradle/verification-metadata.xml`.
+- Обычная CI/canonical-сборка работает в strict verification mode.
+- `--write-verification-metadata` применяется только для контролируемого обновления после
+  review координат, репозиториев и release notes; сгенерированный diff проверяется отдельно.
 
 ## WebView
 
