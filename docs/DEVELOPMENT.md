@@ -117,19 +117,25 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
 исходников заметно дольше incremental debug-сборки; отсутствие missing-class ошибок и успешный
 `lintVitalRelease` обязательны. Mapping создаётся в
 `app/build/outputs/mapping/release/mapping.txt` и нужен для расшифровки release crash reports.
-Текущий C-012 working-tree canonical с генерацией dependency metadata прошёл за 23 мин 55 с,
+Опубликованный C-012 canonical с генерацией dependency metadata прошёл за 23 мин 55 с,
 а повторный обычный strict-run — за 1 мин 20 с: 90 suites / 473 tests, lint 0 errors и
 только два version advisory; release 6 703 237 bytes, один DEX.
 
 Gradle wrapper закреплён официальной SHA-256 суммой distribution, а зависимости —
 `gradle/verification-metadata.xml`. Обновлять metadata разрешено только адресно после review
 версий и источников; обычная canonical-команда обязана проходить без
-`--write-verification-metadata`.
+`--write-verification-metadata`. Metadata должна включать platform-specific AGP tools для
+Windows и Linux: C-012 PR CI fail-closed обнаружил отсутствующий Linux AAPT2 checksum;
+официальный artifact из Google Maven добавлен адресно и подтверждён следующими clean-clone runs.
 
 `.github/workflows/android.yml` на push в `main` и pull request выполняет clean-clone subset
 `testDebugUnitTest lintDebug assembleDebug` с JDK 17 / SDK 37. Official Actions закреплены
 полными commit SHA и используют Node 24. CI использует обычную debug signature, не собирает
 распространяемый stable-signed APK и не заменяет полный локальный canonical набор выше.
+
+C-012 PR/main Android runs `34013910619`, `34014167830` и post-manifest `34014778705`
+завершились SUCCESS. Signed update Pages run `34014778694` отдельно проверил exact GitHub
+Release asset, APK signer/metadata/alignment и manifest signature перед deployment.
 
 Текущий local exact snapshot C-011 / `0.5.5` code 19 привязан к application
 source `5223d81eefdc1b50b377cdcf74ced5174d553776`. Canonical command

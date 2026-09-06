@@ -6,7 +6,7 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: подготовка 0.6.0 и ручная приёмка playback
+## Сейчас: post-release 0.6.0 и расширенная ручная приёмка playback
 
 C-011 исправляет потерю видимого прогресса возле конца серии: exact `Back`/lifecycle
 checkpoint больше не подавляется 90%-эвристикой, а season/episode остаются первичными при
@@ -20,11 +20,13 @@ manifest, Android CI, Pages и exact live transports опубликованы. T
 C-010 / `0.5.4` остаётся предыдущим
 published validation rollback candidate, B-001 — полный playback baseline.
 
-C-012 / `0.6.0` code 20 — текущий source cleanup-кандидат: R8/resource shrinking,
+C-012 / `0.6.0` code 20 опубликован: R8/resource shrinking,
 удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
 fail-closed удаление fixture video, cancellable HTTP и обновлённые stable dependencies.
-Canonical, строгая dependency verification и exact post-commit release rebuild локально
-зелёные. Перед выпуском требуются remote CI и ручной TV smoke уже shrunk APK.
+Canonical, строгая dependency verification, exact post-commit release rebuild, PR/main CI,
+tag/Release, signed manifest, Pages и public exact-byte transports зелёные. На KIVI прошли
+обновление поверх `0.5.5`, cold launch, каталог и базовый D-pad smoke. Расширенная playback,
+media-key, source-refresh и in-app updater матрица остаётся приоритетом P0.
 
 ### P0 — runtime-приёмка владельцем
 
@@ -40,9 +42,10 @@ Canonical, строгая dependency verification и exact post-commit release r
   fallback download, APK checks и передачу Package Installer с обязательным OS confirmation.
 - Владелец проверяет обычный/долгий `OK` в Истории, что диалог остаётся открыт
   после отпускания `OK`, а также фокус «Проверить обновление» во время запроса.
-- Агент не подключается к TV по ADB, не устанавливает APK и не запускает hardware smoke
-  без нового явного разрешения владельца на конкретный узкий сценарий.
-- Не назначать C-011 playback baseline, пока не закрыта эта runtime-матрица.
+- Агент не подключается к TV по ADB, не устанавливает APK и не запускает новый hardware smoke
+  без явного разрешения владельца на конкретный узкий сценарий; разрешение на release smoke
+  6 сентября не распространяется автоматически на будущие тесты.
+- Не назначать C-012 playback baseline, пока не закрыта эта runtime-матрица.
 
 ### P1 — оставшиеся integration-регрессии
 

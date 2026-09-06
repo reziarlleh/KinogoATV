@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -30,6 +30,22 @@
 содержит документацию, repository hygiene и clean-clone signing fallback.
 
 ## Validation candidates
+
+### C-012 — 0.6.0 release
+
+- Статус: published release; install/startup/basic D-pad hardware smoke passed; full playback
+  и in-app updater runtime **PENDING**.
+- Application source: `108519861faf67bc50dcdc574cecf38f94c00a13`.
+- App/docs merge/tag: `aabcdc8fa69e88be11ce72a6997616d623d6688e`, annotated `v0.6.0`.
+- APK: `KinogoATV-0.6.0-code20.apk`, 6 703 237 bytes, SHA-256
+  `2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`.
+- Automated: 90 suites / 473 tests, lint 0 errors, exact R8 release rebuild; PR/main CI
+  `34013910619` / `34014167830` SUCCESS.
+- Update channel: PR #15 merge `892f6837d28bcc7f55b6fd118cc702f822ca6294`, Android
+  `34014778705`, Pages `34014778694`, exact live manifest/APK bytes verified.
+- Hardware: KIVI Android TV 14, `install -r` code 19 → 20 with preserved first install time;
+  cold launch, catalog and basic D-pad navigation passed without crash.
+- Rollback: C-011 для release integration; B-001 для полного playback runtime.
 
 ### C-011 — 0.5.5 validation
 
@@ -1120,11 +1136,31 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Protective test: `OkHttpCoroutinesTest` проверяет отмену до response и во время body;
   `MirrorHealthCheckerTest.probeDoesNotConvertCancellationIntoAnUnreachableReport` проверяет
   classification.
-- Runtime verification: не требуется для semantics fake-call; end-to-end network/TV smoke
-  C-012 остаётся **PENDING**.
+- Runtime verification: unit semantics и общий KIVI startup/network catalog smoke прошли;
+  контролируемая отмена активного body/request на реальном TV отдельно не провоцировалась.
 - Rollback point: C-011 / `5223d81e`.
 - Связанные файлы: `OkHttpCoroutines.kt`, update/mirror clients,
   `MirrorHealthChecker.kt`, соответствующие unit tests.
+
+### R-038 — Strict dependency verification не учитывала Linux AAPT2 artifact
+
+- Статус: Resolved in C-012 before release.
+- Обнаружено: 6 сентября 2026 года, первый clean-clone GitHub Actions run PR #14.
+- Affected version/commit: первый C-012 branch snapshot; Windows canonical был зелёным.
+- Last-known-good: C-011 до включения strict dependency verification metadata.
+- First-bad evidence: CI run `34013714669`.
+- Устройство/Android/source: GitHub-hosted Ubuntu runner, AGP 9.3.0.
+- Симптом: `processDebugResources` остановился, потому что metadata не содержала checksum
+  `aapt2-9.3.0-15703166-linux.jar`.
+- Причина: metadata была сгенерирована на Windows и включала Windows platform artifact, но
+  не platform-specific binary, который AGP разрешает на Linux runner.
+- Исправление: SHA-256 exact artifact из official Google Maven адресно добавлен в
+  `gradle/verification-metadata.xml`; strict mode не ослаблялся.
+- Protective test: PR run `34013910619` и post-merge runs `34014167830`, `34014778705`
+  прошли в чистой Linux CI-среде.
+- Runtime verification: не требуется; это build-supply-chain/portability regression.
+- Rollback point: C-011; исправляющий commit `b1d1fca`.
+- Связанные файлы: `gradle/verification-metadata.xml`, `.github/workflows/android.yml`.
 
 ## Шаблон новой записи
 

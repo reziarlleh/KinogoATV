@@ -4,7 +4,7 @@ KinogoATV — неофициальное нативное приложение-�
 рассчитан на телевизор, горизонтальный экран и управление обычным пультом без сенсорного
 ввода.
 
-Текущая опубликованная версия: **0.5.5**. Поддерживается Android TV 9 и новее (API 28+).
+Текущая опубликованная версия: **0.6.0**. Поддерживается Android TV 9 и новее (API 28+).
 Публичный репозиторий: [reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV).
 
 ## Независимый проект
@@ -111,14 +111,14 @@ KinogoATV не является официальным приложением Ki
 ## Установка
 
 Подписанный установочный файл текущей версии:
-[KinogoATV-0.5.5-code19.apk](https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk).
+[KinogoATV-0.6.0-code20.apk](https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk).
 Если GitHub недоступен, тот же проверенный APK можно скачать через
-[GitHub Pages](https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.5-code19.apk)
-или [ghfast](https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk).
+[GitHub Pages](https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.0-code20.apk)
+или [ghfast](https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk).
 Описание выпуска находится на странице
-[KinogoATV 0.5.5](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.5.5).
-Размер APK — 38 419 162 bytes; SHA-256 —
-`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`.
+[KinogoATV 0.6.0](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.0).
+Размер APK — 6 703 237 bytes; SHA-256 —
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`.
 
 1. Разрешите установку приложений из неизвестных источников на Android TV.
 2. Передайте подписанный APK на телевизор через USB-накопитель, файловый менеджер либо ADB.
@@ -130,12 +130,12 @@ KinogoATV не является официальным приложением Ki
 Для обновления поверх установленной версии используется APK с той же подписью:
 
 ```powershell
-adb install -r KinogoATV-0.5.5-code19.apk
+adb install -r KinogoATV-0.6.0-code20.apk
 ```
 
 Обновление также можно проверить в Настройках. Приложение не устанавливает APK скрытно:
 Android TV отдельно запросит разрешение для этого источника и подтверждение установки.
-Если установлена 0.5.4, обновление 0.5.5 можно проверить при запуске либо вручную в
+Если установлена более ранняя версия, обновление 0.6.0 можно проверить при запуске либо вручную в
 Настройках. Во время проверки кнопка остаётся на месте и не отдаёт фокус боковому меню.
 
 ## Данные пользователя
