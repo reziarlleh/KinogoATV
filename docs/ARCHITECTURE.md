@@ -323,11 +323,11 @@ selection не допускаются. Snapshot обогащается атом�
 и возврат из player: для content ID определяется самая новая точная единица, включая только
 что выбранную серию с позиции 0. Near-end эвристика не подавляет checkpoint после `Back`;
 resume запрещён только фактическим `playbackEnded`. Completed episode остаётся внутренним
-anchor и не откатывает policy к старой незавершённой серии. Обычно следующая series activation
-с position 0 уже является newest; если provider refresh удалил completed leaf, coordinate-first
-resolver находит следующую доступную S/E в свежей branch. Финальная серия не получает ложную
-Continue-метку. Details показывает season/episode/position, а для нулевой позиции — S/E без
-фиктивного `0:00`.
+anchor и не откатывает policy к старой незавершённой серии. Обычно следующая explicit series
+activation с position 0 уже является newest; если provider refresh удалил completed leaf,
+coordinate-first resolver находит следующую доступную S/E в свежей branch. Пока свежий plan
+не загружен, Details сохраняет видимый контекст `Продолжить после SxxExx`. Для нулевой позиции
+показывается S/E без фиктивного `0:00`.
 
 Checkpoint callback несёт explicit end-state и generation активной Media3-сессии. Root
 отбрасывает callback прежней generation, публикует актуальную запись в UI синхронно, а
@@ -451,8 +451,9 @@ device-bound.
 - Desired fixed quality не заменяется actual variant/track; выбор следует порядку
   exact → highest not above cap → lowest above cap и учитывает adaptive и fixed кандидаты
   совместно.
-- Новая выбранная серия получает checkpoint с position 0; near-end Back остаётся точным resume,
-  а explicit completed unit запрещает скрытый fallback к более старой незавершённой записи.
+- Новая выбранная серия получает explicit activation checkpoint с position 0; обычный нулевой
+  lifecycle/close callback игнорируется и не затирает прежнее время. Любой ненулевой `Back`
+  checkpoint остаётся точным resume, а completed unit запрещает скрытый fallback к старой записи.
   При source refresh та же S/E ищется во всех branches; position никогда не переносится на
   другую unit.
 - Recovery early return обязан discard-ить dead player и показать explicit error; ordinary

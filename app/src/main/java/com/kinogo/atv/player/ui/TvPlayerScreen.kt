@@ -2179,6 +2179,7 @@ private class TvPlayerRuntime(
                     positionMs = 0L,
                     durationMs = 0L,
                     playbackEnded = false,
+                    unitActivated = true,
                 ),
             )
         }
@@ -2193,6 +2194,7 @@ private class TvPlayerRuntime(
                 positionMs = 0L,
                 durationMs = 0L,
                 playbackEnded = false,
+                unitActivated = true,
             ),
         )
     }

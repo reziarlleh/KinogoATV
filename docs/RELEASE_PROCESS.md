@@ -8,6 +8,17 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
+C-013 / `0.6.1` (code 21) — patch-кандидат общего исправления временной отметки. Обычный
+zero-position lifecycle/close checkpoint больше не заменяет ненулевое время, explicit
+episode activation остаётся durable, completed anchor виден в Details. Рабочий canonical:
+90 suites / 471 test, lint 0 errors, все assembly зелёные за 8 мин 45 с. Application source
+`2de9d7b91c903e69fc68c1d17800f4c34570e2f3`; exact post-commit release rebuild — 13 мин
+51 с. APK 6 703 237 bytes, SHA-256
+`F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`; mapping SHA-256
+`F38C65F37FEF08191C00A4C803CA648AE545BB0D27CA64F366A722C7F76C1B2C`. Package/version/API,
+zipalign, v2, one-signer certificate и embedded revision проверены. PR/CI, tag/Release и
+signed manifest пока **PENDING**.
+
 Текущий C-012 / `0.6.0` (code 20) — опубликованный release с R8/resource
 shrinking, dependency verification и cancellable network paths. Local strict canonical:
 90 suites / 473 tests, lint 0 errors. Application commit

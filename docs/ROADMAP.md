@@ -6,19 +6,16 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: post-release 0.6.0 и расширенная ручная приёмка playback
+## Сейчас: patch-кандидат 0.6.1 и расширенная ручная приёмка playback
 
-C-011 исправляет потерю видимого прогресса возле конца серии: exact `Back`/lifecycle
-checkpoint больше не подавляется 90%-эвристикой, а season/episode остаются первичными при
-смене provider. Natural end сохраняет ordered completed → next S/E@0 даже при выключенном
-auto-next; disappeared completed leaf разрешается к следующей fresh coordinate, а финальная
-серия не показывает ложное Continue. Durable writes перенесены в process-owned application
-scope. Для C-011 exact source был `0.5.5` / code 19. Его canonical прошёл
-91 suites / 476 tests за 7m52s, lint 0 errors; exact post-commit artifact source
-`5223d81eefdc1b50b377cdcf74ced5174d553776` проверен. PR #11/#12, tag/Release, signed
-manifest, Android CI, Pages и exact live transports опубликованы. TV/ADB не использовались.
-C-010 / `0.5.4` остаётся предыдущим
-published validation rollback candidate, B-001 — полный playback baseline.
+C-013 / `0.6.1` code 21 исправляет общий класс исчезновения временной отметки, а не только
+частный пример возле конца серии. Обычный lifecycle/close checkpoint с нулевой позицией
+игнорируется и не может заменить сохранённое время; только явная активация другой серии
+сохраняет S/E@0. Completed episode остаётся видимым контекстом `Продолжить после SxxExx`.
+Мёртвая процентная completion-эвристика удалена, чтобы она не могла повторно попасть в exact
+resume path. Рабочий canonical прошёл 90 suites / 471 test, lint 0 errors и все assembly;
+exact post-commit stable-signed code 21 APK проверен локально. Публикация patch release и
+hardware playback приёмка пока **PENDING**.
 
 C-012 / `0.6.0` code 20 опубликован: R8/resource shrinking,
 удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
@@ -30,8 +27,9 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 
 ### P0 — runtime-приёмка владельцем
 
-- Владелец вручную проверяет выход из player возле конца серии, exact серию/позицию после
-  restart, смену источника, переход через границу сезона и immediate-next
+- Владелец вручную проверяет сохранение отметки при обычном `Back`, быстром открытии/выходе
+  до старта, lifecycle pause, restart, смене источника и выборе серии; отдельно проверяет
+  переход через границу сезона и immediate-next
   preload. Для quality проверяется exact/ниже cap/lowest-above и сохранение между
   сериями.
 - Владелец проверяет все пять buffer values и один контролируемый stall/error:

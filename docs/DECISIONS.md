@@ -663,10 +663,10 @@ package/version/signer verification → Android Package Installer pipeline. Mani
 - Дата: 5 сентября 2026 года
 - Статус: принято для C-011 / `0.5.5`; local/release/CI/Pages passed, TV pending
 
-Порог `90% + remaining window` остаётся приблизительной классификацией истории, но не имеет
-права удалять точную точку выхода. `WatchProgress.resumePositionMs` подавляет позицию только
-при фактическом `playbackEnded=true`. Поэтому `Back` или lifecycle checkpoint возле титров
-возобновляет ту же S/E с сохранённой позиции минус пять секунд.
+На этапе C-011 существовавшему порогу `90% + remaining window` запрещено было удалять точную
+точку выхода. `WatchProgress.resumePositionMs` подавляет позицию только при фактическом
+`playbackEnded=true`. В C-013 эта неиспользуемая эвристика удалена полностью: любая
+положительная unfinished-позиция возобновляет ту же S/E с откатом на пять секунд.
 
 Все natural-end exit callbacks используют единый ordered checkpoint plan: сначала completed
 текущей unit, затем activation реальной следующей coordinate с position 0, затем выход в
@@ -751,3 +751,22 @@ merged как `a69c729`, annotated `v0.5.5` и regular latest Release опубл
 source `47f0200` merged PR #12 как `419a537`; PR/main Android и Pages runs зелёные. Pages,
 ghfast и ghproxy дали exact APK; jsDelivr после purge отдал code 19 manifest. Hardware
 cold-restart/natural-end runtime ещё **PENDING**; release tag не становится playback baseline.
+
+## D-039 — Нулевая позиция сохраняется только как явная активация серии
+
+- Дата: 6 сентября 2026 года
+- Статус: принято для C-013 / `0.6.1`; source/unit tests passed, full validation и TV pending
+
+Exact playback timestamp не может быть выведен из одного числа позиции. Поэтому checkpoint
+имеет два независимых сигнала: `playbackEnded` для подтверждённого Media3 end и
+`unitActivated` для осознанного перехода на новую серию до первого progress tick.
+
+Обычный periodic/lifecycle/close callback с position 0 не несёт нового пользовательского
+прогресса и игнорируется. `unitActivated=true` допустим только для unfinished episode с
+нулевой позицией. Это сохраняет прежнюю ненулевую отметку при быстром открытии/выходе, но
+по-прежнему фиксирует выбор другой S/E. Completed episode остаётся видимой навигационной
+опорой в Details, даже если next activation не успела сохраниться.
+
+Следствие: процентные и remaining-time эвристики не входят в exact resume domain и удалены
+как мёртвый код. Удаление отметки возможно только явным удалением Истории/данных приложения;
+смена unit создаёт новую активную S/E, а не бесшумно стирает информацию о сериале.
