@@ -9,6 +9,10 @@
 
 ## [Unreleased]
 
+Новых пользовательских изменений после `0.6.1` пока нет.
+
+## [0.6.1] — 2026-09-06
+
 ### Исправление временной отметки
 
 - Обычный checkpoint с позицией `0` больше не может затереть сохранённое ненулевое время.
@@ -33,7 +37,12 @@
   `com.kinogo.atv` / `21` / `0.6.1`, min/target 28/37, zipalign PASS, v2 true, один прежний
   signer, embedded revision совпадает с application commit. Exact mapping: 64 768 813 bytes,
   SHA-256 `F38C65F37FEF08191C00A4C803CA648AE545BB0D27CA64F366A722C7F76C1B2C`.
-- PR/CI, tag/Release, update manifest и TV runtime пока **PENDING**.
+- PR #17 вошёл merge `ff5d26dc3e94ef289e2c1800618ac62258a79e96`; PR CI
+  `34027297259` и main CI `34027481401` завершились SUCCESS. Annotated `v0.6.1` и regular
+  GitHub Release содержат exact asset с тем же digest.
+- Signed manifest SHA-256 `CBA5C2643A2D3F3FF75D950A0FF896A0D7EE5B6132FEEF28E9290210BC517F42`
+  создан и локально проверен вместе с APK/signer; merge, Pages и live transports пока
+  **PENDING**. TV runtime также **PENDING**.
 
 ## [0.6.0] — 2026-09-06
 

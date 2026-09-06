@@ -2,9 +2,9 @@
 
 Последнее обновление: **6 сентября 2026 года**.
 
-## Текущий опубликованный release C-012
+## Текущий опубликованный release C-013
 
-Поверх опубликованного C-012 готовится C-013 / `0.6.1` code 21. Повторный аудит исходного
+Поверх C-012 опубликован C-013 / `0.6.1` code 21. Повторный аудит исходного
 симптома показал общий zero-checkpoint defect: обычный lifecycle/close callback серии с
 position 0 мог заменить сохранённую ненулевую отметку. Теперь ноль сохраняется только с
 explicit `unitActivated`, completed episode остаётся видимым как `Продолжить после SxxExx`,
@@ -14,7 +14,9 @@ post-commit source `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` пересобра
 Stable-signed APK: 6 703 237 bytes, SHA-256
 `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`, code/name 21/0.6.1,
 min/target 28/37, zipalign PASS, v2 true, один прежний signer, embedded revision exact.
-Публикация и TV runtime пока **PENDING**.
+PR #17 merge `ff5d26dc3e94ef289e2c1800618ac62258a79e96`, PR/main CI
+`34027297259` / `34027481401`, annotated tag `v0.6.1` и regular Release зелёные. Signed
+manifest локально проверен; его merge/Pages/live transports и TV runtime пока **PENDING**.
 
 Поверх C-011 выпущен C-012 / `0.6.0` code 20. Release переведён на
 R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
@@ -52,7 +54,7 @@ source-refresh и полный in-app updater/Package Installer flow этим у
 
 ## Краткий итог
 
-Текущий опубликованный release — **C-012 / 0.6.0** (code 20).
+Текущий опубликованный release — **C-013 / 0.6.1** (code 21).
 В C-011 был закрыт один найденный source-аудитом путь потери позиции: приблизительная
 completion-классификация больше не подавляет exact checkpoint, а реальный end определяется
 явным Media3 сигналом. Это не означает, что исходный пользовательский случай был привязан к
@@ -62,39 +64,38 @@ completion-классификация больше не подавляет exact
 Natural end теперь перед выходом последовательно пишет completed текущей серии и activation
 следующей S/E с position 0, включая выключенный auto-next. Durable writes принадлежат
 process scope `KinogoApplication`, а не lifecycle Compose host. Финальная серия без successor
-не показывает ложное «Продолжить». Единый контракт действует для Details из Главной,
-Каталога, Поиска, Истории, Закладок и после возврата из player.
+не обещает следующую серию, но сохраняет видимый контекст последней S/E. Единый контракт
+действует для Details из Главной, Каталога, Поиска, Истории, Закладок и после возврата из player.
 
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
-Local canonical, exact post-commit stable-signed artifact, PR/main CI, regular Release,
-signed manifest, Pages publication, public exact-byte checks и узкий KIVI launch/D-pad smoke
-C-012 зелёные. Hardware playback cold-restart/source-refresh resume остаётся **PENDING**.
-C-011 / `0.5.5` — предыдущий published validation rollback candidate, C-007 — integration
-point, B-001 — полный playback baseline.
+Local canonical, exact post-commit stable-signed artifact, PR/main CI и regular Release C-013
+зелёные; signed manifest publication ещё выполняется. Hardware playback cold-restart/
+source-refresh resume остаётся **PENDING**. C-012 / `0.6.0` — предыдущий published rollback
+candidate, C-007 — integration point, B-001 — полный playback baseline.
 
 ## Текущий release
 
 | Поле | Значение |
 | --- | --- |
-| Release | **C-012 / 0.6.0** |
-| Application source commit | `108519861faf67bc50dcdc574cecf38f94c00a13` |
+| Release | **C-013 / 0.6.1** |
+| Application source commit | `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `20` |
-| Version name | `0.6.0` |
+| Version code | `21` |
+| Version name | `0.6.1` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | Annotated `v0.6.0` опубликован как regular latest Release; playback baseline tag остаётся отдельным до полной hardware evidence |
+| Release tag | Annotated `v0.6.1` опубликован как regular latest Release; playback baseline tag остаётся отдельным до полной hardware evidence |
 
-Exact artifact C-012: `dist/KinogoATV-0.6.0-code20.apk`, **6 703 237 bytes**, SHA-256
-`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`. Package
-`com.kinogo.atv`, code/name `20/0.6.0`, min/target SDK `28/37`, zipalign PASS, v2 true,
-один signer; embedded revision совпадает с application source. Предыдущий exact published C-011:
-`dist/KinogoATV-0.5.5-code19.apk`, **38 419 162 bytes**, SHA-256
-`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`.
+Exact artifact C-013: `dist/KinogoATV-0.6.1-code21.apk`, **6 703 237 bytes**, SHA-256
+`F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`. Package
+`com.kinogo.atv`, code/name `21/0.6.1`, min/target SDK `28/37`, zipalign PASS, v2 true,
+один signer; embedded revision совпадает с application source. Предыдущий exact published C-012:
+`dist/KinogoATV-0.6.0-code20.apk`, **6 703 237 bytes**, SHA-256
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`.
 
 ## Known-good baseline и откат
 
