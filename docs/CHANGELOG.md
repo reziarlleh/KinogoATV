@@ -7,7 +7,11 @@
 честно реконструированы по APK в `dist/SHA256SUMS.txt`, датам файлов, тестам и
 пользовательскому циклу проверки. Это milestone history, не точный список коммитов.
 
-## [Unreleased] — C-012 / 0.6.0 release candidate
+## [Unreleased]
+
+Новых пользовательских изменений после `0.6.0` пока нет.
+
+## [0.6.0] — 2026-09-06
 
 ### Размер и производительность
 
@@ -45,13 +49,23 @@
   canonical без trust-on-first-use — **SUCCESS за 1 мин 20 с**: **90 suites / 473 tests**,
   0 failures/errors/skips. Lint — **0 errors**, только два version advisory (Gradle и
   намеренно отложенный OkHttp 5); debug, androidTest APK и release собраны.
-- Exact post-commit stable-signed candidate `app-release.apk` для application commit
+- Exact post-commit stable-signed APK для application commit
   `108519861faf67bc50dcdc574cecf38f94c00a13`: **6 703 237 bytes**, SHA-256
   `2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`; package/code/name
   `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS, v2 true, один signer,
   прежний certificate SHA-256. Полный `assembleRelease --rerun-tasks` прошёл за 15 мин 3 с;
-  exact R8 mapping зафиксирован hash в release evidence. Remote CI, publication и TV smoke
-  ещё PENDING.
+  exact R8 mapping зафиксирован hash в private release evidence.
+- PR #14 вошёл merge `aabcdc8fa69e88be11ce72a6997616d623d6688e`; PR CI `34013910619` и
+  main CI `34014167830` завершились SUCCESS. Annotated `v0.6.0` и regular GitHub Release
+  содержат exact asset с тем же digest.
+- Signed manifest SHA-256 `E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1`
+  вошёл PR #15 merge `892f6837d28bcc7f55b6fd118cc702f822ca6294`; Android CI `34014778705`
+  и Pages `34014778694` завершились SUCCESS. Pages/jsDelivr manifest и APK через
+  Pages/ghfast/ghproxy/direct GitHub совпали с exact local bytes.
+- На KIVI Android TV 14 `adb install -r` обновил code 19 до code 20 без изменения
+  `firstInstallTime`; cold launch, каталог и базовые D-pad-переходы прошли без crash.
+- Clean-clone Linux CI впервые выявил отсутствующий checksum platform-specific AAPT2;
+  официальный `aapt2-9.3.0-15703166-linux.jar` адресно добавлен в strict verification metadata.
 
 ## [0.5.5] — 2026-09-05 (validation release)
 

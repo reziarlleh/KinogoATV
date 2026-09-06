@@ -4,7 +4,7 @@
 Документы разделены по назначению, чтобы не смешивать пользовательское описание, текущее
 состояние, архитектурные контракты и исторические исследования.
 
-Последняя ревизия индекса: **5 сентября 2026 года**.
+Последняя ревизия индекса: **6 сентября 2026 года**.
 
 ## Быстрый старт для нового чата
 
@@ -32,13 +32,17 @@
 Корневой [`AGENTS.md`](../AGENTS.md) содержит обязательные правила работы агента и
 автоматически заметнее большинству coding-сред.
 
-## Текущий source candidate и опубликованный validation release
+## Текущий опубликованный release
 
-Рабочее дерево готовит C-012 / `0.6.0` code 20: R8/resource shrinking, удаление мёртвых
-Paging/PlayerJS/legacy transport веток, cancellable HTTP и dependency verification. Local
-strict canonical: 90 suites / 473 tests, lint 0 errors. Exact application commit/rebuild и
-stable-signed APK проверены; candidate ещё не прошёл remote CI/TV smoke и не опубликован.
-Подробности — в
+C-012 / `0.6.0` code 20 опубликован как regular GitHub Release: R8/resource shrinking,
+удаление мёртвых Paging/PlayerJS/legacy transport веток, cancellable HTTP и строгая
+dependency verification. Local strict canonical: 90 suites / 473 tests, lint 0 errors.
+Application source `108519861faf67bc50dcdc574cecf38f94c00a13`, PR #14 merge
+`aabcdc8fa69e88be11ce72a6997616d623d6688e`, annotated tag `v0.6.0`; signed manifest вошёл
+PR #15 merge `892f6837d28bcc7f55b6fd118cc702f822ca6294`. PR/main Android CI и Pages publish зелёные,
+Pages/jsDelivr manifest и четыре APK transport отдали exact bytes. На KIVI Android TV 14
+обновление `0.5.5 → 0.6.0`, cold launch, каталог и базовые D-pad-переходы прошли без crash;
+расширенная playback/updater матрица остаётся отдельной ручной приёмкой. Подробности — в
 [`CODE_AUDIT_2026-09-05.md`](CODE_AUDIT_2026-09-05.md).
 
 C-011 / `0.5.5` (code 19) исправляет near-end resume, source-independent S/E remap,

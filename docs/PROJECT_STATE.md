@@ -2,9 +2,9 @@
 
 Последнее обновление: **6 сентября 2026 года**.
 
-## Текущий рабочий кандидат C-012
+## Текущий опубликованный release C-012
 
-Поверх опубликованного C-011 подготовлен C-012 / `0.6.0` code 20. Release переведён на
+Поверх C-011 выпущен C-012 / `0.6.0` code 20. Release переведён на
 R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
 `SafeHtmlClient`, wrapper, шесть production и одна test-only dependency declaration. Устранены fixture playback для
 неизвестного content ID и потеря coroutine cancellation в mirror/update HTTP paths.
@@ -22,13 +22,25 @@ androidTest APK и release собраны. Application commit
 package/code/name `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS,
 v2 true, один прежний signer. Экономия относительно published C-011 —
 **31 715 925 bytes / 82,55%**. Exact mapping: **64 765 967 bytes**, SHA-256
-`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`. Remote CI,
-publication и TV/ADB runtime ещё **PENDING**; R8/Media3 candidate требует ручного smoke.
+`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`.
+
+Application/docs PR #14 вошёл merge
+`aabcdc8fa69e88be11ce72a6997616d623d6688e`; PR CI `34013910619` и main CI
+`34014167830` — SUCCESS. Annotated tag `v0.6.0` и regular GitHub Release опубликованы.
+Signed manifest SHA-256
+`E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1` вошёл PR #15 merge
+`892f6837d28bcc7f55b6fd118cc702f822ca6294`; main Android CI `34014778705` и Pages run
+`34014778694` — SUCCESS. Pages/jsDelivr manifest и APK через Pages, ghfast, ghproxy и direct
+GitHub совпали с exact local bytes.
+
+KIVI 4K Android TV / Android 14 обновлён через `adb install -r` с `0.5.5` code 19 до
+`0.6.0` code 20: `firstInstallTime` сохранился, cold launch открыл `MainActivity`, каталог
+загрузился, базовые D-pad Down/Up/Right/Left не привели к crash. Playback, media keys,
+source-refresh и полный in-app updater/Package Installer flow этим узким smoke не проверялись.
 
 ## Краткий итог
 
-Текущий application source выпускает **0.6.0** (code 20) как непубликованный C-012;
-published validation release остаётся **C-011 / 0.5.5**.
+Текущий опубликованный release — **C-012 / 0.6.0** (code 20).
 Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
 подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
 сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed
@@ -43,33 +55,33 @@ process scope `KinogoApplication`, а не lifecycle Compose host. Финаль�
 Серверная синхронизация ограничена `STATUS` и `FAVORITE`. История и exact playback
 progress остаются в локальном `PlaybackProgressStore`; account endpoint сайта для них нет.
 Local canonical, exact post-commit stable-signed artifact, PR/main CI, regular Release,
-signed manifest и Pages publication C-011 зелёные.
-TV/ADB не использовались; hardware cold-restart/source-refresh resume остаётся **PENDING**.
-C-010 / `0.5.4` — предыдущий published validation rollback candidate, C-007 — integration
+signed manifest, Pages publication, public exact-byte checks и узкий KIVI launch/D-pad smoke
+C-012 зелёные. Hardware playback cold-restart/source-refresh resume остаётся **PENDING**.
+C-011 / `0.5.5` — предыдущий published validation rollback candidate, C-007 — integration
 point, B-001 — полный playback baseline.
 
-## Текущий validation release
+## Текущий release
 
 | Поле | Значение |
 | --- | --- |
-| Release | **C-011 / 0.5.5 validation** |
-| Application source commit | `5223d81eefdc1b50b377cdcf74ced5174d553776` |
+| Release | **C-012 / 0.6.0** |
+| Application source commit | `108519861faf67bc50dcdc574cecf38f94c00a13` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `19` |
-| Version name | `0.5.5` |
+| Version code | `20` |
+| Version name | `0.6.0` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | Annotated `v0.5.5` опубликован как regular latest validation Release; baseline tag не создаётся до hardware evidence |
+| Release tag | Annotated `v0.6.0` опубликован как regular latest Release; playback baseline tag остаётся отдельным до полной hardware evidence |
 
-Exact artifact C-011: `dist/KinogoATV-0.5.5-code19.apk`, **38 419 162 bytes**, SHA-256
-`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`. Package
-`com.kinogo.atv`, code/name `19/0.5.5`, min/target SDK `28/37`, zipalign PASS, v2 true,
-один signer; embedded revision совпадает с application source. Предыдущий exact published C-010:
-`dist/KinogoATV-0.5.4-code18.apk`, **38 402 782 bytes**, SHA-256
-`541941C081136854D17FB7258E92149D98F1292A56DAD02724BC1DCAA9F543AC`.
+Exact artifact C-012: `dist/KinogoATV-0.6.0-code20.apk`, **6 703 237 bytes**, SHA-256
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`. Package
+`com.kinogo.atv`, code/name `20/0.6.0`, min/target SDK `28/37`, zipalign PASS, v2 true,
+один signer; embedded revision совпадает с application source. Предыдущий exact published C-011:
+`dist/KinogoATV-0.5.5-code19.apk`, **38 419 162 bytes**, SHA-256
+`8A9DDDDF61DF4A7814E47B92A26B89FCBAFEFEFD6CDEB85B2203B124803E9AE9`.
 
 ## Known-good baseline и откат
 
@@ -103,26 +115,49 @@ Rollback APK допустим только с совместимой подпи�
 
 | Подсистема | Статус | Реализованный контракт / evidence |
 | --- | --- | --- |
-| Запуск | C-011 source/build PASS; hardware **PENDING** | Startup title `KinogoATV`; TV/ADB не использовались |
-| Android TV launcher | C-011 exact APK/publication PASS | Package/code/name/min/target, zipalign, stable signing и embedded revision проверены |
+| Запуск | C-012 source/build + KIVI smoke PASS | Android TV 14: cold launch `MainActivity`, process alive, no crash |
+| Android TV launcher | C-012 exact APK/publication/KIVI PASS | `0.5.5 → 0.6.0` через `install -r`, package data сохранены |
 | Навигация | History/Search non-first verified | Player → Details → source destination прошёл; вторая History card и второй Search result восстановили exact focus |
 | Главная | Работает; все 7 sorts прошли TV smoke | Без hero/history/title; live xSort, минимум 18 уникальных карточек при старте и ранний append |
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | C-007 state/history + TV non-first verified | `Chris`, results и вторая карточка восстановлены после Details; recent-query row verified; long append pending |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
-| Карточка / resume | C-011 source/unit PASS; runtime pending | Exact near-end checkpoint, coordinate-first source remap и единая policy для Home/Catalog/Search/History/Bookmarks/player return |
+| Карточка / resume | C-012 source/unit PASS; playback runtime pending | Exact near-end checkpoint, coordinate-first source remap и единая policy для Home/Catalog/Search/History/Bookmarks/player return |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-011 source/unit PASS; runtime pending | Process-owned serialized checkpoints, Details-first click, long-OK delete/clear, content-level removal и codec v3 source ID |
-| Выбор источника | C-011 source/unit PASS; runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
-| Нативный плеер | C-011 source/unit/build PASS; hardware **PENDING** | Near-end Back остаётся resumable; natural exit пишет completed → next activation; buffer recovery/quality policy сохранены |
+| История | C-012 source/unit PASS; extended runtime pending | Process-owned serialized checkpoints, Details-first click, long-OK delete/clear, content-level removal и codec v3 source ID |
+| Выбор источника | C-012 source/unit PASS; playback runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
+| Нативный плеер | C-012 source/unit/release PASS; playback hardware **PENDING** | R8 startup проверен; near-end/natural-end/source-refresh playback в этом smoke не запускались |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-011 Release/manifest/Pages PASS; runtime **PENDING** | Exact code 19 APK и signed manifest опубликованы; Pages/ghfast/ghproxy скачали exact bytes |
+| Обновления | C-012 Release/manifest/Pages/public bytes PASS; in-app runtime **PENDING** | Exact code 20 APK и signed manifest опубликованы; Pages/jsDelivr/ghfast/ghproxy/direct сверены |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-011 local/PR/main/Pages PASS | Canonical 91 suites / 476 tests, lint 0 errors; PR #11/#12, main Android и Pages runs зелёные |
+| CI | C-012 local/PR/main/Pages PASS | Canonical 90 suites / 473 tests, lint 0 errors; PR #14/#15, main Android и Pages runs зелёные |
+
+## Проверка C-012
+
+Canonical strict run: **90 suites / 473 tests**, 0 failures/errors/skips; lint **0 errors**
+и два version advisory; debug, androidTest APK и R8 release собраны. Exact application
+commit `108519861faf67bc50dcdc574cecf38f94c00a13`, release rerun — 15 мин 3 с / 52 tasks.
+PR #14 merge `aabcdc8fa69e88be11ce72a6997616d623d6688e`; PR/main runs
+`34013910619` / `34014167830` — SUCCESS. Первый PR run `34013714669` корректно остановился
+на отсутствующем Linux AAPT2 checksum; metadata дополнена проверенным official Google Maven
+artifact, что защищено последующими clean-clone runs.
+
+Annotated `v0.6.0` и regular Release опубликованы с exact APK. Manifest issued
+`2026-09-06T05:40:23Z`, expires `2026-10-06T05:40:23Z`, размер 1 273 bytes, SHA-256
+`E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1`. PR #15 merge
+`892f6837d28bcc7f55b6fd118cc702f822ca6294`; PR CI `34014717324`, main Android
+`34014778705` и Pages `34014778694` — SUCCESS. Live Pages и jsDelivr manifest имеют exact
+manifest hash; Pages, ghfast, ghproxy и direct GitHub APK имеют exact release hash.
+
+Узкий KIVI Android TV 14 smoke 6 сентября: до установки code/name `19/0.5.5`, после
+`adb install -r` — `20/0.6.0`; `firstInstallTime=2026-07-26 16:42:18` не изменился.
+Cold launch открыл `com.kinogo.atv/.MainActivity`, process остался жив, каталог загрузился,
+базовый D-pad round-trip прошёл, в scoped logcat не найдено crash/ANR. Instrumentation,
+реальное воспроизведение, media keys, source refresh и OS installer handoff не запускались.
 
 ## Проверка C-011
 

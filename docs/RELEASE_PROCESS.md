@@ -8,14 +8,16 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
-Текущий source C-012 / `0.6.0` (code 20) — непубликованный cleanup candidate с R8/resource
+Текущий C-012 / `0.6.0` (code 20) — опубликованный release с R8/resource
 shrinking, dependency verification и cancellable network paths. Local strict canonical:
 90 suites / 473 tests, lint 0 errors. Application commit
 `108519861faf67bc50dcdc574cecf38f94c00a13`; exact post-commit release rebuild — 15 мин 3 с.
 APK 6 703 237 bytes, SHA-256
 `2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`; exact mapping SHA-256
-`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`. Это ещё не
-опубликованный asset: нужны remote CI, TV smoke, tag/Release и signed manifest.
+`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`. PR #14,
+annotated `v0.6.0`, regular Release, PR/main CI, signed manifest PR #15, Pages и live
+exact-byte transports опубликованы. Узкий KIVI update/startup/D-pad smoke прошёл; расширенная
+playback и in-app updater runtime-приёмка остаётся отдельной.
 
 Текущий опубликованный C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
 exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
@@ -416,24 +418,23 @@ digest. Затем из той же локальной stable-signed копии 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.AddDays(30)
 .\scripts\New-SignedUpdateManifest.ps1 `
-  -ApkPath .\dist\KinogoATV-0.5.5-code19.apk `
-  -VersionName 0.5.5 -VersionCode 19 -ExpiresAt $expires `
+  -ApkPath .\dist\KinogoATV-0.6.0-code20.apk `
+  -VersionName 0.6.0 -VersionCode 20 -ExpiresAt $expires `
   -DownloadUrl @(
-    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.5.5-code19.apk',
-    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk',
-    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk',
-    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.5.5/KinogoATV-0.5.5-code19.apk'
+    'https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.0-code20.apk',
+    'https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk',
+    'https://ghproxy.net/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk',
+    'https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk'
   )
 ```
 
-Команда выше воспроизводит опубликованный C-011 contract. Final code 19
+Команда выше воспроизводит опубликованный C-012 contract. Final code 20
 `update/manifest.json`: 1 273 bytes, file SHA-256
-`F5103CC4810A6918BE9D181481EA347C292DAA7A58710C359EAE7FFD1EC4CE1E`, issued
-`2026-09-05T13:00:35Z`, expires `2026-10-05T13:00:33Z`; payload содержит exact APK
-size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest source
-`47f0200`, PR #12, main merge
-`419a537742a1533f2e4e717acfe15fb3572e5937`; PR CI run `33967703322`, main Android
-run `33967791922` и Pages run `33967791953` завершились SUCCESS.
+`E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1`, issued
+`2026-09-06T05:40:23Z`, expires `2026-10-06T05:40:23Z`; payload содержит exact APK
+size/SHA-256 и четыре URLs Pages/ghfast/ghproxy/direct GitHub. Manifest source `89491b6`,
+PR #15, main merge `892f6837d28bcc7f55b6fd118cc702f822ca6294`; PR CI run `34014717324`,
+main Android `34014778705` и Pages `34014778694` завершились SUCCESS.
 
 Исторический final code 17
 `update/manifest.json`: 1 273 bytes, file SHA-256
@@ -600,8 +601,10 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
       API, zipalign, v2 и один прежний signer корректны.
 - [x] Exact APK и R8 mapping hashes записаны; обе копии сохранены в ignored private archive
       `.signing/release-evidence/0.6.0-code20-1085198/`.
-- [ ] Remote PR/main CI зелёные, tag/regular Release и signed manifest опубликованы.
-- [ ] Exact public transports и разрешённый владельцем TV smoke подтверждены.
+- [x] Remote PR/main CI зелёные, annotated tag/regular Release и signed manifest опубликованы.
+- [x] Pages/jsDelivr manifest и Pages/ghfast/ghproxy/direct APK совпали с exact bytes.
+- [x] Разрешённый владельцем KIVI `0.5.5 → 0.6.0` install/startup/basic D-pad smoke прошёл.
+- [ ] Расширенная playback/media-key/source-refresh и in-app updater runtime-матрица закрыта.
 
 ## Historical completed checklist C-011
 

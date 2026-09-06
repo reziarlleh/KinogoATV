@@ -682,7 +682,8 @@ series не показывает ложное «Продолжить» и не �
 ## D-037 — Coroutine-facing OkHttp paths обязаны быть cancellable до конца body processing
 
 - Дата: 6 сентября 2026 года
-- Статус: принято для C-012 / `0.6.0`; unit/canonical passed, TV pending
+- Статус: принято для C-012 / `0.6.0`; unit/canonical и KIVI startup passed,
+  контролируемая runtime cancellation не провоцировалась
 
 Все suspend-операции поверх OkHttp используют один общий adapter. Он отменяет `Call`, если
 coroutine завершена до headers, и сохраняет completion handler до конца bounded обработки
@@ -697,12 +698,17 @@ probe classification.
 ## D-038 — Release dependency graph проверяется и минимизируется как часть C-012
 
 - Дата: 6 сентября 2026 года
-- Статус: принято для C-012 / `0.6.0`; strict canonical passed
+- Статус: принято для опубликованного C-012 / `0.6.0`; strict local/Windows и clean-clone Linux CI passed
 
 Release всегда собирается с R8/resource shrinking. Gradle distribution закреплён официальной
 SHA-256 суммой, а artifacts — verification metadata. Неиспользуемые production dependencies
 удаляются после source/compile проверки. Обновление metadata выполняется только намеренно и
 проверяется обычной сборкой без режима записи.
+
+Platform-specific build tools фиксируются для всех CI/локальных ОС, которые входят в
+поддерживаемый release process. C-012 Linux CI намеренно остановился при отсутствии AAPT2
+checksum; правильное исправление — добавить проверенный official artifact, а не ослабить
+verification mode.
 
 Следствие: R8 нельзя выключать для final artifact; exact mapping хранится вместе с приватными
 release evidence. Major-миграции вроде OkHttp 5 и toolchain update не смешиваются с cleanup

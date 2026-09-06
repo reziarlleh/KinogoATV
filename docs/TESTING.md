@@ -2,17 +2,16 @@
 
 Последнее обновление: **6 сентября 2026 года**.
 
-## C-012 cleanup candidate
+## C-012 / 0.6.0 release evidence
 
 Canonical рабочего дерева с `--write-verification-metadata sha256` завершён **SUCCESS за
 23 мин 55 с**, а повторный обычный strict-run `testDebugUnitTest lintDebug assembleDebug
 assembleDebugAndroidTest assembleRelease` — **SUCCESS за 1 мин 20 с**: **90 suites / 473
 tests**, 0 failures/errors/skips; lint — **0 errors**, только два version advisory.
-`assembleDebugAndroidTest` только собрал test APK; instrumentation и TV/ADB не запускались.
+`assembleDebugAndroidTest` только собрал test APK; instrumentation не запускалась.
 Shrunk stable-signed release имеет один DEX, 6 703 237 bytes и прошёл
 package/API/zipalign/v2/one-signer verification. Добавлены cancellation guards для общего
-OkHttp adapter и mirror probe, а instrumentation source переведён на `junit4.v2`. Перед
-публикацией R8/Media3-кандидата остаётся ручной TV smoke.
+OkHttp adapter и mirror probe, а instrumentation source переведён на `junit4.v2`.
 
 После application commit `108519861faf67bc50dcdc574cecf38f94c00a13` exact
 `assembleRelease --rerun-tasks` прошёл **SUCCESS за 15 мин 3 с** (52 executed tasks).
@@ -22,6 +21,19 @@ Embedded APK revision совпадает с commit; hash/signing/zipalign и R8 
 `verify_update_manifest.py self-test` и Java `UpdateManifestSigner.java self-test`; Gradle
 verification metadata успешно разбирается как XML. Это не заменяет проверку final signed
 manifest после публикации exact APK.
+
+PR #14 clean-clone CI `34013910619` и post-merge `34014167830` завершились SUCCESS.
+Первый run `34013714669` выявил отсутствующий Linux AAPT2 checksum и завершился fail-closed;
+после адресного добавления official artifact metadata PR/main проверки зелёные. PR #15
+manifest CI `34014717324`, post-merge Android `34014778705` и Pages `34014778694` также
+SUCCESS. Live Pages/jsDelivr manifest и Pages/ghfast/ghproxy/direct APK совпали с exact bytes.
+
+По явному разрешению владельца выполнен узкий KIVI 4K Android TV / Android 14 smoke:
+`adb install -r` обновил `0.5.5` code 19 до `0.6.0` code 20 без изменения `firstInstallTime`;
+cold launch открыл `MainActivity`, загрузил каталог, пережил D-pad Down/Up/Right/Left, процесс
+остался жив, crash/ANR в scoped logcat не найдено. Этот результат доказывает установку,
+R8-startup и базовую TV-навигацию, но не заменяет playback/media-key/source-refresh и полный
+in-app updater → Package Installer сценарий.
 
 ## Принцип доказательств
 

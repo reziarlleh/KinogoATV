@@ -118,6 +118,16 @@ browser-visible contract и добавить bounded adapter.
 - Gradle distribution закреплён официальной SHA-256 суммой в wrapper properties.
 - Разрешённые artifacts закреплены SHA-256 в `gradle/verification-metadata.xml`.
 - Обычная CI/canonical-сборка работает в strict verification mode.
+- Platform-specific AGP tools должны быть перечислены для всех поддерживаемых build hosts.
+  C-012 clean-clone Linux CI выявил отсутствующий `aapt2` Linux checksum; official Google
+  Maven artifact добавлен адресно, а strict verification не отключалась.
+
+Для `0.6.0` exact GitHub Release asset и digest, manifest signature, APK size/SHA-256,
+package/version/minSdk, zipalign и прежняя signing identity проверены локально и Pages CI.
+Manifest SHA-256 —
+`E5B9CF7A8D6F8DB0FF74BF4342425C70502B3099F0396027732D7E376E8F88E1`; Pages/jsDelivr
+manifest и Pages/ghfast/ghproxy/direct APK совпали с exact bytes. Узкий `install -r` на KIVI
+сохранил данные пакета; полный in-app download/verify/Package Installer flow не запускался.
 - `--write-verification-metadata` применяется только для контролируемого обновления после
   review координат, репозиториев и release notes; сгенерированный diff проверяется отдельно.
 
