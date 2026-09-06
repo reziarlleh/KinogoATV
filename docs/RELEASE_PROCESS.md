@@ -598,7 +598,8 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
       `assembleRelease --rerun-tasks` (15 мин 3 с, 52 tasks) зафиксированы.
 - [x] Exact stable-signed APK проверен: 6 703 237 bytes, один DEX, package/code/name,
       API, zipalign, v2 и один прежний signer корректны.
-- [x] Exact APK и R8 mapping hashes записаны; mapping нужно сохранить в приватном archive.
+- [x] Exact APK и R8 mapping hashes записаны; обе копии сохранены в ignored private archive
+      `.signing/release-evidence/0.6.0-code20-1085198/`.
 - [ ] Remote PR/main CI зелёные, tag/regular Release и signed manifest опубликованы.
 - [ ] Exact public transports и разрешённый владельцем TV smoke подтверждены.
 
