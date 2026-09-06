@@ -2,6 +2,8 @@ package com.kinogo.atv.data.mirror
 
 import com.google.gson.JsonParser
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.awaitResponse
+import com.kinogo.atv.data.network.kinogoUserAgent
 import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.time.Instant
@@ -160,9 +162,9 @@ private class GitHubRawMirrorBootstrapTransport(
         val request = Request.Builder()
             .url(MANIFEST_URL)
             .header("Accept", "application/json")
-            .header("User-Agent", "KinogoATV/0.5 (Android TV; mirror bootstrap)")
+            .header("User-Agent", kinogoUserAgent("mirror bootstrap"))
             .build()
-        client.newCall(request).execute().use { response ->
+        client.newCall(request).awaitResponse().use { response ->
             require(response.code !in 300..399) { "Mirror manifest redirect is not allowed" }
             val responseBody = response.body
             val declaredLength = responseBody?.contentLength() ?: -1L

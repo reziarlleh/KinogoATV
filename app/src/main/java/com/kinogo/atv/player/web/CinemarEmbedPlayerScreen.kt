@@ -49,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -113,8 +114,8 @@ fun ProviderEmbedPlayerScreen(
     var notice by remember(source.id) { mutableStateOf<String?>(null) }
     var hudVisible by remember(source.id) { mutableStateOf(true) }
     var cursorMode by remember(source.id) { mutableStateOf(false) }
-    var cursorX by remember(source.id) { mutableStateOf(0.5f) }
-    var cursorY by remember(source.id) { mutableStateOf(0.5f) }
+    var cursorX by remember(source.id) { mutableFloatStateOf(0.5f) }
+    var cursorY by remember(source.id) { mutableFloatStateOf(0.5f) }
     var interactionGeneration by remember(source.id) { mutableIntStateOf(0) }
     var recoveryState by remember(source.id) { mutableStateOf(CinemarWebViewRecoveryState()) }
     var exitPending by remember(source.id) { mutableStateOf(false) }
@@ -649,7 +650,8 @@ internal data class CinemarWebViewRecoveryState(
     }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint("ViewConstructor")
+@Suppress("DEPRECATION")
 private class CinemarWebPlayerView(
     context: android.content.Context,
     source: ResolvedPlaybackEmbed,
@@ -873,6 +875,7 @@ private class CinemarWebPlayerView(
     }
 }
 
+@SuppressLint("SetJavaScriptEnabled")
 @Suppress("DEPRECATION")
 private fun WebSettings.applySecureProviderSettings() {
     javaScriptEnabled = true
@@ -915,7 +918,7 @@ private class SecureCinemarWebViewClient(
         return blockIfExternal(request.url.toString())
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean =
         url == null || blockIfExternal(url)
 

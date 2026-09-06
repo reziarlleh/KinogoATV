@@ -1,11 +1,34 @@
 # Текущее состояние проекта
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
+
+## Текущий рабочий кандидат C-012
+
+Поверх опубликованного C-011 подготовлен C-012 / `0.6.0` code 20. Release переведён на
+R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
+`SafeHtmlClient`, wrapper, шесть production и одна test-only dependency declaration. Устранены fixture playback для
+неизвестного content ID и потеря coroutine cancellation в mirror/update HTTP paths.
+Сетевые User-Agent теперь соответствуют версии сборки. Stable Media3/Coil/Gson/jsoup
+обновлены; dependency checksums и checksum Gradle wrapper зафиксированы.
+
+Canonical с генерацией dependency verification metadata завершён **SUCCESS за 23 мин 55 с**;
+повторный canonical в обычном strict-режиме — **SUCCESS за 1 мин 20 с**: **90 suites /
+473 tests**, 0 failures/errors/skips; lint — **0 errors**, два version advisory; debug,
+androidTest APK и release собраны. Application commit
+`108519861faf67bc50dcdc574cecf38f94c00a13`; exact post-commit
+`assembleRelease --rerun-tasks` — **SUCCESS за 15 мин 3 с**. Stable-signed candidate:
+**6 703 237 bytes**, SHA-256
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`, один DEX,
+package/code/name `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS,
+v2 true, один прежний signer. Экономия относительно published C-011 —
+**31 715 925 bytes / 82,55%**. Exact mapping: **64 765 967 bytes**, SHA-256
+`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`. Remote CI,
+publication и TV/ADB runtime ещё **PENDING**; R8/Media3 candidate требует ручного smoke.
 
 ## Краткий итог
 
-Текущий application source выпускает **0.5.5** (code 19), published validation release
-**C-011**.
+Текущий application source выпускает **0.6.0** (code 20) как непубликованный C-012;
+published validation release остаётся **C-011 / 0.5.5**.
 Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
 подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
 сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed

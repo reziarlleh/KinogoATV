@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 ## Цели архитектуры
 
@@ -155,8 +155,8 @@ xSort параллельно. Каждый `loadPage` проходит чере�
 xSort-состояние, а generation/origin/query guards не позволяют позднему ответу смешать
 ленты. Append не запрашивает Compose focus, поэтому не меняет текущую D-pad-позицию.
 
-Production-пагинация по-прежнему координируется
-вручную в `KinogoAppRoot`; `HtmlCatalogPagingSource` в этот flow не подключён.
+Production-пагинация координируется вручную в `KinogoAppRoot`. Неиспользуемый параллельный
+PagingSource-путь удалён в C-012, чтобы каталог имел один источник состояния и retry policy.
 
 ### Авторизация и библиотека
 
@@ -493,13 +493,12 @@ device-bound.
 
 - `KinogoAppRoot.kt` слишком велик и совмещает composition, orchestration и use cases.
 - Нет ViewModel/state-holder слоя и формализованного DI.
-- Production catalog использует ручную пагинацию при наличии отдельного PagingSource.
 - xSort session-wide и потому требует общей сериализации даже при независимых UI feed
   states; разделение cookie sessions на browse/search пока не вводилось.
 - `reduceMotion` применяется только к части Settings UI.
 - GitHub Actions clean-clone Android workflow и Pages deployment получили первые зелёные
-  runs для merge `367bcf2`; dependency verification и API 28 emulator/device smoke
-  отсутствуют.
+  runs для merge `367bcf2`; dependency verification добавлена в C-012, API 28
+  emulator/device smoke отсутствует.
 
 Legacy `cycle`/`SettingCycleDirection` для Settings удалён в C-008. Изменение настройки идёт
 только через stable `settingId + optionId`: boolean-пункты передают состояние switch, enum
@@ -527,3 +526,9 @@ process-owned `KinogoApplication`. Exact source
 APK, stable signing и embedded revision проверены. PR #11/#12, tag/regular Release, signed
 manifest, Android CI и Pages опубликованы; Pages/ghfast/ghproxy дали exact APK. Hardware
 cold-restart и Media3 callback order остаются **PENDING**.
+
+C-012 оставляет один production catalog paging coordinator и один stateful HTML client.
+Все coroutine-facing OkHttp paths используют общий cancellable adapter; отмена связана с
+`Call` до завершения обработки body. Сетевой User-Agent строится из versionName текущей
+сборки. Release-граф минимизируется R8/resource shrinking, а разрешённые зависимости
+закреплены Gradle verification metadata.

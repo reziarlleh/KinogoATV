@@ -4,8 +4,8 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.Log
+import androidx.core.net.toUri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -132,10 +132,6 @@ import kotlinx.coroutines.withContext
 
 private val Context.kinogoDataStore by preferencesDataStore(name = "kinogo_tv_state")
 
-private const val DEVELOPMENT_FIXTURE_VIDEO_URL =
-    "https://storage.googleapis.com/exoplayer-test-media-0/BigBuckBunny_320x180.mp4"
-private const val DEVELOPMENT_FIXTURE_VOICE = "Демонстрационная дорожка"
-private const val DEVELOPMENT_FIXTURE_QUALITY = "320p"
 private const val APP_ROOT_LOG_TAG = "KinogoAppRoot"
 private const val PLAYBACK_DETAIL_RETRY_DELAY_MS = 350L
 private const val HOME_INITIAL_PRELOAD_ROWS = 3
@@ -1276,29 +1272,13 @@ fun KinogoAppRoot() {
             )
         }
         val allItems = knownCatalogItems()
-        val item = allItems.firstOrNull { it.id == requested.contentId }
+        val item = findKnownPlaybackItem(allItems, requested.contentId)
         if (item == null) {
-            val fixturePlan = fixturePlaybackPlan(requested)
-            if (fixturePlan == null) {
-                launchSafety.recoveryErrorFor(
-                    PlaybackRecoveryEarlyFailure.CONTENT_UNAVAILABLE,
-                )?.let { errorMessage ->
-                    stopRecoveryBeforePreparation(requested.contentId, errorMessage)
-                }
-                return
+            launchSafety.recoveryErrorFor(
+                PlaybackRecoveryEarlyFailure.CONTENT_UNAVAILABLE,
+            )?.let { errorMessage ->
+                stopRecoveryBeforePreparation(requested.contentId, errorMessage)
             }
-            pendingPlaybackSelection = PendingPlaybackSelectionSession(
-                title = KinogoFixtures.catalog
-                    .firstOrNull { it.id == requested.contentId }
-                    ?.title
-                    ?: requested.contentId,
-                selection = requested.normalizedFor(fixturePlan),
-                mediaPlan = fixturePlan,
-                webFallbacks = emptyList(),
-                initialPositionMs = 0L,
-            )
-            activePlayback = null
-            activeEmbeddedPlayback = null
             return
         }
         val origin = activeMirrorOrigin
@@ -2245,34 +2225,10 @@ fun KinogoAppRoot() {
     }
 }
 
-private fun fixturePlaybackPlan(selection: PlaybackSelectionUiModel): PlaybackMediaPlan? {
-    if (KinogoFixtures.catalog.none { it.id == selection.contentId }) return null
-    val isEpisodic = selection.season != null && selection.episode != null
-    val variants = if (isEpisodic) {
-        (1..maxOf(12, requireNotNull(selection.episode))).map { episode ->
-            PlaybackMediaVariant(
-                id = "fixture:${selection.contentId}:e$episode",
-                episodeNumber = episode,
-                voiceover = DEVELOPMENT_FIXTURE_VOICE,
-                quality = DEVELOPMENT_FIXTURE_QUALITY,
-                mediaUrl = DEVELOPMENT_FIXTURE_VIDEO_URL,
-                mimeType = "video/mp4",
-            )
-        }
-    } else {
-        listOf(
-            PlaybackMediaVariant(
-                id = "fixture:${selection.contentId}:film",
-                episodeNumber = null,
-                voiceover = DEVELOPMENT_FIXTURE_VOICE,
-                quality = DEVELOPMENT_FIXTURE_QUALITY,
-                mediaUrl = DEVELOPMENT_FIXTURE_VIDEO_URL,
-                mimeType = "video/mp4",
-            ),
-        )
-    }
-    return PlaybackMediaPlan(variants)
-}
+internal fun findKnownPlaybackItem(
+    items: List<CatalogItem>,
+    contentId: String,
+): CatalogItem? = items.firstOrNull { it.id == contentId }
 
 private fun RegistrationPage.toRegistrationUiModel(
     phase: RegistrationUiPhase = RegistrationUiPhase.READY,
@@ -2289,7 +2245,7 @@ private fun RegistrationPage.toRegistrationUiModel(
 
 private fun Activity.openTrustedExternalUrl(rawUrl: String) {
     if (rawUrl !in setOf(DONATE_URL, REPOSITORY_URL)) return
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(rawUrl))
+    val intent = Intent(Intent.ACTION_VIEW, rawUrl.toUri())
     try {
         startActivity(intent)
     } catch (_: ActivityNotFoundException) {

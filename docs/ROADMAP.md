@@ -1,24 +1,30 @@
 # Roadmap
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: ручная приёмка 0.5.5
+## Сейчас: подготовка 0.6.0 и ручная приёмка playback
 
 C-011 исправляет потерю видимого прогресса возле конца серии: exact `Back`/lifecycle
 checkpoint больше не подавляется 90%-эвристикой, а season/episode остаются первичными при
 смене provider. Natural end сохраняет ordered completed → next S/E@0 даже при выключенном
 auto-next; disappeared completed leaf разрешается к следующей fresh coordinate, а финальная
 серия не показывает ложное Continue. Durable writes перенесены в process-owned application
-scope. Версия source — `0.5.5` / code 19. Canonical рабочего дерева прошёл
+scope. Для C-011 exact source был `0.5.5` / code 19. Его canonical прошёл
 91 suites / 476 tests за 7m52s, lint 0 errors; exact post-commit artifact source
 `5223d81eefdc1b50b377cdcf74ced5174d553776` проверен. PR #11/#12, tag/Release, signed
 manifest, Android CI, Pages и exact live transports опубликованы. TV/ADB не использовались.
 C-010 / `0.5.4` остаётся предыдущим
 published validation rollback candidate, B-001 — полный playback baseline.
+
+C-012 / `0.6.0` code 20 — текущий source cleanup-кандидат: R8/resource shrinking,
+удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
+fail-closed удаление fixture video, cancellable HTTP и обновлённые stable dependencies.
+Canonical, строгая dependency verification и exact post-commit release rebuild локально
+зелёные. Перед выпуском требуются remote CI и ручной TV smoke уже shrunk APK.
 
 ### P0 — runtime-приёмка владельцем
 
@@ -109,10 +115,10 @@ published validation rollback candidate, B-001 — полный playback baselin
 ### Архитектура и качество
 
 - Разделить `KinogoAppRoot` на state holders/use cases без одномоментной миграции всех flow.
-- Удалить дублирование ручной пагинации/PagingSource после выбора одного production пути.
 - Поддерживать clean-clone Android CI и Pages deployment зелёными на каждом production
   merge; первый подтверждённый run получен для `367bcf2`.
-- Добавить dependency verification metadata и SHA-256 Gradle distribution.
+- Поддерживать dependency verification metadata и SHA-256 Gradle distribution при каждом
+  обновлении toolchain/dependencies; C-012 добавил исходный verified snapshot.
 - Добавить API 28 emulator/device smoke; текущая аппаратная проверка выполнялась на Android TV
   14.
 - Расширить Compose D-pad tests критических focus graphs.

@@ -1,6 +1,6 @@
 # Интеграция с Kinogo
 
-Последнее обновление: **21 августа 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 ## Граница интеграции
 
@@ -94,7 +94,7 @@ Expiry требует operator review, а не автоматического п
 
 ## HTTP-клиенты
 
-`SafeHtmlClient` и `KinogoSessionHttpClient` выполняют:
+Production `KinogoSessionHttpClient` и общий safe HTML policy выполняют:
 
 - HTTPS/public-DNS destination validation;
 - ограничение redirect;
@@ -112,6 +112,10 @@ media requests не входят в эту cookie-сессию и не насл�
 Cookie jar разделён по origin. Cookies и password POST нельзя переносить через cross-origin
 redirect. При смене зеркала `KinogoSessionManager` входит на новом origin сохранёнными
 credentials.
+
+Coroutine cancellation передаётся активному OkHttp `Call` общим adapter и сохраняется до
+окончания обработки response body. Mirror probe обязан пробрасывать `CancellationException`,
+а не публиковать отменённую проверку как `UNREACHABLE`.
 
 Playback provider cookies не входят в эту DLE cookie-session. Provider WebView хранит только
 собственное first-party browser state; Cinemar native grant от 21.08.2026 подтверждён без

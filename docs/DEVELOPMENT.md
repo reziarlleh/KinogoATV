@@ -1,6 +1,6 @@
 # Локальная разработка
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **6 сентября 2026 года**.
 
 ## Требования
 
@@ -112,6 +112,19 @@ KINOGO_SIGNING_KEY_PASSWORD=<secret>
   --no-daemon --max-workers=1 `
   '-Pkotlin.compiler.execution.strategy=in-process'
 ```
+
+`release` намеренно включает R8 и resource shrinking. Первый полный build после изменения
+исходников заметно дольше incremental debug-сборки; отсутствие missing-class ошибок и успешный
+`lintVitalRelease` обязательны. Mapping создаётся в
+`app/build/outputs/mapping/release/mapping.txt` и нужен для расшифровки release crash reports.
+Текущий C-012 working-tree canonical с генерацией dependency metadata прошёл за 23 мин 55 с,
+а повторный обычный strict-run — за 1 мин 20 с: 90 suites / 473 tests, lint 0 errors и
+только два version advisory; release 6 703 237 bytes, один DEX.
+
+Gradle wrapper закреплён официальной SHA-256 суммой distribution, а зависимости —
+`gradle/verification-metadata.xml`. Обновлять metadata разрешено только адресно после review
+версий и источников; обычная canonical-команда обязана проходить без
+`--write-verification-metadata`.
 
 `.github/workflows/android.yml` на push в `main` и pull request выполняет clean-clone subset
 `testDebugUnitTest lintDebug assembleDebug` с JDK 17 / SDK 37. Official Actions закреплены

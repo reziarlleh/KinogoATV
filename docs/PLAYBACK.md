@@ -118,9 +118,9 @@ fullscreen WebView запустился и Back чисто вернул Details,
 playlist/position не видны accessibility и безопасным логам; поэтому actual resume после
 повторного открытия **не подтверждён** и остаётся отдельным runtime-пунктом.
 
-`PlayerJsCapabilities` и расширенные JS-команды существуют как изолированный код, но полный
-унифицированный выбор web-quality/audio/subtitles ещё не подключён к production Web screen.
-Не документируйте его как готовый parity с native player.
+Неподключённые `PlayerJsCapabilities` и расширенные JS-команды quality/audio/subtitles/find
+удалены в C-012. Web fallback поддерживает только реально используемые transport-команды
+play/pause/toggle/stop/previous/next/relative seek и не обещает parity с native player.
 
 ## Единая медиаматрица
 

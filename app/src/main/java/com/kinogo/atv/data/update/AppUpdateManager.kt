@@ -3,9 +3,9 @@ package com.kinogo.atv.data.update
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 
 internal class AppUpdateManager(
     context: Context,
@@ -45,7 +45,7 @@ internal class AppUpdateManager(
         if (!activity.packageManager.canRequestPackageInstalls()) {
             val permissionIntent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${activity.packageName}"),
+                "package:${activity.packageName}".toUri(),
             )
             activity.startActivity(permissionIntent)
             return AppUpdateInstallResult.UnknownSourcesPermissionOpened

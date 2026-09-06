@@ -3,9 +3,10 @@ package com.kinogo.atv.data.catalog
 import com.kinogo.atv.data.mirror.MirrorUrlNormalizer
 import com.kinogo.atv.data.mirror.NetworkDestinationValidator
 import com.kinogo.atv.data.network.ResilientPublicDns
+import com.kinogo.atv.data.network.awaitResponse
+import com.kinogo.atv.data.network.kinogoUserAgent
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -15,10 +16,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import okhttp3.Call
-import okhttp3.Callback
 import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -212,7 +210,7 @@ class KinogoSessionHttpClient(
                     .url(currentUri.toASCIIString())
                     .header("Accept", "text/html,application/xhtml+xml,application/json,*/*;q=0.7")
                     .header("Accept-Language", "ru,en;q=0.7")
-                    .header("User-Agent", USER_AGENT)
+                    .header("User-Agent", kinogoUserAgent("native HTML client"))
                     .header("X-Requested-With", "XMLHttpRequest")
                 cookieStore.header(origin)?.let { requestBuilder.header("Cookie", it) }
                 if (currentMethod == "POST") {
@@ -223,7 +221,7 @@ class KinogoSessionHttpClient(
                     requestBuilder.get()
                 }
 
-                val response = executeCancellable(requestBuilder.build())
+                val response = client.newCall(requestBuilder.build()).awaitResponse()
                 try {
                     val statusCode = response.code
                     cookieStore.absorb(origin, response.headers.values("Set-Cookie"))
@@ -292,29 +290,6 @@ class KinogoSessionHttpClient(
         }
     }
 
-    private suspend fun executeCancellable(request: Request): Response =
-        suspendCancellableCoroutine { continuation ->
-            val call = client.newCall(request)
-            continuation.invokeOnCancellation { call.cancel() }
-            call.enqueue(
-                object : Callback {
-                    override fun onFailure(call: Call, e: IOException) {
-                        if (continuation.isActive) {
-                            continuation.resumeWith(Result.failure(e))
-                        }
-                    }
-
-                    override fun onResponse(call: Call, response: Response) {
-                        if (continuation.isActive) {
-                            continuation.resume(response) { _, value, _ -> value.close() }
-                        } else {
-                            response.close()
-                        }
-                    }
-                },
-            )
-        }
-
     private fun originOf(uri: URI): String {
         val authority = requireNotNull(uri.rawAuthority) { "HTTPS origin is missing" }
         return MirrorUrlNormalizer.normalize("https://$authority")
@@ -322,7 +297,6 @@ class KinogoSessionHttpClient(
 
     private companion object {
         const val DEFAULT_BINARY_BODY_BYTES = 512 * 1_024
-        const val USER_AGENT = "KinogoATV/0.5 (Android TV; native HTML client)"
         val FORM_MEDIA_TYPE = "application/x-www-form-urlencoded; charset=UTF-8".toMediaType()
 
         fun encodeForm(form: Map<String, String>): String = form.entries.joinToString("&") { entry ->

@@ -1,20 +1,15 @@
 package com.kinogo.atv.data.catalog
 
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 import java.net.URI
-import java.net.URL
 import java.nio.charset.Charset
-import java.security.cert.Certificate
-import java.util.concurrent.CancellationException
-import javax.net.ssl.HttpsURLConnection
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
-class SafeHtmlClientTest {
+class CatalogHtmlPolicyTest {
     @Test
     fun `route normalizer retains a safe path and query`() {
         assertEquals(
@@ -148,73 +143,6 @@ class SafeHtmlClientTest {
         }
     }
 
-    @Test
-    fun `client can be exercised without DNS and decodes a valid response`() = runTest {
-        val source = "<title>KinoGo</title><div id='dle-content'>каталог</div>"
-        val connection =
-            FakeHttpsConnection(
-                statusCode = 200,
-                body = source.toByteArray(),
-                contentTypeValue = "text/html; charset=utf-8",
-            )
-        val validated = mutableListOf<URI>()
-        val opened = mutableListOf<URI>()
-        val client =
-            SafeHtmlClient(
-                connectTimeoutMs = 100,
-                readTimeoutMs = 100,
-                maxRedirects = 1,
-                maxBodyBytes = 4_096,
-                destinationValidator = { validated += it },
-                connectionFactory = { uri ->
-                    opened += uri
-                    connection
-                },
-            )
-
-        val response = client.get("KINOGO.PARTS", "/фильмы?page=2")
-
-        assertEquals("https://kinogo.parts", response.requestedOrigin)
-        assertEquals("https://kinogo.parts", response.resolvedOrigin)
-        assertEquals("/фильмы?page=2", URI(response.relativePath).toString().let(URI::create).let {
-            buildString {
-                append(it.path)
-                it.rawQuery?.let { query -> append('?').append(query) }
-            }
-        })
-        assertEquals(source, response.body)
-        assertEquals(validated, opened)
-        assertTrue(connection.disconnected)
-    }
-
-    @Test
-    fun `cancellation is propagated unchanged even when cleanup fails`() = runTest {
-        val cancellation = CancellationException("test cancellation")
-        val connection =
-            FakeHttpsConnection(
-                responseFailure = cancellation,
-                disconnectFailure = IllegalStateException("cleanup failed"),
-            )
-        val client =
-            SafeHtmlClient(
-                connectTimeoutMs = 100,
-                readTimeoutMs = 100,
-                maxRedirects = 1,
-                maxBodyBytes = 4_096,
-                destinationValidator = {},
-                connectionFactory = { connection },
-            )
-
-        val actual =
-            expectSuspendException<CancellationException> {
-                client.get("kinogo.parts", "/")
-            }
-
-        // withContext may copy CancellationException for stack-trace recovery; the important
-        // contract is that cancellation is not wrapped into CatalogNetworkException.
-        assertEquals(cancellation.message, actual.message)
-        assertTrue(connection.disconnected)
-    }
 }
 
 private inline fun <reified T : Throwable> expectException(block: () -> Unit): T {
@@ -249,47 +177,4 @@ private class CountingInputStream(bytes: ByteArray) : ByteArrayInputStream(bytes
         readCount++
         return super.read(buffer, offset, length)
     }
-}
-
-private class FakeHttpsConnection(
-    private val statusCode: Int = 200,
-    private val body: ByteArray = ByteArray(0),
-    private val contentTypeValue: String? = "text/html; charset=utf-8",
-    private val location: String? = null,
-    private val responseFailure: RuntimeException? = null,
-    private val disconnectFailure: RuntimeException? = null,
-) : HttpsURLConnection(URL("https://kinogo.parts/")) {
-    var disconnected: Boolean = false
-        private set
-
-    override fun connect() = Unit
-
-    override fun disconnect() {
-        disconnected = true
-        disconnectFailure?.let { throw it }
-    }
-
-    override fun usingProxy(): Boolean = false
-
-    override fun getResponseCode(): Int {
-        responseFailure?.let { throw it }
-        return statusCode
-    }
-
-    override fun getHeaderField(name: String?): String? =
-        if (name.equals("Location", ignoreCase = true)) location else null
-
-    override fun getInputStream(): InputStream = ByteArrayInputStream(body)
-
-    override fun getErrorStream(): InputStream = ByteArrayInputStream(body)
-
-    override fun getContentType(): String? = contentTypeValue
-
-    override fun getContentLengthLong(): Long = body.size.toLong()
-
-    override fun getCipherSuite(): String = "test"
-
-    override fun getLocalCertificates(): Array<Certificate>? = null
-
-    override fun getServerCertificates(): Array<Certificate> = emptyArray()
 }
