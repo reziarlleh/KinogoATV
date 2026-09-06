@@ -241,6 +241,10 @@ internal fun acceptsPlaybackCheckpoint(
     callbackGeneration: Long,
 ): Boolean = activeGeneration == callbackGeneration
 
+/** A plain zero-position callback carries no viewing progress and must not replace a real mark. */
+internal fun shouldPersistPlaybackCheckpoint(checkpoint: PlaybackCheckpoint): Boolean =
+    checkpoint.positionMs > 0L || checkpoint.playbackEnded || checkpoint.unitActivated
+
 internal fun monotonicPlaybackCheckpointTimestamp(
     nowMs: Long,
     previousTimestampMs: Long,
@@ -1768,13 +1772,7 @@ fun KinogoAppRoot() {
                 ) {
                     return@checkpoint
                 }
-                if (
-                    checkpoint.positionMs > 0L ||
-                    (
-                        checkpoint.selection.season != null &&
-                            checkpoint.selection.episode != null
-                        )
-                ) {
+                if (shouldPersistPlaybackCheckpoint(checkpoint)) {
                     val progress = WatchProgress(
                         selection = checkpoint.selection.toDomainSelection(),
                         positionMs = checkpoint.positionMs,
@@ -2340,9 +2338,8 @@ internal fun WatchProgress.historyCatalogItem(): CatalogItem? =
     contentSnapshot ?: legacyHistoryLookupItem(selection.contentId)
 
 /**
- * One resume policy is shared by every Details entry point. A heuristic near-end classification
- * must never hide an exact Back/lifecycle checkpoint. A real completed episode remains a durable
- * anchor from which a fresh media plan can choose the next available coordinate.
+ * One resume policy is shared by every Details entry point. A real completed episode remains a
+ * visible durable anchor from which a fresh media plan can choose the next available coordinate.
  */
 internal fun preferredResumeProgress(
     entries: Collection<WatchProgress>,
@@ -2416,15 +2413,20 @@ internal fun com.kinogo.atv.ui.model.DetailsUiModel.withLocalResume(
     entries: List<WatchProgress>,
 ): com.kinogo.atv.ui.model.DetailsUiModel =
     preferredResumeProgress(entries, id)
-        ?.takeUnless(WatchProgress::playbackEnded)
         ?.let { progress -> copy(resumeLabel = resumeActionLabel(progress)) }
         ?: this
 
 internal fun resumeActionLabel(progress: WatchProgress): String {
-    if (progress.playbackEnded) return "Смотреть"
-    val position = formatClock(progress.boundedPositionMs)
     val season = progress.selection.seasonId?.trailingNumber()
     val episode = progress.selection.episodeId?.trailingNumber()
+    if (progress.playbackEnded) {
+        return if (season != null && episode != null) {
+            "Продолжить после S%02dE%02d".format(season, episode)
+        } else {
+            "Смотреть"
+        }
+    }
+    val position = formatClock(progress.boundedPositionMs)
     return if (season != null && episode != null) {
         if (progress.boundedPositionMs == 0L) {
             "Продолжить S%02dE%02d".format(season, episode)

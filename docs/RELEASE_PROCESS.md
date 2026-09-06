@@ -8,6 +8,12 @@
 - `debug` со stable key — устанавливаемая dev-версия, способная обновить текущую установку.
 - `release` со stable key — кандидат для распространения.
 
+C-013 / `0.6.1` (code 21) — patch-кандидат общего исправления временной отметки. Обычный
+zero-position lifecycle/close checkpoint больше не заменяет ненулевое время, explicit
+episode activation остаётся durable, completed anchor виден в Details. Рабочий canonical:
+90 suites / 471 test, lint 0 errors, все assembly зелёные за 8 мин 45 с. Exact post-commit
+artifact, PR/CI, tag/Release и signed manifest пока **PENDING**.
+
 Текущий C-012 / `0.6.0` (code 20) — опубликованный release с R8/resource
 shrinking, dependency verification и cancellable network paths. Local strict canonical:
 90 suites / 473 tests, lint 0 errors. Application commit

@@ -1063,26 +1063,24 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Protective test: `KinogoAppRootResumeTest`, `PendingDetailsPosterTest`.
 - Rollback point: C-009 / `777c8a05`; полный playback rollback — B-001.
 
-### R-035 — Near-end checkpoint сериала исчезал после перезапуска
+### R-035 — Временная отметка сериала исчезала после перезапуска
 
 - Статус: Resolved in C-011 source/local tests; hardware **PENDING**.
-- Обнаружено: 5 сентября 2026 года на сериале «Андромеда»: после выхода в конце S02E01
-  на следующий день карточка не показывала метку и предлагала выбор с начала.
+- Обнаружено: 5 сентября 2026 года на сериале «Андромеда»: после ранее сохранённого
+  просмотра карточка на следующий день не показывала временную отметку, и пользователю
+  пришлось вспоминать серию и искать позицию вручную. Упоминание выхода возле конца S02E01
+  было примером, а не условием или подтверждённой причиной дефекта.
 - Affected: C-010 / `0.5.4`; first-bad commit отдельно не изолирован, completion heuristic
   существовала до C-010.
 - Last-known-good: B-001 подтверждает одиночный exact checkpoint, но не near-end threshold,
   multi-episode cold restart или provider replacement.
 - Устройство/Android/source: пользовательский Android TV; ADB и DataStore устройства в
   рамках исправления не читались.
-- Воспроизведение: checkpoint после `Back` сохранялся с `playbackEnded=false`, но
-  `WatchProgress.resumePositionMs()` вызывал приблизительный `isCompleted()` и возвращал null
-  при `>=90%` и остатке `<=3 минут`. Дополнительно source-first normalization могла выбрать
-  S01E01, если сохранённый provider исчезал.
-- Подтверждённая по source причина: визуальная completion heuristic ошибочно использовалась
-  как точный Media3 end. Без чтения DataStore телевизора нельзя утверждать, что именно в этом
-  эпизоде запись была отменена либо provider изменился. Аудит дополнительно выявил два риска:
-  очередь durable writes принадлежала Compose scope, а completed checkpoint не создавал
-  отдельную next activation.
+- Воспроизведение: исходный DataStore и логи телевизора не снимались, поэтому единственную
+  фактическую причину того случая установить нельзя. Source-аудит C-011 нашёл несколько
+  независимых путей потери/скрытия контекста: процентная эвристика могла подавить ненулевую
+  позицию, source-first normalization — выбрать другую S/E, lifecycle Compose — отменить
+  pending write, а natural end — не оставить отдельную next activation.
 - Исправление: exact resume подавляется только `playbackEnded=true`; writes перенесены в
   process-owned application scope; natural-end exit сохраняет completed и затем next S/E@0;
   fresh plan ищет сохранённую или следующую coordinate во всех допустимых branches без
@@ -1161,6 +1159,34 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Runtime verification: не требуется; это build-supply-chain/portability regression.
 - Rollback point: C-011; исправляющий commit `b1d1fca`.
 - Связанные файлы: `gradle/verification-metadata.xml`, `.github/workflows/android.yml`.
+
+### R-039 — Нулевой lifecycle checkpoint мог затереть временную отметку
+
+- Статус: Resolved in C-013 source/unit tests; hardware **PENDING**.
+- Обнаружено: 6 сентября 2026 года после уточнения исходного пользовательского симптома и
+  повторного полного аудита всех путей записи/выбора/показа playback progress.
+- Affected version/commit: C-012 / `0.6.0` и более ранние версии с episodic zero activation;
+  first-bad commit отдельно не изолирован.
+- Last-known-good: для различения обычного zero callback и unit activation ранее не было
+  контракта; B-001 подтверждает только базовое сохранение ненулевой позиции.
+- Устройство/Android/source: source review и JVM unit tests; DataStore пользовательского TV
+  не читался, поэтому это подтверждённый кодовый путь, но не доказанная причина старого случая.
+- Воспроизведение: root принимал любой position 0 для эпизода. Быстрый `Back`, lifecycle pause
+  или close до фактического продвижения могли записать его поверх ненулевой отметки той же S/E.
+  Отдельно completed-only anchor оставался в store, но Details скрывал его полностью.
+- Причина: `PlaybackCheckpoint` не различал обычное наблюдение позиции и осознанную активацию
+  новой playback unit; UI трактовал completed episode только как внутренний anchor.
+- Исправление: добавлен explicit `unitActivated`; обычный zero checkpoint игнорируется, а
+  S/E@0 сохраняется только при deliberate episode transition. Completed anchor отображается
+  как `Продолжить после SxxExx`. Неиспользуемая процентная completion-модель удалена.
+- Protective test: `KinogoAppRootResumeTest` проверяет rejection обычного zero и acceptance
+  explicit activation, видимый completed anchor и старые resume/remap сценарии;
+  `WatchProgressTest` закрепляет exact positive timestamp и explicit Media3 end contract.
+- Runtime verification: **PENDING**; нужен узкий TV-сценарий quick open/Back + cold restart,
+  обычный Back с позицией, lifecycle pause, смена серии и natural end.
+- Rollback point: опубликованный C-012 / `v0.6.0`; полный playback baseline — B-001.
+- Связанные файлы: `PlaybackCheckpoint.kt`, `TvPlayerScreen.kt`, `KinogoAppRoot.kt`,
+  `WatchProgress.kt`, соответствующие unit tests.
 
 ## Шаблон новой записи
 

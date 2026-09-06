@@ -4,6 +4,14 @@
 
 ## Текущий опубликованный release C-012
 
+Поверх опубликованного C-012 готовится C-013 / `0.6.1` code 21. Повторный аудит исходного
+симптома показал общий zero-checkpoint defect: обычный lifecycle/close callback серии с
+position 0 мог заменить сохранённую ненулевую отметку. Теперь ноль сохраняется только с
+explicit `unitActivated`, completed episode остаётся видимым как `Продолжить после SxxExx`,
+а неиспользуемая процентная completion-модель удалена. Рабочий canonical прошёл за 8 мин
+45 с: 90 suites / 471 test, lint 0 errors, debug/androidTest/release собраны. Exact
+post-commit release artifact, публикация и TV runtime пока **PENDING**.
+
 Поверх C-011 выпущен C-012 / `0.6.0` code 20. Release переведён на
 R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый
 `SafeHtmlClient`, wrapper, шесть production и одна test-only dependency declaration. Устранены fixture playback для
@@ -41,10 +49,11 @@ source-refresh и полный in-app updater/Package Installer flow этим у
 ## Краткий итог
 
 Текущий опубликованный release — **C-012 / 0.6.0** (code 20).
-Исправлена потеря видимой позиции возле конца серии: approximate 90%-completion больше не
-подавляет exact checkpoint после `Back`, а реальный end определяется только явным Media3
-сигналом. Fresh source plan сохраняет season/episode независимо от provider; если completed
-leaf исчезла, выбирается следующая доступная coordinate вместо S01E01.
+В C-011 был закрыт один найденный source-аудитом путь потери позиции: приблизительная
+completion-классификация больше не подавляет exact checkpoint, а реальный end определяется
+явным Media3 сигналом. Это не означает, что исходный пользовательский случай был привязан к
+концу серии: устройство тогда не исследовалось, а положение у конца было только примером.
+Повторный аудит C-013 нашёл отдельное стирание ненулевого времени обычным zero callback.
 
 Natural end теперь перед выходом последовательно пишет completed текущей серии и activation
 следующей S/E с position 0, включая выключенный auto-next. Durable writes принадлежат
@@ -122,7 +131,7 @@ Rollback APK допустим только с совместимой подпи�
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | C-007 state/history + TV non-first verified | `Chris`, results и вторая карточка восстановлены после Details; recent-query row verified; long append pending |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
-| Карточка / resume | C-012 source/unit PASS; playback runtime pending | Exact near-end checkpoint, coordinate-first source remap и единая policy для Home/Catalog/Search/History/Bookmarks/player return |
+| Карточка / resume | C-013 canonical PASS; runtime pending | Ordinary zero callback не стирает timestamp; explicit activation, visible completed anchor, coordinate-first remap и единая policy для всех entry points |
 | Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
@@ -532,7 +541,7 @@ evidence и не разрешают массовую чистку без про�
 
 ## Активный фокус
 
-Следующий шаг — ручная приёмка владельцем уже опубликованного C-009 / `0.5.3`:
+Следующий шаг — закончить и опубликовать C-013 / `0.6.1`, затем провести ручную приёмку:
 
 - проверить playback/updater приёмку; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;
@@ -540,7 +549,7 @@ evidence и не разрешают массовую чистку без про�
   Package Installer; системное подтверждение установки остаётся ручным;
 - добавить действительно operator-owned non-GitHub metadata+APK host, если потребуется
   независимость от блокировки всей GitHub-инфраструктуры;
-- не назначать C-009 baseline, пока не закрыты playback stall/recovery, exact
+- не назначать новый playback baseline, пока не закрыты playback stall/recovery, exact
   resume, quality persistence/fallback и updater runtime-сценарии.
 
 Подробная очередь — в [`ROADMAP.md`](ROADMAP.md).

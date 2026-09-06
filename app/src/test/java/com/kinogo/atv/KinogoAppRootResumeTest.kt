@@ -11,6 +11,7 @@ import com.kinogo.atv.domain.PlaybackMediaPlan
 import com.kinogo.atv.domain.PlaybackMediaVariant
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.WatchProgress
+import com.kinogo.atv.player.ui.PlaybackCheckpoint
 import com.kinogo.atv.player.ui.PlaybackSourceRefreshRequest
 import com.kinogo.atv.player.ui.PlaybackSourceRefreshUnitKey
 import com.kinogo.atv.ui.model.PlaybackSelectionUiModel
@@ -108,6 +109,31 @@ class KinogoAppRootResumeTest {
         assertTrue(acceptsPlaybackCheckpoint(activeGeneration = 7L, callbackGeneration = 7L))
         assertFalse(acceptsPlaybackCheckpoint(activeGeneration = 8L, callbackGeneration = 7L))
         assertFalse(acceptsPlaybackCheckpoint(activeGeneration = null, callbackGeneration = 7L))
+    }
+
+    @Test
+    fun `ordinary zero checkpoint cannot erase a persisted timestamp`() {
+        val checkpoint = PlaybackCheckpoint(
+            selection = selection(season = 2, episode = 1),
+            positionMs = 0L,
+            durationMs = 0L,
+            playbackEnded = false,
+        )
+
+        assertFalse(shouldPersistPlaybackCheckpoint(checkpoint))
+    }
+
+    @Test
+    fun `explicit next episode activation is persisted at zero`() {
+        val checkpoint = PlaybackCheckpoint(
+            selection = selection(season = 2, episode = 2),
+            positionMs = 0L,
+            durationMs = 0L,
+            playbackEnded = false,
+            unitActivated = true,
+        )
+
+        assertTrue(shouldPersistPlaybackCheckpoint(checkpoint))
     }
 
     @Test
@@ -402,7 +428,7 @@ class KinogoAppRootResumeTest {
 
         assertEquals(latestCompleted, selected)
         assertEquals(
-            "Смотреть",
+            "Продолжить после S02E08",
             resumeActionLabel(requireNotNull(selected)),
         )
     }
@@ -487,7 +513,7 @@ class KinogoAppRootResumeTest {
     }
 
     @Test
-    fun `completed episode without a known successor does not advertise continue`() {
+    fun `completed episode remains visible even before successor discovery`() {
         val completed = progress(
             season = 2,
             episode = 1,
@@ -504,8 +530,7 @@ class KinogoAppRootResumeTest {
             PlaybackMediaPlan(listOf(resumeVariant("s2e1", 2, 1))),
         )
 
-        assertEquals(baseDetails.resumeLabel, details.resumeLabel)
-        assertFalse(details.resumeLabel.startsWith("Продолжить"))
+        assertEquals("Продолжить после S02E01", details.resumeLabel)
         assertEquals(2, target.selection.season)
         assertEquals(1, target.selection.episode)
         assertFalse(target.selection.resume)

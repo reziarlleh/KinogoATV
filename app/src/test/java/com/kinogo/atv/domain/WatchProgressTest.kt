@@ -1,60 +1,22 @@
 package com.kinogo.atv.domain
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WatchProgressTest {
     @Test
-    fun `long movie enters continue row after two minutes`() {
-        val before = movieProgress(positionMs = 119_999, durationMs = 100 * MINUTE)
-        val atThreshold = movieProgress(positionMs = 2 * MINUTE, durationMs = 100 * MINUTE)
-
-        assertFalse(before.qualifiesForContinueWatching())
-        assertTrue(atThreshold.qualifiesForContinueWatching())
-    }
-
-    @Test
-    fun `short movie uses three percent when it is earlier`() {
-        val duration = 30 * MINUTE
-        assertFalse(movieProgress(53_999, duration).qualifiesForContinueWatching())
-        assertTrue(movieProgress(54_000, duration).qualifiesForContinueWatching())
-    }
-
-    @Test
-    fun `episode enters continue row after two minutes`() {
-        assertFalse(episodeProgress(119_999, 40 * MINUTE).qualifiesForContinueWatching())
-        assertTrue(episodeProgress(2 * MINUTE, 40 * MINUTE).qualifiesForContinueWatching())
-    }
-
-    @Test
-    fun `episode completion needs percentage and three minute window`() {
-        assertFalse(episodeProgress(36 * MINUTE, 40 * MINUTE).isCompleted())
-        assertTrue(episodeProgress(37 * MINUTE, 40 * MINUTE).isCompleted())
-    }
-
-    @Test
-    fun `near end exit remains an exact resume point without a player end signal`() {
+    fun `every positive unfinished timestamp remains resumable`() {
         val progress = episodeProgress(37 * MINUTE, 40 * MINUTE)
 
-        assertTrue(progress.isCompleted())
         assertEquals(37 * MINUTE - 5_000L, progress.resumePositionMs())
     }
 
     @Test
-    fun `movie completion needs percentage and ten minute window`() {
-        assertFalse(movieProgress(89 * MINUTE, 100 * MINUTE).isCompleted())
-        assertTrue(movieProgress(90 * MINUTE, 100 * MINUTE).isCompleted())
-    }
-
-    @Test
-    fun `explicit player end completes media with unknown duration`() {
+    fun `explicit player end suppresses its terminal timestamp`() {
         val progress =
             movieProgress(positionMs = 1_000, durationMs = null).copy(playbackEnded = true)
 
-        assertTrue(progress.isCompleted())
         assertNull(progress.resumePositionMs())
     }
 
@@ -65,6 +27,12 @@ class WatchProgressTest {
         assertEquals(10_000L, progress.resumePositionMs())
         assertEquals("voice-2", progress.selection.voiceId)
         assertEquals("1080p", progress.selection.qualityId)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `negative rewind is rejected`() {
+        episodeProgress(positionMs = 15_000, durationMs = 40 * MINUTE)
+            .resumePositionMs(resumeRewindMs = -1L)
     }
 
     private fun movieProgress(positionMs: Long, durationMs: Long?): WatchProgress =

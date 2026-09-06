@@ -9,7 +9,24 @@
 
 ## [Unreleased]
 
-Новых пользовательских изменений после `0.6.0` пока нет.
+### Исправление временной отметки
+
+- Обычный checkpoint с позицией `0` больше не может затереть сохранённое ненулевое время.
+  Нулевая запись принимается только как явно помеченная активация другой серии.
+- Если последняя серия действительно завершена, карточка больше не теряет контекст: действие
+  показывает `Продолжить после SxxExx`, а свежий plan выбирает следующую доступную серию.
+- Удалена неиспользуемая процентная completion-эвристика. Exact resume зависит только от
+  сохранённой позиции и явного end-сигнала Media3.
+- Уточнён диагноз R-035: пользователь сообщал об исчезновении временной отметки в целом;
+  положение возле конца серии было примером, а не условием воспроизведения проблемы.
+
+### Validation status
+
+- Рабочий canonical `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
+  assembleRelease` — **SUCCESS за 8 мин 45 с**: **90 suites / 471 test**, 0
+  failures/errors/skips; lint — **0 errors / 2 warnings**.
+- `assembleDebugAndroidTest` только собрал test APK; TV/ADB и instrumentation не запускались.
+  Exact post-commit release artifact, PR/CI, tag/Release и update manifest пока **PENDING**.
 
 ## [0.6.0] — 2026-09-06
 

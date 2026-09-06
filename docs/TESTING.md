@@ -203,6 +203,21 @@ Compose `Dialog` event propagation на конкретном OEM-пульте и
   season boundary, disappeared completed leaf после source refresh, near-end Back, terminal
   episode label и source replacement с сохранением позиции.
 
+Для C-013 / `0.6.1` (code 21) контракт временной отметки расширен:
+
+- `KinogoAppRootResumeTest` — ordinary episodic checkpoint с position 0 отклоняется, а
+  explicit `unitActivated=true` принимается; completed-only anchor остаётся видимым как
+  `Продолжить после SxxExx`;
+- `WatchProgressTest` — любая положительная unfinished-позиция возобновляется с пятисекундным
+  откатом, а timestamp подавляет только explicit Media3 end;
+- TV/ADB не использовались. Для runtime нужны quick open/Back до старта, обычный Back после
+  прогресса, lifecycle pause + cold restart, ручная смена серии и natural end.
+
+Рабочий canonical C-013
+`testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` прошёл
+за **8 мин 45 с**: **90 suites / 471 test**, 0 failures/errors/skips; lint — **0 errors /
+2 warnings**. Exact post-commit rerun и remote CI фиксируются после commit.
+
 Полный canonical run рабочего дерева
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` завершён
 **SUCCESS за 7 мин 52 с**: **91 suites / 476 tests**, 0 failures/errors/skips; lint —
