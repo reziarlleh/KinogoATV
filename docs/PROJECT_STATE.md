@@ -10,7 +10,11 @@ position 0 мог заменить сохранённую ненулевую о�
 explicit `unitActivated`, completed episode остаётся видимым как `Продолжить после SxxExx`,
 а неиспользуемая процентная completion-модель удалена. Рабочий canonical прошёл за 8 мин
 45 с: 90 suites / 471 test, lint 0 errors, debug/androidTest/release собраны. Exact
-post-commit release artifact, публикация и TV runtime пока **PENDING**.
+post-commit source `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` пересобран за 13 мин 51 с.
+Stable-signed APK: 6 703 237 bytes, SHA-256
+`F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`, code/name 21/0.6.1,
+min/target 28/37, zipalign PASS, v2 true, один прежний signer, embedded revision exact.
+Публикация и TV runtime пока **PENDING**.
 
 Поверх C-011 выпущен C-012 / `0.6.0` code 20. Release переведён на
 R8 + resource shrinking; удалены неподключённые PagingSource, PlayerJS заготовки, старый

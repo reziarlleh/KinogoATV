@@ -216,7 +216,8 @@ Compose `Dialog` event propagation на конкретном OEM-пульте и
 Рабочий canonical C-013
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` прошёл
 за **8 мин 45 с**: **90 suites / 471 test**, 0 failures/errors/skips; lint — **0 errors /
-2 warnings**. Exact post-commit rerun и remote CI фиксируются после commit.
+2 warnings**. Exact post-commit `assembleRelease --rerun-tasks` для `2de9d7b` прошёл за
+13 мин 51 с; APK identity/signing/revision/hash проверены. Remote CI остаётся **PENDING**.
 
 Полный canonical run рабочего дерева
 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest assembleRelease` завершён

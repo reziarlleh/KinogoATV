@@ -26,7 +26,14 @@
   assembleRelease` — **SUCCESS за 8 мин 45 с**: **90 suites / 471 test**, 0
   failures/errors/skips; lint — **0 errors / 2 warnings**.
 - `assembleDebugAndroidTest` только собрал test APK; TV/ADB и instrumentation не запускались.
-  Exact post-commit release artifact, PR/CI, tag/Release и update manifest пока **PENDING**.
+  Exact post-commit `assembleRelease --rerun-tasks` для application commit
+  `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` прошёл за **13 мин 51 с**.
+- Exact stable-signed `KinogoATV-0.6.1-code21.apk`: **6 703 237 bytes**, SHA-256
+  `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`; package/code/name
+  `com.kinogo.atv` / `21` / `0.6.1`, min/target 28/37, zipalign PASS, v2 true, один прежний
+  signer, embedded revision совпадает с application commit. Exact mapping: 64 768 813 bytes,
+  SHA-256 `F38C65F37FEF08191C00A4C803CA648AE545BB0D27CA64F366A722C7F76C1B2C`.
+- PR/CI, tag/Release, update manifest и TV runtime пока **PENDING**.
 
 ## [0.6.0] — 2026-09-06
 
