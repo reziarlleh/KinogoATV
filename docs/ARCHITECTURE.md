@@ -36,6 +36,8 @@ flowchart TD
   Compose только после первого draw;
 - `ComposeHost.kt` — жизненный цикл `ComposeView`;
 - `KinogoAppRoot.kt` — ручная сборка зависимостей, orchestration и корневое состояние;
+- `PlaybackCheckpointWriteQueue.kt` — process-owned последовательная очередь durable
+  checkpoint-записей, отделённая от Compose composition root;
 - `ui/KinogoTvApp.kt` — destinations, navigation rail, карточка и подтверждение выхода.
 
 Нативный стартовый слой принципиален: ошибка Compose, storage или сети не должна выглядеть
@@ -332,7 +334,8 @@ coordinate-first resolver находит следующую доступную S
 Checkpoint callback несёт explicit end-state и generation активной Media3-сессии. Root
 отбрасывает callback прежней generation, публикует актуальную запись в UI синхронно, а
 durable DataStore writes выполняет последовательной process-owned
-`PlaybackCheckpointWriteQueue` в scope `KinogoApplication`, который не уничтожается вместе с
+`PlaybackCheckpointWriteQueue` из отдельного application-level файла живёт в scope
+`KinogoApplication`, который не уничтожается вместе с
 Compose host/Activity.
 Timestamp выдаётся монотонно относительно памяти и хранилища; `upsert` не позволяет поздней
 старой записи затереть новую. Перед вычислением Continue root ждёт очередь и объединяет
@@ -498,8 +501,9 @@ device-bound.
   states; разделение cookie sessions на browse/search пока не вводилось.
 - `reduceMotion` применяется только к части Settings UI.
 - GitHub Actions clean-clone Android workflow и Pages deployment получили первые зелёные
-  runs для merge `367bcf2`; dependency verification добавлена в C-012, API 28
-  emulator/device smoke отсутствует.
+  runs для merge `367bcf2`; dependency verification добавлена в C-012. На disposable
+  Android TV API 28 emulator instrumentation-набор прошёл 8/8; реальный API 28 TV не
+  использовался.
 
 Legacy `cycle`/`SettingCycleDirection` для Settings удалён в C-008. Изменение настройки идёт
 только через stable `settingId + optionId`: boolean-пункты передают состояние switch, enum

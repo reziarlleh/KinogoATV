@@ -68,10 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
+import com.kinogo.atv.data.network.strictHttpsUriOrNull
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import com.kinogo.atv.data.playback.ResolvedPlaybackEmbed
-import java.net.URI
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -975,24 +975,6 @@ private class SecureCinemarWebViewClient(
 }
 
 private fun exactHttpsOrigin(rawUrl: String): String? {
-    if (
-        rawUrl.isBlank() ||
-        rawUrl != rawUrl.trim() ||
-        rawUrl.any(Char::isISOControl) ||
-        '\\' in rawUrl
-    ) {
-        return null
-    }
-    val uri = runCatching { URI(rawUrl) }.getOrNull() ?: return null
-    if (
-        !uri.scheme.equals("https", ignoreCase = true) ||
-        uri.isOpaque ||
-        uri.host.isNullOrBlank() ||
-        uri.rawUserInfo != null ||
-        uri.rawFragment != null ||
-        (uri.port != -1 && uri.port != 443)
-    ) {
-        return null
-    }
+    val uri = strictHttpsUriOrNull(rawUrl) ?: return null
     return "https://${requireNotNull(uri.host).lowercase(Locale.ROOT)}"
 }

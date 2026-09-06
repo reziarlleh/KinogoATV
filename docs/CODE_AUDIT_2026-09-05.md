@@ -66,10 +66,11 @@ playback/updater runtime-матрица остаётся PENDING и release tag 
 ## Continuity tools
 
 Agent-memory сохранён как observations `mem_mtop2qk9_2ead515f09f1`,
-`mem_mtpb5q3n_8e02a12bd36d` и `mem_mtpby49w_20c7a0c374e2` без URL-токенов, cookies или
-пользовательских данных. RepoWise 0.45.0 обновлён до exact branch HEAD: 674 SQL/vector
-records, stores/FTS согласованы, coordinator drift 0%, high-confidence safe dead code — 0.
-`doctor` продолжает отмечать около 30 derived pages старого renderer как stale; это известный
+`mem_mtpb5q3n_8e02a12bd36d`, `mem_mtpby49w_20c7a0c374e2` и
+`mem_mtpotgrd_21465249c59b` без URL-токенов, cookies или пользовательских данных.
+RepoWise 0.45.0 обновлён до exact branch HEAD: 681 SQL/vector records, stores/FTS
+согласованы, coordinator drift 0%, high-confidence safe dead code — 0. `doctor` продолжает
+отмечать 34 derived pages старого renderer как stale; это известный
 остаток index-only режима, а не отставание commit или рассинхронизация stores. RepoWise CLI
 0.49 доступен, но глобальное tooling-обновление намеренно не смешивалось с release branch.
 
@@ -90,8 +91,9 @@ records, stores/FTS согласованы, coordinator drift 0%, high-confidenc
    не совмещать это с playback/network изменениями.
 2. Разделить `TvPlayerRuntime` по ответственности только после TV characterization,
    поскольку Media3 callback order и media keys нельзя доказать одной сборкой.
-3. Выполнить Compose D-pad instrumentation и API 28 emulator smoke; test APK собран на
-   `junit4.v2`, но на устройстве не запускался.
+3. Расширять Compose D-pad instrumentation дальше текущих восьми сценариев. Базовый API 28
+   Android TV emulator smoke теперь закрыт: disposable AVD прошёл 8/8; реальный TV остаётся
+   отдельным evidence.
 4. Миграцию OkHttp 4 → 5 и Gradle 9.5 → 9.7 проводить отдельно: lint сообщает о версиях,
    но это не безопасный patch-level cleanup.
 5. Для следующего release повторить exact mapping archive, cross-platform CI, public

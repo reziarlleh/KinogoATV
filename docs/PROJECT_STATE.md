@@ -57,6 +57,13 @@ source-refresh и полный in-app updater/Package Installer flow этим у
 ## Краткий итог
 
 Текущий опубликованный release — **C-013 / 0.6.1** (code 21).
+
+После релиза `main` прошёл maintenance-доводку без изменения пользовательского контракта:
+общая strict HTTPS URI-проверка заменила две дублирующиеся реализации, provider dispatch
+разделён на Cinemar/Collaps helpers, а `PlaybackCheckpointWriteQueue` вынесена из
+`KinogoAppRoot`. Post-release canonical: 91 suite / 473 tests, lint 0 errors / 2 warnings,
+все assembly PASS за 17 мин 4 с. На disposable Android TV API 28 emulator instrumentation
+прошёл 8/8; пользовательский TV не подключался.
 В C-011 был закрыт один найденный source-аудитом путь потери позиции: приблизительная
 completion-классификация больше не подавляет exact checkpoint, а реальный end определяется
 явным Media3 сигналом. Это не означает, что исходный пользовательский случай был привязан к
@@ -566,7 +573,7 @@ evidence и не разрешают массовую чистку без про�
 
 ## Активный фокус
 
-Следующий шаг — закончить и опубликовать C-013 / `0.6.1`, затем провести ручную приёмку:
+Следующий шаг после опубликованного C-013 / `0.6.1` — провести ручную приёмку:
 
 - проверить playback/updater приёмку; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;

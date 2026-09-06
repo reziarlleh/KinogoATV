@@ -45,7 +45,7 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 - Агент не подключается к TV по ADB, не устанавливает APK и не запускает новый hardware smoke
   без явного разрешения владельца на конкретный узкий сценарий; разрешение на release smoke
   6 сентября не распространяется автоматически на будущие тесты.
-- Не назначать C-012 playback baseline, пока не закрыта эта runtime-матрица.
+- Не назначать C-013 playback baseline, пока не закрыта эта runtime-матрица.
 
 ### P1 — оставшиеся integration-регрессии
 
@@ -122,8 +122,6 @@ media-key, source-refresh и in-app updater матрица остаётся пр
   merge; первый подтверждённый run получен для `367bcf2`.
 - Поддерживать dependency verification metadata и SHA-256 Gradle distribution при каждом
   обновлении toolchain/dependencies; C-012 добавил исходный verified snapshot.
-- Добавить API 28 emulator/device smoke; текущая аппаратная проверка выполнялась на Android TV
-  14.
 - Расширить Compose D-pad tests критических focus graphs.
 
 ### Выпуск
@@ -145,6 +143,9 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 
 Пункты C-008/C-009 в этом списке не становятся verified runtime автоматически; актуальный уровень
 evidence указан в `PROJECT_STATE.md`.
+
+- Disposable Android TV API 28 emulator прошёл полный instrumentation-набор 8/8; это
+  подтверждает minimum-SDK Compose/D-pad contracts в emulator, но не заменяет реальный TV.
 
 - Native Android TV shell и launcher tile.
 - Детерминированный TV branding с одобренной официальной иконкой, надписями

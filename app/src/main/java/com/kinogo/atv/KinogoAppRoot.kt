@@ -122,8 +122,6 @@ import com.kinogo.atv.ui.screens.PlaybackWebFallbackUiModel
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -205,36 +203,6 @@ private data class ActivePlaybackSession(
     val webFallbacks: List<ResolvedPlaybackEmbed> = emptyList(),
     val automaticSourceRefreshAttempts: Set<PlaybackSourceRefreshUnitKey> = emptySet(),
 )
-
-/**
- * Checkpoint writes must keep callback order. In particular, the close checkpoint must become
- * visible before an immediate Continue action reads DataStore again.
- */
-internal class PlaybackCheckpointWriteQueue {
-    private var tail: Job? = null
-
-    fun enqueue(
-        scope: CoroutineScope,
-        write: suspend () -> Unit,
-    ) {
-        val next = synchronized(this) {
-            val previous = tail
-            scope.launch(start = CoroutineStart.LAZY) {
-                previous?.join()
-                write()
-            }.also { tail = it }
-        }
-        next.start()
-    }
-
-    suspend fun awaitIdle() {
-        while (true) {
-            val observed = synchronized(this) { tail } ?: return
-            observed.join()
-            if (synchronized(this) { tail === observed }) return
-        }
-    }
-}
 
 internal fun acceptsPlaybackCheckpoint(
     activeGeneration: Long?,

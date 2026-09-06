@@ -33,7 +33,7 @@ annotated `v0.6.0`, regular Release, PR/main CI, signed manifest PR #15, Pages �
 exact-byte transports опубликованы. Узкий KIVI update/startup/D-pad smoke прошёл; расширенная
 playback и in-app updater runtime-приёмка остаётся отдельной.
 
-Текущий опубликованный C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
+Исторический C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
 exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
 Canonical рабочего дерева прошёл 91 suites / 476 tests, lint без ошибок,
 debug/androidTest/release assembly. Application source
