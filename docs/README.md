@@ -36,8 +36,9 @@
 
 Рабочее дерево готовит C-012 / `0.6.0` code 20: R8/resource shrinking, удаление мёртвых
 Paging/PlayerJS/legacy transport веток, cancellable HTTP и dependency verification. Local
-strict canonical: 90 suites / 473 tests, lint 0 errors. Candidate ещё не зафиксирован exact
-commit/rebuild и не опубликован; подробности — в
+strict canonical: 90 suites / 473 tests, lint 0 errors. Exact application commit/rebuild и
+stable-signed APK проверены; candidate ещё не прошёл remote CI/TV smoke и не опубликован.
+Подробности — в
 [`CODE_AUDIT_2026-09-05.md`](CODE_AUDIT_2026-09-05.md).
 
 C-011 / `0.5.5` (code 19) исправляет near-end resume, source-independent S/E remap,

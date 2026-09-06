@@ -14,6 +14,10 @@ package/API/zipalign/v2/one-signer verification. Добавлены cancellation
 OkHttp adapter и mirror probe, а instrumentation source переведён на `junit4.v2`. Перед
 публикацией R8/Media3-кандидата остаётся ручной TV smoke.
 
+После application commit `108519861faf67bc50dcdc574cecf38f94c00a13` exact
+`assembleRelease --rerun-tasks` прошёл **SUCCESS за 15 мин 3 с** (52 executed tasks).
+Embedded APK revision совпадает с commit; hash/signing/zipalign и R8 mapping проверены.
+
 Дополнительно прошли self-test операторских утилит: Python
 `verify_update_manifest.py self-test` и Java `UpdateManifestSigner.java self-test`; Gradle
 verification metadata успешно разбирается как XML. Это не заменяет проверку final signed

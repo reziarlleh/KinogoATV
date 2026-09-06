@@ -45,10 +45,13 @@
   canonical без trust-on-first-use — **SUCCESS за 1 мин 20 с**: **90 suites / 473 tests**,
   0 failures/errors/skips. Lint — **0 errors**, только два version advisory (Gradle и
   намеренно отложенный OkHttp 5); debug, androidTest APK и release собраны.
-- Stable-signed working-tree candidate `app-release.apk`: **6 703 237 bytes**, SHA-256
-  `9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`; package/code/name
+- Exact post-commit stable-signed candidate `app-release.apk` для application commit
+  `108519861faf67bc50dcdc574cecf38f94c00a13`: **6 703 237 bytes**, SHA-256
+  `2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`; package/code/name
   `com.kinogo.atv` / `20` / `0.6.0`, min/target 28/37, zipalign PASS, v2 true, один signer,
-  прежний certificate SHA-256. Post-commit exact rebuild, publication и TV smoke ещё PENDING.
+  прежний certificate SHA-256. Полный `assembleRelease --rerun-tasks` прошёл за 15 мин 3 с;
+  exact R8 mapping зафиксирован hash в release evidence. Remote CI, publication и TV smoke
+  ещё PENDING.
 
 ## [0.5.5] — 2026-09-05 (validation release)
 

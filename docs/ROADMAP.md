@@ -23,8 +23,8 @@ published validation rollback candidate, B-001 — полный playback baselin
 C-012 / `0.6.0` code 20 — текущий source cleanup-кандидат: R8/resource shrinking,
 удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
 fail-closed удаление fixture video, cancellable HTTP и обновлённые stable dependencies.
-Canonical и строгая dependency verification локально зелёные. Перед выпуском требуются exact
-post-commit rebuild/CI и ручной TV smoke уже shrunk APK.
+Canonical, строгая dependency verification и exact post-commit release rebuild локально
+зелёные. Перед выпуском требуются remote CI и ручной TV smoke уже shrunk APK.
 
 ### P0 — runtime-приёмка владельцем
 

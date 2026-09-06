@@ -31,10 +31,12 @@ Gradle/Kotlin compiler, Android lint, R8 и разбор APK. RepoWise-сигн�
 ## Измерения размера
 
 Опубликованный C-011 universal APK без R8: **38 419 162 bytes**, четыре DEX-файла, около
-36,0 MB несжатого DEX. Финальный C-012 working-tree candidate: **6 703 237 bytes**, один
+36,0 MB несжатого DEX. Exact post-commit C-012 candidate: **6 703 237 bytes**, один
 DEX, экономия **31 715 925 bytes / 82,55%**, SHA-256
-`9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`. Это code 20 /
-`0.6.0`; до commit и exact rebuild он не является публикуемым артефактом.
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`. Это code 20 /
+`0.6.0`, embedded revision `108519861faf67bc50dcdc574cecf38f94c00a13`. Exact R8 mapping:
+64 765 967 bytes, SHA-256
+`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`.
 
 ## Проверка
 
@@ -44,6 +46,8 @@ Canonical с `--write-verification-metadata sha256` завершён **SUCCESS �
 `com.kinogo.atv`, code/name `20/0.6.0`, min/target 28/37, zipalign PASS, v2 true, один signer,
 certificate SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
 R8 usage output и source не содержат удалённый fixture URL/PlayerJS capability/Paging symbols.
+Exact post-commit `assembleRelease --rerun-tasks` завершён **SUCCESS за 15 мин 3 с**,
+52/52 release tasks executed.
 
 ## Continuity tools
 
@@ -75,6 +79,5 @@ uncommitted working tree, а incremental update привязан к Git commit. 
    `junit4.v2`, но на устройстве не запускался.
 4. Миграцию OkHttp 4 → 5 и Gradle 9.5 → 9.7 проводить отдельно: lint сообщает о версиях,
    но это не безопасный patch-level cleanup.
-5. Перед публикацией C-012 повторить exact post-commit stable-signed build, сохранить R8 mapping,
-   проверить package/version/signer/zipalign/hash и выполнить ручной TV smoke с разрешения
-   владельца.
+5. Перед публикацией C-012 сохранить exact R8 mapping вместе с приватными evidence, повторить
+   remote CI/public transport checks и выполнить ручной TV smoke с разрешения владельца.

@@ -10,9 +10,12 @@
 
 Текущий source C-012 / `0.6.0` (code 20) — непубликованный cleanup candidate с R8/resource
 shrinking, dependency verification и cancellable network paths. Local strict canonical:
-90 suites / 473 tests, lint 0 errors; working-tree APK 6 703 237 bytes, SHA-256
-`9A71EA3481C71248FDAB5F5B48B8255A9CD17952B2AFD3B669B6A981D7CF260B`. Это не final release
-asset: после commit нужны exact rebuild/hash/mapping, remote CI и TV smoke.
+90 suites / 473 tests, lint 0 errors. Application commit
+`108519861faf67bc50dcdc574cecf38f94c00a13`; exact post-commit release rebuild — 15 мин 3 с.
+APK 6 703 237 bytes, SHA-256
+`2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`; exact mapping SHA-256
+`285F17906594B6F9F232E0DD099CD8BB1C2D70D8AF3C8C5A09DD765A34CD25D0`. Это ещё не
+опубликованный asset: нужны remote CI, TV smoke, tag/Release и signed manifest.
 
 Текущий опубликованный C-011 / `0.5.5` (code 19, minSdk 28, targetSdk 37) — published validation release исправления
 exact near-end resume, coordinate-first source remap и process-owned checkpoint persistence.
@@ -591,9 +594,11 @@ Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/325
 - [x] R8/resource shrinking и dependency verification включены; wrapper checksum закреплён.
 - [x] Local strict canonical зелёный: 90 suites / 473 tests, 0 failures/errors/skips,
       lint 0 errors и два version advisory; debug/androidTest/release assembly прошли.
-- [x] Working-tree stable-signed APK проверен: 6 703 237 bytes, один DEX, package/code/name,
+- [x] Exact application commit `108519861faf67bc50dcdc574cecf38f94c00a13` и post-commit
+      `assembleRelease --rerun-tasks` (15 мин 3 с, 52 tasks) зафиксированы.
+- [x] Exact stable-signed APK проверен: 6 703 237 bytes, один DEX, package/code/name,
       API, zipalign, v2 и один прежний signer корректны.
-- [ ] Созданы application commit и exact post-commit rebuild; mapping привязан к APK hash.
+- [x] Exact APK и R8 mapping hashes записаны; mapping нужно сохранить в приватном archive.
 - [ ] Remote PR/main CI зелёные, tag/regular Release и signed manifest опубликованы.
 - [ ] Exact public transports и разрешённый владельцем TV smoke подтверждены.
 
