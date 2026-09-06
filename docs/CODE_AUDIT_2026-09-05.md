@@ -56,7 +56,7 @@ Agent-memory сохранён как observations `mem_mtop2qk9_2ead515f09f1`,
 `mem_mtpb5q3n_8e02a12bd36d` и `mem_mtpby49w_20c7a0c374e2` без URL-токенов, cookies или
 пользовательских данных. RepoWise 0.45.0 обновлён до exact branch HEAD: 674 SQL/vector
 records, stores/FTS согласованы, coordinator drift 0%, high-confidence safe dead code — 0.
-`doctor` продолжает отмечать 32 derived pages старого renderer как stale; это известный
+`doctor` продолжает отмечать около 30 derived pages старого renderer как stale; это известный
 остаток index-only режима, а не отставание commit или рассинхронизация stores. RepoWise CLI
 0.49 доступен, но глобальное tooling-обновление намеренно не смешивалось с release branch.
 
