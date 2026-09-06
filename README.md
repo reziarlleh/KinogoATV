@@ -4,7 +4,7 @@ KinogoATV — неофициальное нативное приложение-�
 рассчитан на телевизор, горизонтальный экран и управление обычным пультом без сенсорного
 ввода.
 
-Текущая опубликованная версия: **0.6.0**. Поддерживается Android TV 9 и новее (API 28+).
+Текущая опубликованная версия: **0.6.1**. Поддерживается Android TV 9 и новее (API 28+).
 Публичный репозиторий: [reziarlleh/KinogoATV](https://github.com/reziarlleh/KinogoATV).
 
 ## Независимый проект
@@ -112,12 +112,12 @@ KinogoATV не является официальным приложением Ki
 ## Установка
 
 Подписанный установочный файл текущей версии:
-[KinogoATV-0.6.0-code20.apk](https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk).
+[KinogoATV-0.6.1-code21.apk](https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.1/KinogoATV-0.6.1-code21.apk).
 Если GitHub недоступен, тот же проверенный APK можно скачать через
-[GitHub Pages](https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.0-code20.apk)
-или [ghfast](https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.0/KinogoATV-0.6.0-code20.apk).
+[GitHub Pages](https://reziarlleh.github.io/KinogoATV/update/KinogoATV-0.6.1-code21.apk)
+или [ghfast](https://ghfast.top/https://github.com/reziarlleh/KinogoATV/releases/download/v0.6.1/KinogoATV-0.6.1-code21.apk).
 Описание выпуска находится на странице
-[KinogoATV 0.6.0](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.0).
+[KinogoATV 0.6.1](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.1).
 Размер APK — 6 703 237 bytes; SHA-256 —
 `2C257AEADA9C5E158A509F78F5109BFD74A597B1DAC9B84F28960ECE104FE569`.
 
@@ -131,12 +131,12 @@ KinogoATV не является официальным приложением Ki
 Для обновления поверх установленной версии используется APK с той же подписью:
 
 ```powershell
-adb install -r KinogoATV-0.6.0-code20.apk
+adb install -r KinogoATV-0.6.1-code21.apk
 ```
 
 Обновление также можно проверить в Настройках. Приложение не устанавливает APK скрытно:
 Android TV отдельно запросит разрешение для этого источника и подтверждение установки.
-Если установлена более ранняя версия, обновление 0.6.0 можно проверить при запуске либо вручную в
+Если установлена более ранняя версия, обновление 0.6.1 можно проверить при запуске либо вручную в
 Настройках. Во время проверки кнопка остаётся на месте и не отдаёт фокус боковому меню.
 
 ## Данные пользователя

@@ -41,8 +41,10 @@
   `34027297259` и main CI `34027481401` завершились SUCCESS. Annotated `v0.6.1` и regular
   GitHub Release содержат exact asset с тем же digest.
 - Signed manifest SHA-256 `CBA5C2643A2D3F3FF75D950A0FF896A0D7EE5B6132FEEF28E9290210BC517F42`
-  создан и локально проверен вместе с APK/signer; merge, Pages и live transports пока
-  **PENDING**. TV runtime также **PENDING**.
+  создан и локально проверен вместе с APK/signer. PR #18 вошёл merge
+  `1adb451657d59ba8e12152e8e011b3b44047ab77`; PR CI `34027882588`, main Android
+  `34027997264` и Pages `34027997193` завершились SUCCESS. Pages/jsDelivr manifest и APK
+  через Pages/ghfast/ghproxy/direct GitHub совпали с exact local bytes. TV runtime **PENDING**.
 
 ## [0.6.0] — 2026-09-06
 

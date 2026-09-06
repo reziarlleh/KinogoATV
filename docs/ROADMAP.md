@@ -15,8 +15,9 @@ C-013 / `0.6.1` code 21 исправляет общий класс исчезн�
 Мёртвая процентная completion-эвристика удалена, чтобы она не могла повторно попасть в exact
 resume path. Рабочий canonical прошёл 90 suites / 471 test, lint 0 errors и все assembly;
 exact post-commit stable-signed code 21 APK проверен локально. PR/main CI, tag и regular
-Release опубликованы; signed manifest локально проверен и ожидает Pages publication.
-Hardware playback приёмка пока **PENDING**.
+Release, signed manifest и Pages опубликованы; Pages/jsDelivr metadata и APK через
+Pages/ghfast/ghproxy/direct GitHub совпали с exact bytes. Hardware playback приёмка пока
+**PENDING**.
 
 C-012 / `0.6.0` code 20 опубликован: R8/resource shrinking,
 удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
