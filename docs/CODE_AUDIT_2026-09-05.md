@@ -52,12 +52,13 @@ Exact post-commit `assembleRelease --rerun-tasks` завершён **SUCCESS з�
 
 ## Continuity tools
 
-Agent-memory сохранён как observations `mem_mtop2qk9_2ead515f09f1` и
-`mem_mtpb5q3n_8e02a12bd36d` без URL-токенов, cookies или пользовательских данных.
-RepoWise 0.45.0 доступен и имеет 599 pages; SQL/vector/FTS
-stores согласованы. `doctor` показывает 19 stale pages, потому что C-012 пока является
-uncommitted working tree, а incremental update привязан к Git commit. После фиксации commit
-установленный post-commit hook должен обновить индекс; затем нужно повторить `repowise doctor`.
+Agent-memory сохранён как observations `mem_mtop2qk9_2ead515f09f1`,
+`mem_mtpb5q3n_8e02a12bd36d` и `mem_mtpby49w_20c7a0c374e2` без URL-токенов, cookies или
+пользовательских данных. RepoWise 0.45.0 обновлён до exact branch HEAD: 674 SQL/vector
+records, stores/FTS согласованы, coordinator drift 0%, high-confidence safe dead code — 0.
+`doctor` продолжает отмечать 32 derived pages старого renderer как stale; это известный
+остаток index-only режима, а не отставание commit или рассинхронизация stores. RepoWise CLI
+0.49 доступен, но глобальное tooling-обновление намеренно не смешивалось с release branch.
 
 ## Проверенные и отклонённые сигналы
 
