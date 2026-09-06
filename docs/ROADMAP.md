@@ -6,7 +6,7 @@ Roadmap задаёт направление, а не обещание даты. 
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: patch-кандидат 0.6.1 и расширенная ручная приёмка playback
+## Сейчас: post-release 0.6.1 и расширенная ручная приёмка playback
 
 C-013 / `0.6.1` code 21 исправляет общий класс исчезновения временной отметки, а не только
 частный пример возле конца серии. Обычный lifecycle/close checkpoint с нулевой позицией
@@ -14,8 +14,9 @@ C-013 / `0.6.1` code 21 исправляет общий класс исчезн�
 сохраняет S/E@0. Completed episode остаётся видимым контекстом `Продолжить после SxxExx`.
 Мёртвая процентная completion-эвристика удалена, чтобы она не могла повторно попасть в exact
 resume path. Рабочий canonical прошёл 90 suites / 471 test, lint 0 errors и все assembly;
-exact post-commit stable-signed code 21 APK проверен локально. Публикация patch release и
-hardware playback приёмка пока **PENDING**.
+exact post-commit stable-signed code 21 APK проверен локально. PR/main CI, tag и regular
+Release опубликованы; signed manifest локально проверен и ожидает Pages publication.
+Hardware playback приёмка пока **PENDING**.
 
 C-012 / `0.6.0` code 20 опубликован: R8/resource shrinking,
 удаление неподключённых dependencies/PlayerJS/PagingSource/legacy HTML client хвостов,
