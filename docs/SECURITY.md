@@ -168,6 +168,11 @@ Virtual cursor — UI-механизм, а не разрешение навиг�
 domain invariant, не является URL/token и не разрешает сохранять provider document,
 grant либо конечный поток.
 
+Общая `strictHttpsUriOrNull` проверяет текстовую и URI-форму gateway iframe и Web fallback
+origin одинаково: только HTTPS, без userinfo/fragment/control/backslash, opaque URI и
+нестандартного порта. Это синтаксический первый слой; последующая public-DNS/SSRF-проверка
+не заменяется и не ослабляется.
+
 Cinemar deferred token дополнительно не помещается в media URI. Он хранится только в
 session-owned `PlaybackMediaUrlResolver`. Три адресные политики намеренно разделены:
 

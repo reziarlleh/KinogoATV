@@ -9,7 +9,20 @@
 
 ## [Unreleased]
 
-Новых пользовательских изменений после `0.6.1` пока нет.
+Пользовательское поведение после `0.6.1` не изменено.
+
+### Инженерная доводка
+
+- Единая строгая HTTPS URI-проверка устранила дублирование между official gateway discovery
+  и изолированным Web fallback без ослабления DNS/SSRF-границы; добавлен отдельный unit-тест
+  безопасных и неоднозначных URI-форм.
+- Сложный provider dispatch в `KinogoPlaybackPreparationService` разделён на независимые
+  Cinemar/Collaps helpers с сохранением cancellation и fallback-контракта.
+- Durable `PlaybackCheckpointWriteQueue` вынесена из монолитного `KinogoAppRoot` в отдельный
+  компонент; сериализация записей и ожидание очереди подтверждены существующими тестами.
+- На disposable Android TV API 28 emulator пройден полный instrumentation-набор: **8/8**.
+- Post-release canonical: **91 suite / 473 tests**, 0 failures/errors/skips; lint —
+  **0 errors / 2 warnings**, debug/androidTest/release assembly — PASS за **17 мин 4 с**.
 
 ## [0.6.1] — 2026-09-06
 

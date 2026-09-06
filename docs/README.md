@@ -34,7 +34,15 @@
 
 ## Текущий опубликованный release
 
-C-012 / `0.6.0` code 20 опубликован как regular GitHub Release: R8/resource shrinking,
+C-013 / `0.6.1` code 21 опубликован как regular GitHub Release поверх C-012. Он устраняет
+общий zero-checkpoint defect: обычный lifecycle/close callback с позицией 0 больше не может
+затереть сохранённое ненулевое время, а нулевая позиция записывается только при явной
+активации серии. Completed episode остаётся видимым контекстом продолжения. Local canonical:
+90 suites / 471 test, lint 0 errors; exact stable-signed APK, PR/main CI, tag, Release,
+signed manifest, Pages и public exact-byte transports проверены. Hardware playback и
+in-app Package Installer flow остаются отдельной ручной приёмкой.
+
+C-012 / `0.6.0` code 20 остаётся предыдущим опубликованным release: R8/resource shrinking,
 удаление мёртвых Paging/PlayerJS/legacy transport веток, cancellable HTTP и строгая
 dependency verification. Local strict canonical: 90 suites / 473 tests, lint 0 errors.
 Application source `108519861faf67bc50dcdc574cecf38f94c00a13`, PR #14 merge

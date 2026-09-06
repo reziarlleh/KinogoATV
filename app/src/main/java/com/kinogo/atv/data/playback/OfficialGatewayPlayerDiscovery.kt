@@ -7,6 +7,7 @@ import com.kinogo.atv.data.mirror.NetworkDestinationValidator
 import com.kinogo.atv.data.network.ResilientPublicDns
 import com.kinogo.atv.data.network.awaitResponse
 import com.kinogo.atv.data.network.kinogoUserAgent
+import com.kinogo.atv.data.network.strictHttpsUriOrNull
 import java.io.ByteArrayOutputStream
 import java.net.URI
 import java.net.URLEncoder
@@ -477,22 +478,7 @@ internal object OfficialGatewayJsonParser {
     private fun parseYear(value: String): Int? =
         YEAR.find(value)?.value?.toIntOrNull()
 
-    private fun safeIframeUri(value: String): URI? {
-        if (
-            value.isBlank() || value != value.trim() || value.any(Char::isISOControl) ||
-            '\\' in value
-        ) {
-            return null
-        }
-        val uri = runCatching { URI(value) }.getOrNull() ?: return null
-        if (
-            !uri.scheme.equals("https", ignoreCase = true) || uri.isOpaque || uri.host.isNullOrBlank() ||
-            uri.rawUserInfo != null || uri.rawFragment != null || (uri.port != -1 && uri.port != 443)
-        ) {
-            return null
-        }
-        return uri
-    }
+    private fun safeIframeUri(value: String): URI? = strictHttpsUriOrNull(value)
 
     private fun JsonObject.string(name: String): String? {
         val value = get(name)?.takeIf(JsonElement::isJsonPrimitive)?.asJsonPrimitive ?: return null

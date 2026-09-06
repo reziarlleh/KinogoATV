@@ -2,7 +2,21 @@
 
 Последнее обновление: **6 сентября 2026 года**.
 
-## C-012 / 0.6.0 release evidence
+## C-013 / 0.6.1 release evidence
+
+Актуальный C-013 canonical, exact post-commit rebuild, CI, publication и добавленные
+resume-защиты зафиксированы ниже в разделе контрактов C-013. TV/ADB для code 21 не
+использовались; hardware playback и in-app Package Installer flow остаются `PENDING`.
+
+Post-release maintenance-проход добавил `StrictHttpsUriTest`, декомпозировал provider
+dispatch и вынес очередь checkpoint-записей. Canonical прошёл за **17 мин 4 с**:
+**91 suite / 473 tests**, 0 failures/errors/skips; lint — **0 errors / 2 warnings**; debug,
+androidTest и release APK собраны. Отдельный disposable `android-28;android-tv;x86` AVD
+`KinogoATV_API28_TV` прошёл `connectedDebugAndroidTest`: **8/8**, 0 failures/skips. Первый
+пробный AVD на обычном default image был отклонён как невалидный TV evidence после системной
+потери focus во всех UI-тестах; пользовательский телевизор и его данные не затрагивались.
+
+## Предыдущий C-012 / 0.6.0 release evidence
 
 Canonical рабочего дерева с `--write-verification-metadata sha256` завершён **SUCCESS за
 23 мин 55 с**, а повторный обычный strict-run `testDebugUnitTest lintDebug assembleDebug

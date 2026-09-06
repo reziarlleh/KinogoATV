@@ -306,44 +306,13 @@ class KinogoPlaybackPreparationService internal constructor(
         var notice: String? = null
         for (provider in order) {
             try {
-                when (provider) {
-                    CINEMAR_PROVIDER -> when (
-                        val result = cinemarAdapter.resolve(embedUrl = embedUrl, html = html)
-                    ) {
-                        is CinemarNativeResolution.Ready -> {
-                            return NativeCandidateResolution(
-                                providerId = CINEMAR_PROVIDER,
-                                plan = NativePlaybackPlanMapper.fromCinemar(
-                                    catalog = result.catalog,
-                                    deferredEmbedUrl = embedUrl,
-                                ),
-                            )
-                        }
-                        is CinemarNativeResolution.Rejected -> {
-                            Log.w(
-                                PLAYBACK_PREPARATION_LOG_TAG,
-                                "Cinemar native adapter rejected config: ${result.code}; " +
-                                    safeEmbedAddressShape(embedUrl),
-                            )
-                            if (providerHint == CINEMAR_PROVIDER) notice = result.userMessage
-                        }
-                    }
-                    COLLAPS_PROVIDER -> when (
-                        val result = collapsAdapter.resolve(embedUrl = embedUrl, html = html)
-                    ) {
-                        is CollapsNativePlaybackResult.Ready -> {
-                            return NativeCandidateResolution(
-                                providerId = COLLAPS_PROVIDER,
-                                plan = NativePlaybackPlanMapper.fromCollaps(result.catalog),
-                            )
-                        }
-                        is CollapsNativePlaybackResult.Rejected -> {
-                            if (providerHint == COLLAPS_PROVIDER) {
-                                notice = collapsNotice(result)
-                            }
-                        }
-                    }
+                val candidate = when (provider) {
+                    CINEMAR_PROVIDER -> resolveCinemarNative(embedUrl, html)
+                    COLLAPS_PROVIDER -> resolveCollapsNative(embedUrl, html)
+                    else -> error("Unsupported native provider: $provider")
                 }
+                candidate.plan?.let { return candidate }
+                if (providerHint == provider) notice = candidate.notice
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
@@ -360,6 +329,48 @@ class KinogoPlaybackPreparationService internal constructor(
             }
         }
         return NativeCandidateResolution(providerId = providerHint, notice = notice)
+    }
+
+    private suspend fun resolveCinemarNative(
+        embedUrl: String,
+        html: String,
+    ): NativeCandidateResolution = when (
+        val result = cinemarAdapter.resolve(embedUrl = embedUrl, html = html)
+    ) {
+        is CinemarNativeResolution.Ready -> NativeCandidateResolution(
+            providerId = CINEMAR_PROVIDER,
+            plan = NativePlaybackPlanMapper.fromCinemar(
+                catalog = result.catalog,
+                deferredEmbedUrl = embedUrl,
+            ),
+        )
+        is CinemarNativeResolution.Rejected -> {
+            Log.w(
+                PLAYBACK_PREPARATION_LOG_TAG,
+                "Cinemar native adapter rejected config: ${result.code}; " +
+                    safeEmbedAddressShape(embedUrl),
+            )
+            NativeCandidateResolution(
+                providerId = CINEMAR_PROVIDER,
+                notice = result.userMessage,
+            )
+        }
+    }
+
+    private suspend fun resolveCollapsNative(
+        embedUrl: String,
+        html: String,
+    ): NativeCandidateResolution = when (
+        val result = collapsAdapter.resolve(embedUrl = embedUrl, html = html)
+    ) {
+        is CollapsNativePlaybackResult.Ready -> NativeCandidateResolution(
+            providerId = COLLAPS_PROVIDER,
+            plan = NativePlaybackPlanMapper.fromCollaps(result.catalog),
+        )
+        is CollapsNativePlaybackResult.Rejected -> NativeCandidateResolution(
+            providerId = COLLAPS_PROVIDER,
+            notice = collapsNotice(result),
+        )
     }
 
     private fun collapsNotice(result: CollapsNativePlaybackResult.Rejected): String = when (
