@@ -68,9 +68,10 @@ playback/updater runtime-матрица остаётся PENDING и release tag 
 Agent-memory сохранён как observations `mem_mtop2qk9_2ead515f09f1`,
 `mem_mtpb5q3n_8e02a12bd36d`, `mem_mtpby49w_20c7a0c374e2` и
 `mem_mtpotgrd_21465249c59b` без URL-токенов, cookies или пользовательских данных.
-RepoWise 0.45.0 обновлён до exact branch HEAD: 681 SQL/vector records, stores/FTS
-согласованы, coordinator drift 0%, high-confidence safe dead code — 0. `doctor` продолжает
-отмечать 34 derived pages старого renderer как stale; это известный
+RepoWise 0.45.0 обновлён до exact branch HEAD; после `doctor --repair` SQL/vector/FTS stores
+согласованы, coordinator drift равен 0%, high-confidence safe dead code — 0. `doctor`
+продолжает отмечать derived pages старого renderer как stale; их динамическое количество
+намеренно не фиксируется в tracked-документе. Это известный
 остаток index-only режима, а не отставание commit или рассинхронизация stores. RepoWise CLI
 0.49 доступен, но глобальное tooling-обновление намеренно не смешивалось с release branch.
 
