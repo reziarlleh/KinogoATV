@@ -1,6 +1,6 @@
 # Архитектура воспроизведения
 
-Последнее обновление: **5 сентября 2026 года**.
+Последнее обновление: **30 сентября 2026 года**.
 
 ## Принцип
 
@@ -121,6 +121,20 @@ playlist/position не видны accessibility и безопасным лога
 Неподключённые `PlayerJsCapabilities` и расширенные JS-команды quality/audio/subtitles/find
 удалены в C-012. Web fallback поддерживает только реально используемые transport-команды
 play/pause/toggle/stop/previous/next/relative seek и не обещает parity с native player.
+
+## Диагностика отказа видеодекодера
+
+Текст UI об ошибке формата сам по себе не доказывает изменение provider contract.
+Различать HTTP/manifest/extractor failure и `MediaCodec` failure следует по redacted
+error code, имени декодера и распознанному формату, без media/iframe URL и токенов.
+`format_supported=YES` не гарантирует, что аппаратный декодер успешно обработает поток.
+
+В R-040 на KIVI / Android 14 опубликованная `0.6.1` распознавала H.264 720p/1080p,
+но vendor `OMX.MS.AVC.Decoder` падал с `0x80001000`. Reboot восстановил тот же
+APK и Cinemar S1E1 «Галактики»; точный механизм vendor failure не установлен.
+При повторении сначала сравнить fresh launch и перезапуск устройства с разрешения
+владельца, сохранив safe runtime evidence. Не отключать HTTPS/SSRF и не переписывать
+adapter без доказанного изменения browser-visible контракта.
 
 ## Единая медиаматрица
 
