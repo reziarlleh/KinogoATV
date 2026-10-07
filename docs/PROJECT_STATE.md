@@ -4,6 +4,12 @@
 
 ## Метаданные карточек и свежая История — unreleased 2026-10-07
 
+Продолжение 7 октября: C-014 / `0.6.2` code 22 **готовится к публикации**. Ранее исправления
+были оставлены только в локальной ветке, версия оставалась 0.6.1/code21 и update channel
+не обновлялся. Это не доставляло результат владельцу. Published C-013 остаётся прежним
+до подтверждённой публикации C-014; code21 manifest истёк 6 октября. Обязательный итог
+текущей задачи — signed APK, regular Release, новый signed manifest и проверка live endpoints.
+
 Application/source commit: `158a4c47f493281d54277b75630bfd744e188a91`
 (`codex/catalog-metadata`); локальные проверки ниже относятся к тем же app/test исходникам.
 Это local/source baseline, не hardware known-good или published release.

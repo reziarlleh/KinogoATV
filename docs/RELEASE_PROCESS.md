@@ -1,6 +1,14 @@
 # Процесс выпуска APK
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
+
+## C-014 / 0.6.2 code 22 — подготовка
+
+Выпуск доставляет metadata-карточки и свежие сведения о сериях в Истории. Source baseline
+до version bump — `85e4633`, rollback published — `v0.6.1`. Требуются локальный canonical,
+точная stable signature, R8 mapping, remote CI, regular Release и новый signed manifest.
+TV/ADB/эмулятор не используются по указанию владельца; hardware baseline tag не создаётся.
+Срок code21 manifest закончился 6 октября; старый envelope не продлевается без новой подписи.
 
 ## Виды сборок
 
