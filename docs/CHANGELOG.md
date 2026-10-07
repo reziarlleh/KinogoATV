@@ -14,10 +14,14 @@
 ## [0.6.2] — 2026-10-07
 
 Release C-014 / code 22 готовится к публикации. Прежний signed code 21 manifest истёк
-6 октября; для новой версии создаётся новый envelope только после проверки exact APK.
+6 октября; C-014 удаляет update manifests целиком вместо их продления (D-041).
 Релиз и обновление пока не опубликованы; evidence будет дополнено после live verification.
 
-- Исправлена подготовка Android CI/Pages: setup action больше не запрашивает удалённый
+- Обновления определяются числовой версией `x.y.z` последнего стабильного GitHub Release.
+  Нет expiry, дополнительных manifest endpoints, signing scripts или Pages update workflow.
+  Равная/меньшая версия не предлагается; SHA-256/package/version/прежний signer и OS
+  confirmation остаются обязательными. Пустые релизы и периодическое продление не нужны.
+- Исправлена подготовка Android CI: setup action больше не запрашивает удалённый
   пакет SDK `tools`; устанавливаются `platform-tools` и явно необходимые versioned SDK
   packages. Первый PR run упал до Gradle именно на `Failed to find package 'tools'`.
 

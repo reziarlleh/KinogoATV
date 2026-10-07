@@ -8,7 +8,8 @@
 были оставлены только в локальной ветке, версия оставалась 0.6.1/code21 и update channel
 не обновлялся. Это не доставляло результат владельцу. Published C-013 остаётся прежним
 до подтверждённой публикации C-014; code21 manifest истёк 6 октября. Обязательный итог
-текущей задачи — signed APK, regular Release, новый signed manifest и проверка live endpoints.
+текущей задачи — signed APK, regular Release и проверка live API/APK. C-014 удаляет систему
+update manifests целиком (D-041): только сравнение `x.y.z` с GitHub latest stable, без expiry.
 
 Application/source commit: `158a4c47f493281d54277b75630bfd744e188a91`
 (`codex/catalog-metadata`); локальные проверки ниже относятся к тем же app/test исходникам.
@@ -616,12 +617,11 @@ evidence и не разрешают массовую чистку без про�
   `config/mirrors.json` ограничен exact GitHub raw path/schema/size/count/expiry, но не
   подписан и только добавляет четыре quarantined discovery candidates, включая
   `kinogo.family`; internet-wide crawler нет.
-- Updater доверяет не host, а signed payload, проверенному public key installed APK
-  signer. До четырёх manifest/download URLs дают transport redundancy; GitHub Release API —
-  fallback. Перед Android Package Installer повторно проверяются SHA-256, size,
-  package/version и signing identity. Silent install нет, системное подтверждение
-  обязательно. Pages/jsDelivr metadata и Pages/ghfast/ghproxy/direct APK transport проверены
-  на exact bytes, но ни один host не даёт trust без signed size/SHA и final APK checks.
+- С C-014 updater читает GitHub latest regular Release и численно сравнивает `x.y.z`;
+  отдельных update manifests и сроков действия нет. Перед Android Package Installer
+  проверяются SHA-256, size, package/version, рост versionCode и прежняя signing identity.
+  Silent install нет, системное подтверждение обязательно. GitHub должен быть доступен;
+  история прежних Pages/CDN checks не доказывает runtime нового pipeline.
 - GitHub Actions clean-clone unit/lint/assembleDebug и Pages publish прошли на final
   C-009 merge `ff7f5f8`; CI не имеет stable signing key и не доказывает TV UX.
 - Registration отдельно показывает DLE rules gate с default decline; sensitive fields

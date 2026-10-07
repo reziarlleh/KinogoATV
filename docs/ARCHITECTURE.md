@@ -374,10 +374,11 @@ snapshot. Позиция provider WebView в `localStorage` также не яв
 ### Обновления и remote bootstrap
 
 `AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
-`DefaultAppUpdateClientFactory` сначала проверяет до четырёх APK-signer-authenticated signed
-manifest endpoints, затем использует `GitHubReleaseUpdateClient` как fallback. Signed payload
-задаёт exact version/name/size/SHA/expiry и до четырёх HTTPS APK locations; публичный ключ
-берётся из сертификата установленного APK. `ApkUpdateVerifier` до installer повторно сверяет
+С C-014 единственный источник — последний regular GitHub Release через
+`GitHubReleaseUpdateClient`. `GitHubReleaseParser` численно сравнивает major/minor/patch
+`x.y.z` с установленной версией: равная/меньшая не предлагается. Для более высокой версии
+также обязателен рост Android versionCode. Отдельные update manifests, expiry, factory,
+fallback channels и signing scripts удалены (D-041). `ApkUpdateVerifier` до installer сверяет
 package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
 системного confirmation.
 
@@ -386,7 +387,8 @@ Startup orchestration различает automatic и manual check. Automatic fl
 Compose TV-dialog. Dismiss скрывает его на текущий процесс, но не меняет настройку и не
 отменяет доступность update в Settings. Manual flow не выполняет скрытых retry.
 
-Для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
+Историческое evidence до C-014 (не текущий updater contract):
+для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
 metadata/download transports подтверждены после Release. Это проверяет deployment topology,
 но не runtime state machine на TV: in-app check/download/verify/installer остаётся
 **PENDING**. Pages/jsDelivr/proxy/direct transport в итоге зависит от GitHub publication;

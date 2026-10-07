@@ -1070,7 +1070,10 @@ fun KinogoAppRoot() {
             try {
                 while (true) {
                     try {
-                        val result = appUpdateManager.check(BuildConfig.VERSION_CODE.toLong())
+                        val result = appUpdateManager.check(
+                            BuildConfig.VERSION_CODE.toLong(),
+                            BuildConfig.VERSION_NAME,
+                        )
                         when (result) {
                             is AppUpdateCheckResult.UpToDate -> {
                                 availableAppUpdate = null

@@ -9,21 +9,13 @@ import androidx.core.net.toUri
 
 internal class AppUpdateManager(
     context: Context,
-    private val client: AppUpdateClient = DefaultAppUpdateClientFactory.create(context),
+    private val client: AppUpdateClient = GitHubReleaseUpdateClient(),
 ) {
-    constructor(
-        context: Context,
-        additionalManifestUrls: List<String>,
-    ) : this(
-        context = context,
-        client = DefaultAppUpdateClientFactory.create(context, additionalManifestUrls),
-    )
-
     private val appContext = context.applicationContext
     private val verifier = ApkUpdateVerifier(appContext)
 
-    suspend fun check(currentVersionCode: Long): AppUpdateCheckResult =
-        client.check(currentVersionCode)
+    suspend fun check(currentVersionCode: Long, currentVersionName: String): AppUpdateCheckResult =
+        client.check(currentVersionCode, currentVersionName)
 
     suspend fun downloadAndVerify(release: AppUpdateRelease): VerifiedAppUpdate {
         val directory = appContext.cacheDir.resolve(UPDATE_CACHE_DIRECTORY)

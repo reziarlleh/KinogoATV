@@ -258,27 +258,13 @@ RepoWise или изменения пользовательского PATH ну�
 Анонимная telemetry RepoWise включена upstream по умолчанию и не содержит код, пути или имя
 репозитория; при желании её можно отключить локально командой `repowise telemetry disable`.
 
-### Update manifest endpoints
+### Источник обновлений
 
-Code 16 имеет два default signed-manifest transports: GitHub Pages и jsDelivr. Client
-допускает максимум четыре distinct metadata endpoints всего, поэтому к двум default можно
-добавить не более двух новых URL. Они зашиваются в APK Gradle property с разделителем `|`:
-
-```powershell
-.\gradlew.bat assembleRelease `
-  '-PKINOGO_UPDATE_MANIFEST_URLS=https://updates.example.org/kinogo/manifest.json' `
-  --no-daemon --max-workers=1 `
-  '-Pkotlin.compiler.execution.strategy=in-process'
-```
-
-Значение попадает в `BuildConfig.UPDATE_MANIFEST_URLS`, поэтому зашивать можно только
-публичные HTTPS URL, но не secrets/tokens. Host не становится trusted: client требует
-envelope signature installed APK identity, strict schema/expiry/agreement, а затем повторяет
-APK size/SHA/package/version/signer checks. GitHub API остаётся последним fallback.
-Pages/jsDelivr/proxy/direct дают транспортное разнообразие вокруг GitHub publication, но не
-заменяют operator-owned non-GitHub endpoint для инфраструктурной независимости.
-Создание и публикация manifest описаны только в
-[`RELEASE_PROCESS.md`](RELEASE_PROCESS.md); development build не должен создавать его автоматически.
+С C-014 используется только GitHub latest regular Release. Установленная `VERSION_NAME`
+сравнивается численно с `x.y.z` последнего release; Android `VERSION_CODE` также должен
+расти для обновления поверх. Дополнительных endpoints, Gradle manifest property и
+генерации/продления update manifests нет. Публикация — [`RELEASE_PROCESS.md`](RELEASE_PROCESS.md),
+защита APK — [`SECURITY.md`](SECURITY.md), решение — D-041.
 
 ## Android Studio
 

@@ -3,6 +3,19 @@
 Последнее обновление: **7 октября 2026 года**.
 
 ## Метаданные карточек и свежая История — 2026-10-07
+ 
+## C-014 updater без манифестов — текущий контракт
+
+`GitHubReleaseParserTest`: числовое major/minor/patch сравнение, equal/lower без update,
+рост Android code, draft/prerelease/tag mismatch/duplicate/missing digest и exact URL guards.
+Давняя дата публикации не препятствует обновлению; часов/expiry в parser нет.
+`GitHubReleaseUpdateClientTest`: только latest API, no-cache/no cookies, network failure
+не равна UpToDate, exact size/SHA и удаление повреждённого download. `ApkUpdatePolicyTest`
+сохраняет package/version/code/signer checks. Прежние manifest/fallback tests удалены вместе
+с production contract; исторические упоминания ниже относятся к прежним версиям.
+Финальный canonical/release/public evidence будет записан после завершения C-014.
+
+### Предварительная metadata-проверка до замены updater
 
 Rollback/source до задачи: `6556064`, published release — прежняя C-013. Изменены HTML
 episode label, UI metadata и фоновые history detail reads. Защиты:

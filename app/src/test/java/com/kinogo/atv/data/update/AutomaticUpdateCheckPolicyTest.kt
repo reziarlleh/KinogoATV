@@ -45,8 +45,6 @@ class AutomaticUpdateCheckPolicyTest {
                 assetSizeBytes = 1_024L,
                 downloadUrl = "https://example.org/KinogoATV.apk",
                 sha256 = "a".repeat(64),
-                channel = AppUpdateReleaseChannel.SIGNED_MANIFEST,
-                validUntilEpochSeconds = Long.MAX_VALUE,
             ),
         )
 

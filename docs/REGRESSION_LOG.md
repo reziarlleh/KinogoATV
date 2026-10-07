@@ -1246,6 +1246,27 @@ C-002 нельзя переименовывать в B-002 и помечать b
   `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`.
 
 ## Шаблон новой записи
+ 
+### R-042 — Доступность стабильного обновления зависела от истечения манифеста
+
+- Статус: Resolved в исходниках C-014; публикация проверяется отдельно.
+- Обнаружено: 7 октября 2026 года; C-013 manifest истёк 6 октября.
+- Affected: версии до 0.6.2 с signed-manifest primary и GitHub fallback (D-028).
+  Последний опубликованный rollback — v0.6.1/code21; истечение не отключает само приложение.
+- Симптом: primary update channel переставал работать без переиздания envelope даже для
+  неизменного стабильного APK. Локальные metadata-правки без публикации тоже не доставлялись.
+- Причина: expiry ограничивал канал на 90 дней; обслуживание не соответствует требованию
+  владельца «стабильный финал без регулярных пустых выпусков/продлений».
+- Исправление: удалены manifest source/client/factory, поля TTL/channel, scripts, Gradle
+  property и Pages workflow. Только GitHub latest regular Release и числовое `x.y.z` (D-041).
+  SHA/size/package/version/code/signer checks сохранены; сеть GitHub требуется явно.
+- Protective tests: `GitHubReleaseParserTest.stable release has no clock or expiry dependency`,
+  numeric/equal/lower guards, `GitHubReleaseUpdateClientTest`, `ApkUpdatePolicyTest`.
+- Verification: canonical и public API/APK evidence — `TESTING.md`/`PROJECT_STATE.md`.
+  TV/ADB/эмулятор не используются по указанию владельца. Старый клиент переходит к GitHub
+  fallback при отказе/expiry manifest; при сетевой блокировке возможна ручная установка поверх.
+
+## Шаблон новой записи
 
 ```markdown
 ### R-NNN — Краткий симптом

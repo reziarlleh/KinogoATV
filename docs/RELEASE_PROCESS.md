@@ -6,20 +6,19 @@
 
 Выпуск доставляет metadata-карточки и свежие сведения о сериях в Истории. Source baseline
 до version bump — `85e4633`, rollback published — `v0.6.1`. Требуются локальный canonical,
-точная stable signature, R8 mapping, remote CI, regular Release и новый signed manifest.
+точная stable signature, R8 mapping, remote CI, regular Release и проверка public API/APK.
 TV/ADB/эмулятор не используются по указанию владельца; hardware baseline tag не создаётся.
-Срок code21 manifest закончился 6 октября; старый envelope не продлевается без новой подписи.
-
-Переиздание манифеста **не требует новой версии APK**: для финальной версии использовать
-тот же проверенный APK/name/code/hash и новые issued/expires в повторно подписанном envelope,
-затем PR → Pages deployment → live verification. Срок envelope защищает freshness канала,
-не лицензирует и не отключает установленное приложение. Новый номер версии обязателен только
-при замене APK. Текущий лимит parser — 90 дней; ключ подписи остаётся локальным, в CI его нет.
-Для C-014 выбран срок 89 дней, а не прежние 30; дальнейшее обслуживание envelope остаётся
-отдельной операцией публикации, а не поводом создавать пустые APK releases.
+Срок code21 manifest закончился 6 октября. По требованию владельца прежняя система
+удалена целиком (D-041): никаких отдельных update manifests, TTL, продлений или пустых
+релизов. Обсуждавшийся вариант 89 дней/бессрочного envelope не поставлялся.
+Источник — `https://api.github.com/repos/reziarlleh/KinogoATV/releases/latest`.
+Updater численно сравнивает `x.y.z` с установленной; выше — предлагает APK, равная/ниже — нет.
+Для установки поверх требуется растущий code и прежний signer. Стабильный release может
+оставаться последним сколько угодно без изменения своих metadata. Сеть GitHub должна быть
+доступна; ошибка сети не трактуется как «обновлений нет».
 
 PR #22 first run `37649211984` упал до Gradle: default setup-android packages включал
-удалённый SDK `tools`. В Android/Pages workflows явно установлено `packages: platform-tools`;
+удалённый SDK `tools`. В Android workflow явно установлено `packages: platform-tools`;
 versioned platform/build-tools сохраняются отдельным шагом, checks не отключаются.
 
 ## Виды сборок
@@ -444,7 +443,22 @@ KinogoATV-<version>-code<versionCode>.apk
 Для shrunk release отдельно архивировать exact `mapping.txt` с привязкой к application commit,
 versionCode и APK SHA-256; без этого obfuscated crash stack невозможно надёжно восстановить.
 
-## 8. Подписанный update manifest
+## 8. Текущий update contract (C-014+)
+
+Опубликовать regular Release с tag `v<x.y.z>`, одним APK
+`KinogoATV-<x.y.z>-code<code>.apk` и `SHA256SUMS.txt`. Проверить public latest API:
+draft/prerelease false, tag/name/code согласованы, digest/size совпадают с exact APK.
+Проверить production parser для предыдущей и текущей установленной версии, затем скачать
+публичный APK и сверить SHA-256/подпись. Дополнительных файлов или deployment нет.
+Старые 0.6.1 и ниже имеют GitHub fallback: отказ/expiry прежнего manifest ведёт туда.
+Если старый клиент не может связаться с GitHub, доступна ручная установка release APK
+поверх; не удалять приложение/данные.
+
+### Историческая публикация signed manifests (до C-014, больше не выполнять)
+
+Следующие команды и evidence сохранены только для восстановления истории C-007–C-013.
+Скрипты, update/manifest.json и Pages update workflow удалены; этот раздел не является
+инструкцией текущего выпуска и не требует обслуживания старых manifests.
 
 Сначала опубликовать exact stable GitHub Release asset и дождаться его metadata
 digest. Затем из той же локальной stable-signed копии создать envelope:
@@ -577,7 +591,7 @@ git push origin baseline-<version>
 
 Обычный распространяемый release желательно создавать после аппаратного подтверждения.
 Допустимое исключение — validation release для ручной проверки updater владельцем: canonical
-tests/lint, exact stable-signed artifact, manifest и CI всё равно обязательны, release notes
+tests/lint, exact stable-signed artifact, public API/asset и CI всё равно обязательны, release notes
 явно называют hardware validation pending, baseline tag не создаётся и никакое TV-поведение
 не объявляется подтверждённым. Updater не принимает GitHub `prerelease`, поэтому такой
 validation release может быть технически regular Release, но его evidence-классификация
@@ -631,7 +645,7 @@ Annotated tag `v0.5.3` указывает на `0473a820`; regular latest
 Pages [run 32598900503](https://github.com/reziarlleh/KinogoATV/actions/runs/32598900503)
 на `367bcf2` завершён SUCCESS (`2026-08-22T21:12:09Z`–`21:12:57Z`).
 
-## Release checklist C-013
+## Historical completed checklist C-013
 
 - [x] Version code увеличен до 21, version name — `0.6.1`.
 - [x] Обычный zero checkpoint отделён от explicit episode activation; completed anchor видим.
