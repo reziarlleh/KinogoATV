@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **30 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -1220,6 +1220,30 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Сопутствующая проверка: сериал присутствует и во «Все» (22-я карточка из 24);
   отсутствие на первом экране не было потерей server bookmark. Отсутствие local history
   на ранее не использованном для этого сериала TV ожидаемо.
+
+### R-041 — История не даёт актуального ответа о доступных сериях
+
+- Статус: Resolved в исходниках; новая версия не опубликована, hardware не проверялся.
+- Обнаружено: 7 октября 2026, требование владельца при добавлении episode labels.
+- Affected/rollback source: `6556064`, опубликованная версия C-013 / `0.6.1`.
+  First-bad commit и last-known-good для свежести episode count не установлены:
+  прежняя История не имела гарантии свежего detail GET при входе.
+- Окружение: source review без подключения TV/эмулятора.
+- Симптом/риск: сохранённая карточка или ранее загруженная лента могла содержать старую
+  подпись серий, поэтому по Истории нельзя было надёжно понять, добавились ли новые.
+- Причина: `historyCatalogItems` объединял cached feeds/library/contentSnapshot;
+  свежая карточка загружалась при отдельных Details/legacy-enrichment сценариях, а не
+  при каждом показе Истории.
+- Исправление: отдельные ограниченные fresh detail reads при mount/Back/origin/ID changes;
+  origin/ID/generation guards и cancellation. Pending/error видны явно; stale label не
+  подставляется даже если свежий HTML не содержит поля. Playback checkpoint не изменяется.
+- Protective tests: `HistoryMetadataRefresherTest`, `HistoryMetadataUiMapperTest`,
+  `PlaybackProgressStoreTest.fresh history card metadata never rewrites the playback checkpoint`.
+- Runtime verification: не выполнялась по прямому указанию владельца; local canonical
+  записан в `TESTING.md`. Live metadata HTML `kinogo.family` подтверждён HTTP 200;
+  actual UI/history refresh на TV не проверялся.
+- Rollback point: `6556064`; published APK SHA-256 по-прежнему
+  `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`.
 
 ## Шаблон новой записи
 

@@ -14,7 +14,10 @@ class HistoryPosterTest {
     fun `history grid preserves stable content id and progress metadata`() {
         val history = HistoryUiModel(
             id = "history-35182",
-            poster = PosterUiModel("35182", "Сериал", "2026 • Сериал"),
+            poster = PosterUiModel(
+                "35182", "Сериал", "2026 • Сериал",
+                rating = "КП 8\nIMDb 7.7", episodeBadge = "1 сезон 1-19 серия",
+            ),
             episodeLabel = "Сезон 2, серия 5",
             positionLabel = "17 из 42 мин",
             lastWatchedLabel = "Сегодня",
@@ -25,6 +28,8 @@ class HistoryPosterTest {
 
         assertEquals("35182", poster.id)
         assertEquals(0.4f, poster.progress)
+        assertEquals(history.poster.rating, poster.rating)
+        assertEquals(history.poster.episodeBadge, poster.episodeBadge)
         assertEquals(
             "Сезон 2, серия 5 • 17 из 42 мин • Сегодня",
             poster.subtitle,

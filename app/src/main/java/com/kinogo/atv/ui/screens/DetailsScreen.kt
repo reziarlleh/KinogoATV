@@ -252,6 +252,20 @@ private fun DetailsHero(
                             fontSize = 14.sp,
                         )
                     }
+                    details.duration?.takeIf(String::isNotBlank)?.let { duration ->
+                        Text(
+                            text = "Продолжительность: $duration",
+                            color = Color(0xFFD4DCE9),
+                            fontSize = 14.sp,
+                        )
+                    }
+                    details.episodeInfo?.takeIf(String::isNotBlank)?.let { episodeInfo ->
+                        Text(
+                            text = "Сезоны и серии: $episodeInfo",
+                            color = Color(0xFFD4DCE9),
+                            fontSize = 14.sp,
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(9.dp),
                         verticalAlignment = Alignment.CenterVertically,

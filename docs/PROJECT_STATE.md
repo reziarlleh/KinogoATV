@@ -1,6 +1,31 @@
 # Текущее состояние проекта
 
-Последнее обновление: **30 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
+
+## Метаданные карточек и свежая История — unreleased 2026-10-07
+
+Поверх исходного rollback point `6556064` добавлены КП/IMDb на обзорных постерах,
+duration из HTML в Details и исходная подпись сезонов/серий. История при каждом открытии
+запрашивает свежие карточки с текущего проверенного зеркала; сохранённый snapshot не служит
+источником актуального числа серий. Пока запрос идёт/не удался, статус явно отличается от
+числа серий. Позиция, дата, сезон/серия checkpoint и DataStore не перезаписываются (R-041).
+Сторонних metadata API и вычисления totals из playlist нет.
+
+Опубликованная версия, tag `v0.6.1`, signed manifest и stable APK не изменены. Это изменение
+исходников, не установленное обновление TV и не новый release. Проверки этого изменения
+записываются в `TESTING.md`; baseline предыдущего published APK и hash остаются ниже.
+TV/ADB и эмулятор для новых меток не используются по прямому указанию владельца.
+Playback, remote keys и focus graph не перерабатывались. Live HTTPS GET `kinogo.family`
+7 октября подтвердил catalog ratings/episode ranges и detail duration; ранние попытки других
+зеркал дали тайм-ауты/503. Автоматические guards проверяются fixtures/JVM, это не TV evidence.
+
+Финальный local canonical `testDebugUnitTest lintDebug assembleDebug` — SUCCESS за 2 мин
+38 с: 93 suites / 491 tests, 0 failures/errors/skips, lint 0 errors / 12 version advisory.
+Локальный **debug**, не release/candidate: `app/build/outputs/apk/debug/app-debug.apk`,
+49 009 536 bytes, SHA-256
+`27E889CE67A9CCEBEB192D7F35EC1C3290862FB5F2E961976B2636B55CB067FC`.
+APK собран из рабочего дерева этой задачи до коммита, не установлен и не опубликован.
+Release/R8/signing/updater checks не повторялись; published stable hash ниже остаётся baseline.
 
 ## KIVI: восстановление воспроизведения 30 сентября 2026 года
 

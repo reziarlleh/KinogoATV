@@ -17,6 +17,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +56,13 @@ fun HistoryScreen(
     onFocusedItemChanged: (String) -> Unit = {},
     onDeleteContent: (contentId: String, preferredFocusItemId: String?) -> Unit = { _, _ -> },
     onClearHistory: () -> Unit = {},
+    onMetadataVisibilityChanged: (Boolean) -> Unit = {},
 ) {
+    val visibilityCallback by rememberUpdatedState(onMetadataVisibilityChanged)
+    DisposableEffect(Unit) {
+        visibilityCallback(true)
+        onDispose { visibilityCallback(false) }
+    }
     val firstFocus = remember { FocusRequester() }
     val posters = remember(history) { history.map(HistoryUiModel::toHistoryPoster) }
     var restorePreferredFocus by remember {

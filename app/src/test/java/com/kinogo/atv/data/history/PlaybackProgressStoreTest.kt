@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.PlaybackSelection
 import com.kinogo.atv.domain.WatchProgress
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +19,23 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PlaybackProgressStoreTest {
+    @Test
+    fun `fresh history card metadata never rewrites the playback checkpoint`() = runTest {
+        val store = PlaybackProgressStore(InMemoryPreferencesDataStore())
+        val checkpoint = progress("42", "season-2", "episode-3", 10L)
+        store.upsert(checkpoint)
+        val before = store.list()
+        var displayed: CatalogItem? = null
+        HistoryMetadataRefresher(load = { it.copy(episodeBadge = "3 сезон 8 серия") })
+            .refresh(listOf(CatalogItem("42", "/serialy/42-series.html", "Сериал"))) { _, fresh ->
+                displayed = fresh
+            }
+
+        assertEquals("3 сезон 8 серия", displayed?.episodeBadge)
+        assertEquals(before, store.list())
+        assertEquals(checkpoint, store.get("42", "season-2", "episode-3"))
+    }
+
     @Test
     fun `episode checkpoint survives store recreation`() = runTest {
         val dataStore = InMemoryPreferencesDataStore()

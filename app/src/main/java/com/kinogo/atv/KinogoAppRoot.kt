@@ -44,6 +44,7 @@ import com.kinogo.atv.data.auth.createCredentialStore
 import com.kinogo.atv.data.history.PlaybackProgressStore
 import com.kinogo.atv.data.history.PlaybackProgressCollection
 import com.kinogo.atv.data.history.LegacyHistoryDetailsResolver
+import com.kinogo.atv.data.history.HistoryMetadataRefresher
 import com.kinogo.atv.data.library.KinogoLibraryApi
 import com.kinogo.atv.data.library.KinogoLibraryRepository
 import com.kinogo.atv.data.library.LibraryStateStore
@@ -99,6 +100,7 @@ import com.kinogo.atv.ui.KinogoTvApp
 import com.kinogo.atv.ui.components.PosterGridColumnCount
 import com.kinogo.atv.ui.mapper.toDetailsUiModel
 import com.kinogo.atv.ui.mapper.toPosterUiModel
+import com.kinogo.atv.ui.mapper.historyEpisodeBadge
 import com.kinogo.atv.ui.model.BookmarkUiModel
 import com.kinogo.atv.ui.model.DetailsUiModel
 import com.kinogo.atv.ui.model.AppUpdateUiModel
@@ -407,6 +409,11 @@ fun KinogoAppRoot() {
     val playbackPreparationService = remember { KinogoPlaybackPreparationService() }
 
     var history by remember { mutableStateOf(emptyList<WatchProgress>()) }
+    var historyMetadataVisible by remember { mutableStateOf(false) }
+    var historyMetadataGeneration by remember { mutableIntStateOf(0) }
+    var historyMetadataOrigin by remember { mutableStateOf<String?>(null) }
+    var historyMetadataContentIds by remember { mutableStateOf(emptyList<String>()) }
+    var historyMetadata by remember { mutableStateOf(emptyMap<String, CatalogItem?>()) }
     var libraryRecords by remember { mutableStateOf(emptyList<LibraryRecord>()) }
     var librarySyncMessage by remember { mutableStateOf<String?>(null) }
     var librarySyncPendingCount by remember { mutableIntStateOf(0) }
@@ -1589,11 +1596,49 @@ fun KinogoAppRoot() {
             .distinctBy(CatalogItem::id)
             .associateBy(CatalogItem::id)
     }
-    val historyUi = remember(history, historyCatalogItems) {
+    val historyContentIds = remember(history) { history.map { it.selection.contentId }.distinct() }
+    LaunchedEffect(historyMetadataVisible, historyMetadataGeneration, activeMirrorOrigin, historyContentIds) {
+        val generation = historyMetadataGeneration
+        historyMetadataOrigin = activeMirrorOrigin
+        historyMetadataContentIds = historyContentIds
+        historyMetadata = emptyMap()
+        if (!historyMetadataVisible) return@LaunchedEffect
+        val origin = activeMirrorOrigin ?: return@LaunchedEffect
+        val candidates = historyContentIds.mapNotNull { id ->
+            historyCatalogItems[id] ?: legacyHistoryLookupItem(id)
+        }
+        HistoryMetadataRefresher(load = { item -> loadCatalogDetails(origin, item).catalogItem })
+            .refresh(candidates) { id, fresh ->
+                if (historyMetadataVisible && historyMetadataGeneration == generation &&
+                    activeMirrorOrigin == origin && historyContentIds == historyMetadataContentIds
+                ) {
+                    historyMetadata = historyMetadata + (id to fresh)
+                }
+            }
+    }
+    val historyUi = remember(
+        history, historyCatalogItems, historyMetadata, historyMetadataOrigin,
+        historyMetadataContentIds, historyContentIds, activeMirrorOrigin,
+    ) {
+        val currentMetadata = historyMetadata.takeIf {
+            historyMetadataOrigin == activeMirrorOrigin && historyMetadataContentIds == historyContentIds
+        }.orEmpty()
         history
             .distinctBy { it.selection.contentId }
             .map { progress ->
-                toHistoryUiModel(progress, historyCatalogItems[progress.selection.contentId])
+                val id = progress.selection.contentId
+                val fresh = currentMetadata[id]
+                val cached = historyCatalogItems[id]
+                val model = toHistoryUiModel(progress, fresh ?: cached)
+                model.copy(poster = model.poster.copy(
+                    episodeBadge = historyEpisodeBadge(
+                        cached = cached,
+                        fresh = fresh,
+                        checked = id in currentMetadata || activeMirrorOrigin == null ||
+                            (cached == null && legacyHistoryLookupItem(id) == null),
+                        episodicProgress = progress.selection.seasonId != null,
+                    ),
+                ))
             }
     }
     val favoriteIds = remember(libraryRecords) {
@@ -1787,6 +1832,11 @@ fun KinogoAppRoot() {
             initialDetailsId = playbackReturnDetailsId,
             homeCatalog = homePosters,
             history = historyUi,
+            onHistoryMetadataVisibilityChanged = {
+                historyMetadataGeneration += 1
+                historyMetadata = emptyMap()
+                historyMetadataVisible = it
+            },
             mirrorState = mirrorUiState,
             catalog = catalogPosters,
             favorites = favoritePosters,

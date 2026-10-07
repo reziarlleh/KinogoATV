@@ -1,6 +1,37 @@
 # Стратегия тестирования
 
-Последнее обновление: **30 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
+
+## Метаданные карточек и свежая История — 2026-10-07
+
+Rollback/source до задачи: `6556064`, published release — прежняя C-013. Изменены HTML
+episode label, UI metadata и фоновые history detail reads. Защиты:
+
+- `KinogoHtmlParserTest` — подпись из poster ribbon/«Добавлено», объединение отдельных
+  «Сезон» и «Последняя серия онлайн» без дубля, duration и отсутствие полей;
+- `CatalogUiMapperTest` — оба/один/нет рейтинга, отсутствие duration, сохранение исходных
+  season/episode ranges без выдуманного total;
+- `HistoryMetadataRefresherTest` — новый read при повторном открытии, дедупликация,
+  максимум два запроса, независимые ответы, partial failure, timeout, wrong ID, cancellation;
+- `HistoryMetadataUiMapperTest` — pending/error не показывают stale snapshot, свежий
+  пропуск поля не подставляет прежнюю метку, film не получает series status;
+- `PlaybackProgressStoreTest` — metadata read не меняет сохранённый checkpoint;
+- `HistoryPosterTest` — stable ID/позиция, rating/episode label сохраняются в UI copy.
+
+TV/ADB, installation, instrumentation и эмулятор **не запускались по просьбе владельца**.
+Проверка новых overlays на физическом экране не заявляется. Live GET `kinogo.family`
+получил HTTP 200: catalog КП/IMDb и «1 сезон 1-8 серия»/«1 сезон 1-7 серия», detail
+«Продолжительность: 44 мин». Ранние web/HTTP попытки дали timeout/503; это не диагноз TV.
+В том же detail HTML сезон «1 сезон» и latest episode «1-8 серия» находились в отдельных
+`fDop-l`/`fDop-r` полях; эта форма сохранена как минимальный обезличенный contract test.
+
+Финальный стандартный `testDebugUnitTest lintDebug assembleDebug` с JDK 17, одним worker
+и in-process Kotlin — **SUCCESS за 2 мин 38 с**: **93 suites / 491 tests**, 0
+failures/errors/skips; lint **0 errors / 12 warnings**, все warnings относятся к доступным
+новым версиям toolchain/dependencies, не к новой metadata-логике. Debug APK собран.
+Первый предварительный прогон завершился внутренним crash lint `ExperimentalDetector` /
+`Unexpected owner function: null`; последующие обычные прогоны, включая финальный,
+прошли без отключения detector или изменения dependency versions. Причина crash не установлена.
 
 ## Узкая диагностика KIVI — 2026-09-30
 

@@ -101,6 +101,8 @@ fun PosterCard(
                 append(item.title)
                 append(", ")
                 append(item.subtitle)
+                item.rating?.let { append(", ${it.replace('\n', ' ')}") }
+                item.episodeBadge?.let { append(", $it") }
                 item.progress?.let { append(", просмотрено ${(it * 100).toInt()} процентов") }
             }
         }
@@ -112,6 +114,8 @@ fun PosterCard(
                 posterUrl = item.posterUrl,
                 badge = item.badge.posterBadgeLabel(),
                 progress = item.progress,
+                rating = item.rating,
+                episodeBadge = item.episodeBadge,
                 modifier = Modifier.fillMaxWidth(),
             )
             Column(
@@ -179,6 +183,8 @@ fun PosterArtwork(
     posterUrl: String? = null,
     badge: String? = null,
     progress: Float? = null,
+    rating: String? = null,
+    episodeBadge: String? = null,
 ) {
     val accent = Color(accentArgb)
     val context = LocalContext.current
@@ -229,6 +235,17 @@ fun PosterArtwork(
                 )
             }
         }
+        if (!rating.isNullOrBlank() || !episodeBadge.isNullOrBlank()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 6.dp, end = 6.dp, bottom = if (progress != null) 12.dp else 6.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+            ) {
+                episodeBadge?.takeIf(String::isNotBlank)?.let { PosterMetadataBadge(it) }
+                rating?.takeIf(String::isNotBlank)?.let { PosterMetadataBadge(it) }
+            }
+        }
         progress?.let {
             TvProgressBar(
                 progress = it,
@@ -237,6 +254,24 @@ fun PosterArtwork(
                     .padding(horizontal = 6.dp, vertical = 5.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun PosterMetadataBadge(text: String) {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = Color(0xE6192A33),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
