@@ -32,6 +32,8 @@ failures/errors/skips; lint **0 errors / 12 warnings**, все warnings отно
 Первый предварительный прогон завершился внутренним crash lint `ExperimentalDetector` /
 `Unexpected owner function: null`; последующие обычные прогоны, включая финальный,
 прошли без отключения detector или изменения dependency versions. Причина crash не установлена.
+Проверенные app/test исходники зафиксированы в
+`158a4c47f493281d54277b75630bfd744e188a91`; последующая фиксация evidence меняет только docs.
 
 ## Узкая диагностика KIVI — 2026-09-30
 

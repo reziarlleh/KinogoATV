@@ -4,6 +4,10 @@
 
 ## Метаданные карточек и свежая История — unreleased 2026-10-07
 
+Application/source commit: `158a4c47f493281d54277b75630bfd744e188a91`
+(`codex/catalog-metadata`); локальные проверки ниже относятся к тем же app/test исходникам.
+Это local/source baseline, не hardware known-good или published release.
+
 Поверх исходного rollback point `6556064` добавлены КП/IMDb на обзорных постерах,
 duration из HTML в Details и исходная подпись сезонов/серий. История при каждом открытии
 запрашивает свежие карточки с текущего проверенного зеркала; сохранённый snapshot не служит
