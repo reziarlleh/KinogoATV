@@ -10,6 +10,18 @@
 TV/ADB/эмулятор не используются по указанию владельца; hardware baseline tag не создаётся.
 Срок code21 manifest закончился 6 октября; старый envelope не продлевается без новой подписи.
 
+Переиздание манифеста **не требует новой версии APK**: для финальной версии использовать
+тот же проверенный APK/name/code/hash и новые issued/expires в повторно подписанном envelope,
+затем PR → Pages deployment → live verification. Срок envelope защищает freshness канала,
+не лицензирует и не отключает установленное приложение. Новый номер версии обязателен только
+при замене APK. Текущий лимит parser — 90 дней; ключ подписи остаётся локальным, в CI его нет.
+Для C-014 выбран срок 89 дней, а не прежние 30; дальнейшее обслуживание envelope остаётся
+отдельной операцией публикации, а не поводом создавать пустые APK releases.
+
+PR #22 first run `37649211984` упал до Gradle: default setup-android packages включал
+удалённый SDK `tools`. В Android/Pages workflows явно установлено `packages: platform-tools`;
+versioned platform/build-tools сохраняются отдельным шагом, checks не отключаются.
+
 ## Виды сборок
 
 - `debug` без stable key — только чистый clone, emulator или disposable device.
