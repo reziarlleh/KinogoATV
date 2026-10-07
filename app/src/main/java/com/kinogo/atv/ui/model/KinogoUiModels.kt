@@ -23,6 +23,8 @@ data class PosterUiModel(
     val progress: Float? = null,
     val accentArgb: Long = 0xFF334155,
     val isFavorite: Boolean = false,
+    val rating: String? = null,
+    val episodeBadge: String? = null,
 )
 
 data class BookmarkUiModel(
@@ -70,6 +72,10 @@ data class DetailsUiModel(
     val playbackAvailable: Boolean = true,
     val statusMessage: String? = null,
     val providerPlayback: Boolean = false,
+    /** Duration stated in Kinogo details, never inferred from a player or another service. */
+    val duration: String? = null,
+    /** Kinogo's own season/episode label, not a count of the provider playlist. */
+    val episodeInfo: String? = null,
 )
 
 data class PlaybackSelectionUiModel(

@@ -1,6 +1,65 @@
 # Текущее состояние проекта
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
+
+## Метаданные карточек и свежая История — unreleased 2026-10-07
+
+Продолжение 7 октября: C-014 / `0.6.2` code 22 **готовится к публикации**. Ранее исправления
+были оставлены только в локальной ветке, версия оставалась 0.6.1/code21 и update channel
+не обновлялся. Это не доставляло результат владельцу. Published C-013 остаётся прежним
+до подтверждённой публикации C-014; code21 manifest истёк 6 октября. Обязательный итог
+текущей задачи — signed APK, regular Release и проверка live API/APK. C-014 удаляет систему
+update manifests целиком (D-041): только сравнение `x.y.z` с GitHub latest stable, без expiry.
+
+Application/source commit: `158a4c47f493281d54277b75630bfd744e188a91`
+(`codex/catalog-metadata`); локальные проверки ниже относятся к тем же app/test исходникам.
+Это local/source baseline, не hardware known-good или published release.
+
+Поверх исходного rollback point `6556064` добавлены КП/IMDb на обзорных постерах,
+duration из HTML в Details и исходная подпись сезонов/серий. История при каждом открытии
+запрашивает свежие карточки с текущего проверенного зеркала; сохранённый snapshot не служит
+источником актуального числа серий. Пока запрос идёт/не удался, статус явно отличается от
+числа серий. Позиция, дата, сезон/серия checkpoint и DataStore не перезаписываются (R-041).
+Сторонних metadata API и вычисления totals из playlist нет.
+
+Опубликованная версия, tag `v0.6.1`, signed manifest и stable APK не изменены. Это изменение
+исходников, не установленное обновление TV и не новый release. Проверки этого изменения
+записываются в `TESTING.md`; baseline предыдущего published APK и hash остаются ниже.
+TV/ADB и эмулятор для новых меток не используются по прямому указанию владельца.
+Playback, remote keys и focus graph не перерабатывались. Live HTTPS GET `kinogo.family`
+7 октября подтвердил catalog ratings/episode ranges и detail duration; ранние попытки других
+зеркал дали тайм-ауты/503. Автоматические guards проверяются fixtures/JVM, это не TV evidence.
+
+Финальный local canonical `testDebugUnitTest lintDebug assembleDebug` — SUCCESS за 2 мин
+38 с: 93 suites / 491 tests, 0 failures/errors/skips, lint 0 errors / 12 version advisory.
+Локальный **debug**, не release/candidate: `app/build/outputs/apk/debug/app-debug.apk`,
+49 009 536 bytes, SHA-256
+`27E889CE67A9CCEBEB192D7F35EC1C3290862FB5F2E961976B2636B55CB067FC`.
+APK собран из рабочего дерева этой задачи до коммита, не установлен и не опубликован.
+Release/R8/signing/updater checks не повторялись; published stable hash ниже остаётся baseline.
+
+## KIVI: восстановление воспроизведения 30 сентября 2026 года
+
+На установленной C-013 / `0.6.1` code 21 исследован новый сбой воспроизведения.
+Установленный APK сверён через SHA-256: совпадает с опубликованным
+`F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`.
+KIVI 4K Android TV / Android 14 работал без перезагрузки 27,6 суток. До перезапуска
+аппаратный `OMX.MS.AVC.Decoder` падал с `0x80001000` на H.264 720p и 1080p,
+несмотря на `format_supported=YES`; свежий запуск источника также не помогал.
+
+После перезагрузки устройства без установки/замены APK «Звездный крейсер Галактика»
+из «Закладки → Смотрю», Cinemar / LostFilm / S1E1 / Авто, достиг `PLAYING` и позиции
+00:49 при длительности 42:57. Владелец подтвердил видимое воспроизведение.
+Работоспособность этого сценария восстановлена без изменения приложения;
+точная причина сбоя состояния vendor-декодера неизвестна (R-040).
+Звук отдельно не подтверждён. Второй проблемный материал после перезапуска не проверялся.
+
+Это узкий hardware playback pass опубликованной C-013, не закрытие всей runtime-матрицы
+и не новый playback baseline. Исторические `PENDING` ниже относятся к прежним проверкам;
+полная приёмка resume/stall/quality/auto-next/updater остаётся открытой.
+Точка отката исходников этой диагностики — `76398398e48f9c744206ad0ee87a6020ec83208f`;
+application source и release artifact не изменены. Подробности — R-040 в
+[`REGRESSION_LOG.md`](REGRESSION_LOG.md).
 
 ## Текущий опубликованный release C-013
 
@@ -558,12 +617,11 @@ evidence и не разрешают массовую чистку без про�
   `config/mirrors.json` ограничен exact GitHub raw path/schema/size/count/expiry, но не
   подписан и только добавляет четыре quarantined discovery candidates, включая
   `kinogo.family`; internet-wide crawler нет.
-- Updater доверяет не host, а signed payload, проверенному public key installed APK
-  signer. До четырёх manifest/download URLs дают transport redundancy; GitHub Release API —
-  fallback. Перед Android Package Installer повторно проверяются SHA-256, size,
-  package/version и signing identity. Silent install нет, системное подтверждение
-  обязательно. Pages/jsDelivr metadata и Pages/ghfast/ghproxy/direct APK transport проверены
-  на exact bytes, но ни один host не даёт trust без signed size/SHA и final APK checks.
+- С C-014 updater читает GitHub latest regular Release и численно сравнивает `x.y.z`;
+  отдельных update manifests и сроков действия нет. Перед Android Package Installer
+  проверяются SHA-256, size, package/version, рост versionCode и прежняя signing identity.
+  Silent install нет, системное подтверждение обязательно. GitHub должен быть доступен;
+  история прежних Pages/CDN checks не доказывает runtime нового pipeline.
 - GitHub Actions clean-clone unit/lint/assembleDebug и Pages publish прошли на final
   C-009 merge `ff7f5f8`; CI не имеет stable signing key и не доказывает TV UX.
 - Registration отдельно показывает DLE rules gate с default decline; sensitive fields

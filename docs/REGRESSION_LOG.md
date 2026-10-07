@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -1188,6 +1188,81 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Rollback point: опубликованный C-012 / `v0.6.0`; полный playback baseline — B-001.
 - Связанные файлы: `PlaybackCheckpoint.kt`, `TvPlayerScreen.kt`, `KinogoAppRoot.kt`,
   `WatchProgress.kt`, соответствующие unit tests.
+
+### R-040 — KIVI перестал декодировать ранее доступные потоки
+
+- Статус: воспроизведение восстановлено перезагрузкой TV; Monitoring, код не изменён.
+- Обнаружено: 30 сентября 2026 года; пользователь сообщил о двух проблемных материалах.
+- Affected version: установленная C-013 / `0.6.1` code 21. SHA-256 APK совпадает с
+  опубликованным `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`.
+- Last-known-good: тот же exact APK после перезагрузки; время первого сбоя и first-bad
+  commit не установлены. Кодовая регрессия или изменение сайта не доказаны.
+- Устройство: KIVI 4K Android TV / Android 14; uptime до перезапуска 2 381 254 с
+  (27,6 суток). Диагностика и playback выполнены по запросу владельца.
+- Симптом: HLS/H.264 распознан, `format_supported=YES`, но `OMX.MS.AVC.Decoder`
+  выдавал `MediaCodec.CodecException`, `0x80001000`, на 720p и 1080p. Повторная
+  подготовка источника не устраняла сбой. Общая пользовательская ошибка выглядела как
+  неподдерживаемый формат.
+- Причина: подтверждён отказ vendor-декодера; точная причина его состояния неизвестна.
+  Длительный uptime — наблюдение, а не доказательство утечки ресурсов.
+- Восстановление: reboot устройства, без замены APK, очистки данных или смены источника.
+- Runtime verification: после reboot «Звездный крейсер Галактика» открыт через
+  «Закладки → Смотрю», Cinemar / LostFilm / S1E1 / Авто. MediaSession `PLAYING`,
+  позиция 00:49, duration 42:57, прежний fatal codec error не повторился.
+  Владелец подтвердил видимое воспроизведение. Звук отдельно и второй материал
+  после reboot не проверены; долгий просмотр и повторное возникновение остаются Monitoring.
+- Protective test: автоматический воспроизводимый тест отсутствует — сохранённого
+  детерминированного сценария отказа vendor-декодера нет. При повторении сначала
+  снять redacted error code/decoder/format/uptime, затем сравнить fresh launch и reboot
+  на том же APK; не менять provider parser по одному тексту UI-ошибки.
+- Rollback point: checkout `76398398e48f9c744206ad0ee87a6020ec83208f`, release `v0.6.1`;
+  исходники приложения, APK, подпись и сетевые проверки не изменены.
+- Сопутствующая проверка: сериал присутствует и во «Все» (22-я карточка из 24);
+  отсутствие на первом экране не было потерей server bookmark. Отсутствие local history
+  на ранее не использованном для этого сериала TV ожидаемо.
+
+### R-041 — История не даёт актуального ответа о доступных сериях
+
+- Статус: Resolved в исходниках; новая версия не опубликована, hardware не проверялся.
+- Обнаружено: 7 октября 2026, требование владельца при добавлении episode labels.
+- Affected/rollback source: `6556064`, опубликованная версия C-013 / `0.6.1`.
+  First-bad commit и last-known-good для свежести episode count не установлены:
+  прежняя История не имела гарантии свежего detail GET при входе.
+- Окружение: source review без подключения TV/эмулятора.
+- Симптом/риск: сохранённая карточка или ранее загруженная лента могла содержать старую
+  подпись серий, поэтому по Истории нельзя было надёжно понять, добавились ли новые.
+- Причина: `historyCatalogItems` объединял cached feeds/library/contentSnapshot;
+  свежая карточка загружалась при отдельных Details/legacy-enrichment сценариях, а не
+  при каждом показе Истории.
+- Исправление: отдельные ограниченные fresh detail reads при mount/Back/origin/ID changes;
+  origin/ID/generation guards и cancellation. Pending/error видны явно; stale label не
+  подставляется даже если свежий HTML не содержит поля. Playback checkpoint не изменяется.
+- Protective tests: `HistoryMetadataRefresherTest`, `HistoryMetadataUiMapperTest`,
+  `PlaybackProgressStoreTest.fresh history card metadata never rewrites the playback checkpoint`.
+- Runtime verification: не выполнялась по прямому указанию владельца; local canonical
+  записан в `TESTING.md`. Live metadata HTML `kinogo.family` подтверждён HTTP 200;
+  actual UI/history refresh на TV не проверялся.
+- Rollback point: `6556064`; published APK SHA-256 по-прежнему
+  `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`.
+
+### R-042 — Доступность стабильного обновления зависела от истечения манифеста
+
+- Статус: Resolved в исходниках C-014; публикация проверяется отдельно.
+- Обнаружено: 7 октября 2026 года; C-013 manifest истёк 6 октября.
+- Affected: версии до 0.6.2 с signed-manifest primary и GitHub fallback (D-028).
+  Последний опубликованный rollback — v0.6.1/code21; истечение не отключает само приложение.
+- Симптом: primary update channel переставал работать без переиздания envelope даже для
+  неизменного стабильного APK. Локальные metadata-правки без публикации тоже не доставлялись.
+- Причина: expiry ограничивал канал на 90 дней; обслуживание не соответствует требованию
+  владельца «стабильный финал без регулярных пустых выпусков/продлений».
+- Исправление: удалены manifest source/client/factory, поля TTL/channel, scripts, Gradle
+  property и Pages workflow. Только GitHub latest regular Release и числовое `x.y.z` (D-041).
+  SHA/size/package/version/code/signer checks сохранены; сеть GitHub требуется явно.
+- Protective tests: `GitHubReleaseParserTest.stable release has no clock or expiry dependency`,
+  numeric/equal/lower guards, `GitHubReleaseUpdateClientTest`, `ApkUpdatePolicyTest`.
+- Verification: canonical и public API/APK evidence — `TESTING.md`/`PROJECT_STATE.md`.
+  TV/ADB/эмулятор не используются по указанию владельца. Старый клиент переходит к GitHub
+  fallback при отказе/expiry manifest; при сетевой блокировке возможна ручная установка поверх.
 
 ## Шаблон новой записи
 

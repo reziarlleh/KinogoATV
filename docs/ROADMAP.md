@@ -1,12 +1,19 @@
 # Roadmap
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
 
 Roadmap задаёт направление, а не обещание даты. Приоритет меняется после пользовательского
 тестирования. Реализованный пункт переносится в `CHANGELOG.md` и удаляется из активного
 списка либо отмечается завершённым.
 
-## Сейчас: post-release 0.6.1 и расширенная ручная приёмка playback
+## Сейчас: выпуск 0.6.2 и расширенная ручная приёмка playback
+
+Завершено в исходниках 7 октября: рейтинги на обзорных карточках, длительность в Details,
+сведения о сезонах/сериях из Kinogo и их свежая проверка при открытии Истории без изменения
+checkpoint. Выпуск C-014 включает GitHub-only updater без expiry (D-041);
+publication evidence актуализируется в `PROJECT_STATE.md`/`TESTING.md`. TV/эмулятор
+для этой задачи не использовались по прямому указанию владельца. Это не закрывает прежние
+playback/updater пункты ниже.
 
 C-013 / `0.6.1` code 21 исправляет общий класс исчезновения временной отметки, а не только
 частный пример возле конца серии. Обычный lifecycle/close checkpoint с нулевой позицией
@@ -29,6 +36,10 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 
 ### P0 — runtime-приёмка владельцем
 
+Узкий pass 30 сентября: на exact published C-013 KIVI воспроизвёл Cinemar / LostFilm /
+S1E1 «Галактики» после reboot, владелец подтвердил изображение. R-040 остаётся под
+наблюдением; этот результат не закрывает перечисленную ниже расширенную матрицу.
+
 - Владелец вручную проверяет сохранение отметки при обычном `Back`, быстром открытии/выходе
   до старта, lifecycle pause, restart, смене источника и выборе серии; отдельно проверяет
   переход через границу сезона и immediate-next
@@ -38,8 +49,9 @@ media-key, source-refresh и in-app updater матрица остаётся пр
   должна сработать ровно одна fresh recovery без retry loop. Точная позиция сохраняется,
   только если fresh normalization оставила тот же фильм/сезон/эпизод. Если попытка не
   помогла, явный retry идёт только через Back → Details → «Смотреть».
-- Владелец проверяет signed-manifest update при недоступном GitHub API: metadata,
-  fallback download, APK checks и передачу Package Installer с обязательным OS confirmation.
+- Владелец проверяет GitHub latest-version check, APK checks и передачу Package Installer
+  с обязательным OS confirmation. Недоступный GitHub должен давать ошибку/повтор, а не
+  ложное «обновлений нет». Signed-manifest outage matrix отменена решением D-041.
 - Владелец проверяет обычный/долгий `OK` в Истории, что диалог остаётся открыт
   после отпускания `OK`, а также фокус «Проверить обновление» во время запроса.
 - Агент не подключается к TV по ADB, не устанавливает APK и не запускает новый hardware smoke
@@ -118,7 +130,7 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 ### Архитектура и качество
 
 - Разделить `KinogoAppRoot` на state holders/use cases без одномоментной миграции всех flow.
-- Поддерживать clean-clone Android CI и Pages deployment зелёными на каждом production
+- Поддерживать clean-clone Android CI зелёным на каждом production
   merge; первый подтверждённый run получен для `367bcf2`.
 - Поддерживать dependency verification metadata и SHA-256 Gradle distribution при каждом
   обновлении toolchain/dependencies; C-012 добавил исходный verified snapshot.
@@ -126,13 +138,10 @@ media-key, source-refresh и in-app updater матрица остаётся пр
 
 ### Выпуск
 
-- Для следующей версии повторить подтверждённый процесс: exact Release asset,
-  GitHub SHA-256 digest, signed bounded update payload той же APK signing identity,
-  Pages deployment и live exact-byte verification.
-- Добавить operator-owned non-GitHub HTTPS endpoint через
-  `KINOGO_UPDATE_MANIFEST_URLS`, если потребуется реальная инфраструктурная независимость.
-  Текущие Pages/jsDelivr/proxy/direct URL дают разнообразие транспорта, но в итоге зависят
-  от опубликованного GitHub asset; trust остаётся криптографическим, а не host-based.
+- Для следующей версии повторить процесс: числовая `x.y.z`, растущий versionCode,
+  exact regular Release asset, GitHub SHA-256 digest, прежний signer и live exact-byte
+  verification. Поддержка/продление update manifests и отдельных hosting endpoints отменены
+  (D-041); стабильные релизы не требуют периодического обслуживания.
 - Настроить protected release environment и безопасную передачу signing secrets в CI, если
   автоматический release действительно понадобится.
 - Перед каждым публичным выпуском повторно проверить disclaimer/repository hygiene.

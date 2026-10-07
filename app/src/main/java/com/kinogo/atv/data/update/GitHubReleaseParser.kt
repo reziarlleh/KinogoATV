@@ -7,13 +7,16 @@ internal object GitHubReleaseParser {
     private const val EXPECTED_OWNER = "reziarlleh"
     private const val EXPECTED_REPOSITORY = "KinogoATV"
     private val assetNamePattern = Regex(
-        "^KinogoATV-(\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.-]+)?)-code(\\d+)\\.apk$",
+        "^KinogoATV-(\\d+\\.\\d+\\.\\d+)-code(\\d+)\\.apk$",
     )
+    private val versionPattern = Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)")
 
     fun parse(
         body: String,
         currentVersionCode: Long,
+        currentVersionName: String,
     ): AppUpdateCheckResult {
+        val installedVersion = versionParts(currentVersionName)
         require(body.length <= MAX_RELEASE_DOCUMENT_CHARS) { "Release response is too large" }
         val release = JsonParser.parseString(body).asJsonObject
         require(release["draft"]?.asBoolean == false) { "Draft release is not installable" }
@@ -50,10 +53,24 @@ internal object GitHubReleaseParser {
 
         require(candidates.size == 1) { "Release must contain exactly one signed APK asset" }
         val candidate = candidates.single()
-        return if (candidate.versionCode > currentVersionCode) {
+        val latestVersion = versionParts(candidate.versionName)
+        val comparison = latestVersion.zip(installedVersion)
+            .firstOrNull { (latest, installed) -> latest != installed }
+            ?.let { (latest, installed) -> latest.compareTo(installed) }
+            ?: 0
+        return if (comparison > 0) {
+            // Android also requires an increasing versionCode for an in-place update.
+            require(candidate.versionCode > currentVersionCode) { "Release version code cannot update this installation" }
             AppUpdateCheckResult.Available(candidate)
         } else {
             AppUpdateCheckResult.UpToDate(candidate.versionName, candidate.versionCode)
+        }
+    }
+
+    private fun versionParts(version: String): List<Long> {
+        require(version.length <= 64 && versionPattern.matches(version)) { "Version must be x.y.z" }
+        return version.split('.').map { part ->
+            requireNotNull(part.toLongOrNull()) { "Version component is too large" }
         }
     }
 

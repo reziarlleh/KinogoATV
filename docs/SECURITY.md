@@ -211,31 +211,19 @@ token, iframe/media URL и cookies не логируются.
 
 ## Обновления APK
 
-Встроенный updater использует несколько транспортных маршрутов и одну signing identity как
-корень доверия. GitHub Pages, jsDelivr и proxy/direct download URLs повышают транспортную
-доступность, но не являются независимой от GitHub инфраструктурой: operator-owned
-non-GitHub endpoint остаётся отдельной задачей.
+С C-014 / 0.6.2 updater использует только последний regular GitHub Release (D-041).
+Собственные манифесты, сроки действия, их генераторы и Pages update workflow удалены.
+Стабильный release не требует продления или пустых APK-выпусков. Доступность зависит от
+доступа к GitHub; ошибка сети отображается как ошибка проверки, а не «обновлений нет».
 
-`Cache-Control: no-cache` у signed manifest влияет только на freshness транспорта. Он не
-обходит HTTPS/public-DNS URL policy, проверку подписи manifest и последующую проверку
-package/version/size/SHA/signer APK.
-
-Основной канал — signed manifest, загружаемый максимум с четырёх явно заданных HTTPS
-endpoints. В опубликованной `0.5.2` по умолчанию используются GitHub Pages и jsDelivr для
-metadata:
-
-- envelope подписан RSA/ECDSA public key сертификата уже установленного APK;
-- подписанные поля фиксируют version/name/size/SHA-256, срок не более 90 дней и до четырёх
-  HTTPS download locations;
-- metadata endpoints опрашиваются параллельно с 20-second bound, redirect запрещён;
-- APK redirect ограничен четырьмя hops, каждый host проходит public-only DNS;
-- manifest replay после expiry и конфликт одинакового versionCode отклоняются.
-
-GitHub Release остаётся compatibility fallback:
+Текущий контракт:
 
 - metadata запрашивается по exact `api.github.com/repos/reziarlleh/KinogoATV/releases/latest`;
 - draft/prerelease отклоняются; tag, versionName, versionCode и имя
   `KinogoATV-<version>-code<code>.apk` должны совпасть;
+- versionName имеет вид `x.y.z`; сравнение числовое по major/minor/patch. Равная/меньшая
+  версия не предлагается, а более высокая требует совместимого растущего versionCode;
+- запрос metadata использует `Cache-Control: no-cache`; времени, TTL и expiry в решении нет;
 - asset не может быть больше 200 MiB и обязан иметь GitHub `sha256:` digest;
 - initial download URL должен быть exact release path; разрешено не более четырёх
   ручных redirect только на заданные GitHub CDN hosts; public-DNS policy сохраняется;
@@ -243,7 +231,7 @@ GitHub Release остаётся compatibility fallback:
   versionCode и полное совпадение signing certificate с установленным приложением;
 - APK передаётся системному Android Package Installer через non-exported `FileProvider`.
 
-Ни TLS/CDN, ни manifest сами по себе не заменяют финальную проверку APK: общий verifier
+Ни TLS/CDN, ни ответ API сами по себе не заменяют финальную проверку APK: общий verifier
 сверяет length, SHA-256, package, version и точную signing certificate identity.
 
 Provider WebView при выходе выполняет PlayerJS `pause`, затем
@@ -254,7 +242,8 @@ Updater не может установить APK тихо. Если permission u
 сначала открывает системные настройки. В любом случае финальная установка требует
 явного OS confirmation пользователя.
 
-Для `0.5.2` проверены exact Release asset и GitHub lowercase digest, signed manifest
+Историческое evidence прежнего updater до C-014:
+для `0.5.2` проверены exact Release asset и GitHub lowercase digest, signed manifest
 размером 1 273 bytes с SHA-256
 `BCB6699708CC2C6FF4A71F8379032F709742AC714440622F179130D5AFA80E94`, его успешный Pages
 deployment и точное совпадение опубликованных bytes: manifest через Pages/jsDelivr, APK

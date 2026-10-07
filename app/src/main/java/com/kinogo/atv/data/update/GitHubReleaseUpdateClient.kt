@@ -18,14 +18,16 @@ internal class GitHubReleaseUpdateClient(
     private val client: OkHttpClient = defaultClient(),
     private val latestReleaseUrl: String = LATEST_RELEASE_URL,
 ) : AppUpdateClient {
-    override val channel: AppUpdateReleaseChannel = AppUpdateReleaseChannel.GITHUB_RELEASE
-
-    override suspend fun check(currentVersionCode: Long): AppUpdateCheckResult = withContext(Dispatchers.IO) {
+    override suspend fun check(
+        currentVersionCode: Long,
+        currentVersionName: String,
+    ): AppUpdateCheckResult = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(latestReleaseUrl)
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2026-03-10")
             .header("User-Agent", USER_AGENT)
+            .header("Cache-Control", "no-cache")
             .get()
             .build()
         client.newCall(request).useCancellableResponse { response ->
@@ -33,7 +35,7 @@ internal class GitHubReleaseUpdateClient(
             require(response.isSuccessful) { "Update server returned HTTP ${response.code}" }
             val body = response.body ?: throw IllegalStateException("Update response is empty")
             val bytes = body.byteStream().use { it.readLimited(MAX_RELEASE_DOCUMENT_BYTES) }
-            GitHubReleaseParser.parse(bytes.toString(Charsets.UTF_8), currentVersionCode)
+            GitHubReleaseParser.parse(bytes.toString(Charsets.UTF_8), currentVersionCode, currentVersionName)
         }
     }
 
@@ -41,7 +43,6 @@ internal class GitHubReleaseUpdateClient(
         destinationDirectory: File,
         release: AppUpdateRelease,
     ): File = withContext(Dispatchers.IO) {
-        require(release.channel == channel) { "Wrong update channel" }
         require(destinationDirectory.mkdirs() || destinationDirectory.isDirectory) {
             "Update cache is unavailable"
         }

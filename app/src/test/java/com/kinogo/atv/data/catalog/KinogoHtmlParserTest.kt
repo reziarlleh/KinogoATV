@@ -232,6 +232,66 @@ class KinogoHtmlParserTest {
         assertEquals(ContentType.ANIME, parsed.catalogItem.type)
     }
 
+    @Test
+    fun preservesSiteEpisodeRangesInDetailsWithoutCountingOrInventingEpisodes() {
+        val html = """
+            <div id="dle-content"><article id="post-99" class="fullStory">
+              <h1>Сериал</h1>
+              <div class="sPoster"><div class="lenta"><div class="cont">1-4 сезон 1-20 серия</div></div></div>
+              <div class="filmDescription"><div class="fDop">
+                <div><b>Длительность:</b> 42 мин</div>
+              </div></div>
+            </article></div>
+        """.trimIndent()
+        val parsed = parser.parseDetails(html, ORIGIN, "/serialy/99-show.html")
+
+        assertEquals("1-4 сезон 1-20 серия", parsed.catalogItem.episodeBadge)
+        assertEquals(42, parsed.durationMinutes)
+
+        val missing = parser.parseDetails(
+            "<article class=fullStory><h1>Сериал</h1></article>", ORIGIN, "/serialy/99-show.html",
+        )
+        assertEquals(null, missing.catalogItem.episodeBadge)
+        assertEquals(null, missing.durationMinutes)
+    }
+
+    @Test
+    fun readsAddedEpisodeMetadataWithoutTreatingItAsATotalCount() {
+        val parsed = parser.parseDetails(
+            """
+                <article class="fullStory"><h1>Сериал</h1>
+                  <div class="filmDescription"><div class="fDop">
+                    <div><b>Добавлено:</b> 2 сезон 4 серия</div>
+                  </div></div>
+                </article>
+            """.trimIndent(), ORIGIN, "/serialy/99-show.html",
+        )
+
+        assertEquals("2 сезон 4 серия", parsed.catalogItem.episodeBadge)
+    }
+
+    @Test
+    fun `separate live season and latest episode fields are both preserved`() {
+        val html = """
+            <article class="fullStory"><h1>Сериал</h1>
+              <div class="filmDop">
+                <div class="fDop"><div class="fDop-l">Сезон:</div><div class="fDop-r">1 сезон</div></div>
+                <div class="fDop"><div class="fDop-l">Последняя серия онлайн:</div><div class="fDop-r">1-8 серия</div></div>
+                <div class="fDop"><div class="fDop-l">Продолжительность:</div><div class="fDop-r">44 мин</div></div>
+              </div>
+            </article>
+        """.trimIndent()
+
+        val parsed = parser.parseDetails(html, ORIGIN, "/serialy/99-show.html")
+        assertEquals("1 сезон 1-8 серия", parsed.catalogItem.episodeBadge)
+        assertEquals(44, parsed.durationMinutes)
+        assertEquals(
+            "1 сезон 1-8 серия",
+            parser.parseDetails(html.replace("1-8 серия", "1 сезон 1-8 серия"), ORIGIN, "/serialy/99-show.html")
+                .catalogItem.episodeBadge,
+        )
+    }
+
     private companion object {
         const val ORIGIN = "https://kinogo.parts"
 

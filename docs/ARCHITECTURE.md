@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
 
 ## Цели архитектуры
 
@@ -307,6 +307,20 @@ pending session и оставляют explicit error → Details route. `playbac
 
 ### История
 
+`HistoryMetadataRefresher` обновляет отображаемые `CatalogItem` свежими detail GET при
+mount `HistoryScreen` (включая возврат из Details), смене active origin или набора content ID.
+Два coroutine reads одновременно, timeout 20 секунд после получения permit, дедупликация
+по content ID, отдельный результат для каждой карточки. Ошибка/timeout дают null, отмена
+пробрасывается и отменяет HTTP через существующий transport. Запрос не гидратирует потоки.
+Root держит ответы только в памяти, привязывает их к origin/набору ID/generation и
+отбрасывает ответы старого открытия. При уходе snapshot свежести очищается.
+
+`historyEpisodeBadge` никогда не подставляет persisted episodeBadge вместо свежего ответа:
+pending/failure обозначены явно; отсутствие поля в успешно полученном HTML скрывает метку.
+`CatalogUiMapper` передаёт КП/IMDb, исходную подпись сезонов/серий и durationMinutes в UI;
+ни totals из provider playlists, ни внешние metadata API не добавляются. Эти фоновые reads
+не записывают DataStore, WatchProgress, дату/позицию или completion-флаги.
+
 `PlaybackProgressStore` хранит `WatchProgress` по ключу:
 
 ```text
@@ -360,10 +374,11 @@ snapshot. Позиция provider WebView в `localStorage` также не яв
 ### Обновления и remote bootstrap
 
 `AppUpdateManager` разделяет check, download+verify и передачу Android Package Installer.
-`DefaultAppUpdateClientFactory` сначала проверяет до четырёх APK-signer-authenticated signed
-manifest endpoints, затем использует `GitHubReleaseUpdateClient` как fallback. Signed payload
-задаёт exact version/name/size/SHA/expiry и до четырёх HTTPS APK locations; публичный ключ
-берётся из сертификата установленного APK. `ApkUpdateVerifier` до installer повторно сверяет
+С C-014 единственный источник — последний regular GitHub Release через
+`GitHubReleaseUpdateClient`. `GitHubReleaseParser` численно сравнивает major/minor/patch
+`x.y.z` с установленной версией: равная/меньшая не предлагается. Для более высокой версии
+также обязателен рост Android versionCode. Отдельные update manifests, expiry, factory,
+fallback channels и signing scripts удалены (D-041). `ApkUpdateVerifier` до installer сверяет
 package/version/signing identity. APK живёт в app cache; финальная установка всегда требует
 системного confirmation.
 
@@ -372,7 +387,8 @@ Startup orchestration различает automatic и manual check. Automatic fl
 Compose TV-dialog. Dismiss скрывает его на текущий процесс, но не меняет настройку и не
 отменяет доступность update в Settings. Manual flow не выполняет скрытых retry.
 
-Для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
+Историческое evidence до C-014 (не текущий updater contract):
+для `0.5.2` signed code 16 manifest, Pages deployment и exact bytes всех заявленных
 metadata/download transports подтверждены после Release. Это проверяет deployment topology,
 но не runtime state machine на TV: in-app check/download/verify/installer остаётся
 **PENDING**. Pages/jsDelivr/proxy/direct transport в итоге зависит от GitHub publication;

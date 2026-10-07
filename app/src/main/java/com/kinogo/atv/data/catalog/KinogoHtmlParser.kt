@@ -140,7 +140,7 @@ class KinogoHtmlParser {
             ),
             qualityBadge = article.selectFirst(".quAl")?.normalizedText()
                 ?: metadata.find("Качество").meaningfulValue(),
-            episodeBadge = metadata.find("Последняя серия онлайн", "Сезон").meaningfulValue(),
+            episodeBadge = parseEpisodeBadge(article, metadata),
         )
 
         return ParsedContentPage(
@@ -187,10 +187,22 @@ class KinogoHtmlParser {
             ),
             qualityBadge = article.selectFirst(".quAl")?.normalizedText()
                 ?: metadata.find("Качество").meaningfulValue(),
-            episodeBadge = article.selectFirst(".sPoster .lenta .cont, .sPoster .lenta")
-                ?.normalizedText()
-                ?: metadata.find("Добавлено").meaningfulValue(),
+            episodeBadge = parseEpisodeBadge(article, metadata),
         )
+    }
+
+    private fun parseEpisodeBadge(article: Element, metadata: LabeledMetadata): String? {
+        val ribbon = article.selectFirst(".sPoster .lenta .cont")?.normalizedText()
+            ?: article.selectFirst(".sPoster .lenta")?.normalizedText()
+        if (ribbon != null) return ribbon
+        val season = metadata.find("Сезон").meaningfulValue()
+        val episodes = metadata.find("Добавлено").meaningfulValue()
+            ?: metadata.find("Последняя серия онлайн").meaningfulValue()
+        // Preserve both literal fields from Kinogo; never infer a total from the ranges.
+        return listOfNotNull(
+            season?.takeUnless { episodes?.contains(it, ignoreCase = true) == true },
+            episodes,
+        ).joinToString(" ").meaningfulValue()
     }
 
     private fun extractMetadata(root: Element): LabeledMetadata {

@@ -140,6 +140,7 @@ fun KinogoTvApp(
     catalogFocusedItemId: String? = null,
     bookmarksFocusedItemId: String? = null,
     historyFocusedItemId: String? = null,
+    onHistoryMetadataVisibilityChanged: (Boolean) -> Unit = {},
     bookmarksFilter: LibraryFilter = LibraryFilter.ALL,
     useRemoteCatalog: Boolean = false,
     onPlayRequested: (PlaybackSelectionUiModel) -> Unit = {},
@@ -353,6 +354,7 @@ fun KinogoTvApp(
 
                             TvDestination.History -> HistoryScreen(
                                 history = history,
+                                onMetadataVisibilityChanged = onHistoryMetadataVisibilityChanged,
                                 onOpenDetails = ::openDetails,
                                 requestInitialFocus = !suppressInitialContentFocus,
                                 lastFocusedItemId = historyFocusedItemId,

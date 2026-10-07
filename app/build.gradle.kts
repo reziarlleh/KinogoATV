@@ -11,15 +11,6 @@ val stableSigningFile = rootProject.file(
         .get(),
 )
 val stableSigningAvailable = stableSigningFile.isFile
-val packagedUpdateManifestUrls = providers.gradleProperty("KINOGO_UPDATE_MANIFEST_URLS")
-    .orElse("")
-    .get()
-val escapedPackagedUpdateManifestUrls = packagedUpdateManifestUrls
-    .replace("\\", "\\\\")
-    .replace("\"", "\\\"")
-    .replace("\r", "\\r")
-    .replace("\n", "\\n")
-    .replace("\t", "\\t")
 
 if (!stableSigningAvailable) {
     logger.warn(
@@ -44,14 +35,8 @@ android {
         targetSdk {
             version = release(37)
         }
-        versionCode = 21
-        versionName = "0.6.1"
-
-        buildConfigField(
-            "String",
-            "UPDATE_MANIFEST_URLS",
-            "\"$escapedPackagedUpdateManifestUrls\"",
-        )
+        versionCode = 22
+        versionName = "0.6.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

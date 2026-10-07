@@ -2,6 +2,7 @@ package com.kinogo.atv.ui.mapper
 
 import com.kinogo.atv.domain.CatalogItem
 import com.kinogo.atv.domain.ContentDetails
+import com.kinogo.atv.domain.ContentRatings
 import com.kinogo.atv.domain.ContentType
 import com.kinogo.atv.ui.model.DetailsPlaybackChoiceUiModel
 import com.kinogo.atv.ui.model.DetailsUiModel
@@ -30,8 +31,10 @@ fun CatalogItem.toPosterUiModel(): PosterUiModel =
         subtitle = listOfNotNull(year?.toString(), type.uiLabel()).joinToString(" • ")
             .ifEmpty { "Без категории" },
         posterUrl = posterUrl,
-        badge = qualityBadge.normalizedQualityBadge() ?: episodeBadge,
+        badge = qualityBadge.normalizedQualityBadge(),
         accentArgb = stableAccent(id),
+        rating = ratings.toRatingLabel(separator = "\n").takeIf(String::isNotEmpty),
+        episodeBadge = episodeBadge?.trim()?.takeIf(String::isNotEmpty),
     )
 
 internal fun String?.normalizedQualityBadge(): String? =
@@ -90,10 +93,7 @@ fun ContentDetails.toDetailsUiModel(
             }
         }
     }
-    val rating = buildList {
-        catalogItem.ratings.kinopoisk?.let { add("КП ${formatRating(it)}") }
-        catalogItem.ratings.imdb?.let { add("IMDb ${formatRating(it)}") }
-    }.joinToString("   ")
+    val rating = catalogItem.ratings.toRatingLabel()
     val metadata = buildList {
         catalogItem.year?.let { add(it.toString()) }
         catalogItem.type.uiLabel()?.let(::add)
@@ -117,6 +117,8 @@ fun ContentDetails.toDetailsUiModel(
         resumeLabel = if (playbackAvailable) "Смотреть" else "Видео недоступно",
         playbackAvailable = playbackAvailable,
         statusMessage = statusMessage,
+        duration = durationMinutes?.let { "$it мин" },
+        episodeInfo = catalogItem.episodeBadge?.trim()?.takeIf(String::isNotEmpty),
     )
 }
 
@@ -132,6 +134,11 @@ private fun stableAccent(id: String): Long {
     val index = (id.hashCode().toLong() and 0x7FFF_FFFFL).rem(CARD_PALETTE.size).toInt()
     return CARD_PALETTE[index]
 }
+
+private fun ContentRatings.toRatingLabel(separator: String = "   "): String = buildList {
+    kinopoisk?.let { add("КП ${formatRating(it)}") }
+    imdb?.let { add("IMDb ${formatRating(it)}") }
+}.joinToString(separator)
 
 private fun formatRating(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString()

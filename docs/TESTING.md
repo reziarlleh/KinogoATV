@@ -1,6 +1,64 @@
 # Стратегия тестирования
 
-Последнее обновление: **6 сентября 2026 года**.
+Последнее обновление: **7 октября 2026 года**.
+
+## C-014 updater без манифестов — текущий контракт
+
+`GitHubReleaseParserTest`: числовое major/minor/patch сравнение, equal/lower без update,
+рост Android code, draft/prerelease/tag mismatch/duplicate/missing digest и exact URL guards.
+Давняя дата публикации не препятствует обновлению; часов/expiry в parser нет.
+`GitHubReleaseUpdateClientTest`: только latest API, no-cache/no cookies, network failure
+не равна UpToDate, exact size/SHA и удаление повреждённого download. `ApkUpdatePolicyTest`
+сохраняет package/version/code/signer checks. Прежние manifest/fallback tests удалены вместе
+с production contract; исторические упоминания ниже относятся к прежним версиям.
+Финальный canonical/release/public evidence будет записан после завершения C-014.
+
+## Метаданные карточек и свежая История — предварительная проверка 2026-10-07
+
+Rollback/source до задачи: `6556064`, published release — прежняя C-013. Изменены HTML
+episode label, UI metadata и фоновые history detail reads. Защиты:
+
+- `KinogoHtmlParserTest` — подпись из poster ribbon/«Добавлено», объединение отдельных
+  «Сезон» и «Последняя серия онлайн» без дубля, duration и отсутствие полей;
+- `CatalogUiMapperTest` — оба/один/нет рейтинга, отсутствие duration, сохранение исходных
+  season/episode ranges без выдуманного total;
+- `HistoryMetadataRefresherTest` — новый read при повторном открытии, дедупликация,
+  максимум два запроса, независимые ответы, partial failure, timeout, wrong ID, cancellation;
+- `HistoryMetadataUiMapperTest` — pending/error не показывают stale snapshot, свежий
+  пропуск поля не подставляет прежнюю метку, film не получает series status;
+- `PlaybackProgressStoreTest` — metadata read не меняет сохранённый checkpoint;
+- `HistoryPosterTest` — stable ID/позиция, rating/episode label сохраняются в UI copy.
+
+TV/ADB, installation, instrumentation и эмулятор **не запускались по просьбе владельца**.
+Проверка новых overlays на физическом экране не заявляется. Live GET `kinogo.family`
+получил HTTP 200: catalog КП/IMDb и «1 сезон 1-8 серия»/«1 сезон 1-7 серия», detail
+«Продолжительность: 44 мин». Ранние web/HTTP попытки дали timeout/503; это не диагноз TV.
+В том же detail HTML сезон «1 сезон» и latest episode «1-8 серия» находились в отдельных
+`fDop-l`/`fDop-r` полях; эта форма сохранена как минимальный обезличенный contract test.
+
+Финальный стандартный `testDebugUnitTest lintDebug assembleDebug` с JDK 17, одним worker
+и in-process Kotlin — **SUCCESS за 2 мин 38 с**: **93 suites / 491 tests**, 0
+failures/errors/skips; lint **0 errors / 12 warnings**, все warnings относятся к доступным
+новым версиям toolchain/dependencies, не к новой metadata-логике. Debug APK собран.
+Первый предварительный прогон завершился внутренним crash lint `ExperimentalDetector` /
+`Unexpected owner function: null`; последующие обычные прогоны, включая финальный,
+прошли без отключения detector или изменения dependency versions. Причина crash не установлена.
+Проверенные app/test исходники зафиксированы в
+`158a4c47f493281d54277b75630bfd744e188a91`; последующая фиксация evidence меняет только docs.
+
+## Узкая диагностика KIVI — 2026-09-30
+
+По запросу владельца проверена установленная `0.6.1` code 21: SHA-256 APK совпал с
+published C-013. До reboot `OMX.MS.AVC.Decoder` падал на распознанном H.264 720p/1080p
+с `0x80001000`, `format_supported=YES`. После reboot без изменения APK «Галактика»
+из server bookmarks, Cinemar / LostFilm / S1E1 / Авто, дошла до `PLAYING` / 00:49
+(duration 42:57); владелец подтвердил изображение. Звук отдельно не подтверждён.
+
+Приложение не переустанавливалось, DataStore не читался и не очищался, managed
+instrumentation на TV не запускалась. Screenshot аппаратного видео получился чёрным
+и не используется как доказательство отсутствия/наличия картинки; для этого результата
+есть подтверждение владельца. Второй материал и полная runtime-матрица не проверялись.
+Изменены только документы; Gradle canonical повторно не запускался. См. R-040.
 
 ## C-013 / 0.6.1 release evidence
 
@@ -743,10 +801,10 @@ discovered player document через exact-host `validatedPlayerDocumentUri`, l
 точный runtime path, iframe/media URLs и cookies. Начало реального Media3 воспроизведения
 на KIVI подтверждено; это не заменяет проверки других материалов, TTL/error и cross-season.
 
-Для signed updater проверка считается закрытой только если exact payload
-проходит installed-signer signature, endpoint доступен из целевой сети, APK
-совпадает по size/SHA/package/version/signer и Android показал системное
-подтверждение. HTTP 200 manifest без этих шагов не доказывает live updater.
+Для текущего updater проверка publication считается закрытой после latest API/parser
+и exact downloaded APK size/SHA/package/version/signer verification. In-app acceptance
+отдельна: check/download/permission/Android Package Installer и OS confirmation на TV.
+HTTP 200 API или успешная сборка не доказывают этот runtime сценарий.
 
 ## Формат evidence
 
