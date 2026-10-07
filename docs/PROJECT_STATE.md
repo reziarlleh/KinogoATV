@@ -2,14 +2,52 @@
 
 Последнее обновление: **7 октября 2026 года**.
 
-## Метаданные карточек и свежая История — unreleased 2026-10-07
+## Текущий опубликованный C-014 / 0.6.2 code 22
 
-Продолжение 7 октября: C-014 / `0.6.2` code 22 **готовится к публикации**. Ранее исправления
-были оставлены только в локальной ветке, версия оставалась 0.6.1/code21 и update channel
-не обновлялся. Это не доставляло результат владельцу. Published C-013 остаётся прежним
-до подтверждённой публикации C-014; code21 manifest истёк 6 октября. Обязательный итог
-текущей задачи — signed APK, regular Release и проверка live API/APK. C-014 удаляет систему
-update manifests целиком (D-041): только сравнение `x.y.z` с GitHub latest stable, без expiry.
+Application source и embedded APK revision:
+`cd7d916c3bef633771069dd51467f3e4cfa82527`. PR #22 влит как
+`543035d1cdb6321286ff6475065470d26b998290`; production app/CI source совпадает с проверенным
+application tree (`git diff --exit-code cd7d916 -- app .github/workflows/android.yml`).
+[Release 0.6.2](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.2) опубликован
+7 октября в 16:47:45 UTC как latest regular (`draft=false`, `prerelease=false`). Annotated
+`v0.6.2` указывает на merge выше. API asset digest/size совпали с exact APK.
+Compiled production `GitHubReleaseUpdateClient` на desktop JVM с default HTTP/public DNS
+нашёл update для `0.6.1/code21`, дал UpToDate для `0.6.2/code22`, скачал exact bytes через
+штатный GitHub/CDN redirect. SHA-256 и прежний signer скачанного APK подтверждены.
+Production parser также отклонил downgrade для `0.6.3/code23`. Это network/artifact
+evidence, не TV/in-app Package Installer acceptance.
+
+Local canonical `testDebugUnitTest lintDebug assembleDebug assembleRelease` — **SUCCESS
+за 10 мин 4 с**, 104 tasks: **91 suite / 483 tests**, 0 failures/errors/skips; lint
+**0 errors / 12 warnings** (только dependency/toolchain version advisory). R8/resource
+shrinking и lintVitalRelease прошли. PR CI
+[37652540409](https://github.com/reziarlleh/KinogoATV/actions/runs/37652540409) — SUCCESS;
+post-merge main CI [37653793848](https://github.com/reziarlleh/KinogoATV/actions/runs/37653793848)
+— SUCCESS.
+
+Exact `dist/KinogoATV-0.6.2-code22.apk`: **6 686 853 bytes**, SHA-256
+`E0791E36731907B4582322ADDEE0EE716A7493D005155D5397584B559B76A411`.
+Package `com.kinogo.atv`, name/code `0.6.2/22`, min/target `28/37`, zipalign PASS,
+v2 true, ровно один прежний signer:
+`154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+Exact R8 mapping: **64 827 807 bytes**, SHA-256
+`009271B975089272D7F1931D8CE05B9C4423F886EED15C3D62D11A5D903AB03B`;
+APK/mapping/probe сохранены в ignored `.signing/release-evidence/0.6.2-code22/`.
+
+C-014 доставляет рейтинги, duration и сведения о сезонах/сериях только из Kinogo,
+fresh history detail reads без изменения checkpoint (R-041/D-040), а также удаляет
+update manifests/expiry/scripts/Pages workflow (R-042/D-041). Только GitHub latest regular
+Release и числовое `x.y.z`; равная/ниже не обновляется. SHA/package/version/code/signer
+и OS confirmation сохраняются. Стабильный release не требует регулярного продления.
+TV/ADB/эмулятор не используются по указанию владельца; ни установка этой версии,
+ни hardware UI/updater acceptance не заявляются. Playback/focus contracts не переработаны.
+Published rollback: `v0.6.1`/code21 и APK hash ниже; полный playback baseline — прежний B-001.
+
+### Предварительная metadata-only проверка 2026-10-07 (до release candidate)
+
+Исторический снимок до публикации: исправления сначала оставались только в локальной
+ветке с прежними 0.6.1/code21 и не доставлялись пользователю. Code21 manifest истёк
+6 октября. C-014 выше закрывает публикацию и удаляет систему manifests вместо продления.
 
 Application/source commit: `158a4c47f493281d54277b75630bfd744e188a91`
 (`codex/catalog-metadata`); локальные проверки ниже относятся к тем же app/test исходникам.
@@ -22,8 +60,8 @@ duration из HTML в Details и исходная подпись сезонов/
 числа серий. Позиция, дата, сезон/серия checkpoint и DataStore не перезаписываются (R-041).
 Сторонних metadata API и вычисления totals из playlist нет.
 
-Опубликованная версия, tag `v0.6.1`, signed manifest и stable APK не изменены. Это изменение
-исходников, не установленное обновление TV и не новый release. Проверки этого изменения
+На момент предварительной проверки опубликованная версия оставалась `v0.6.1`.
+Проверки metadata-only изменения
 записываются в `TESTING.md`; baseline предыдущего published APK и hash остаются ниже.
 TV/ADB и эмулятор для новых меток не используются по прямому указанию владельца.
 Playback, remote keys и focus graph не перерабатывались. Live HTTPS GET `kinogo.family`
@@ -36,7 +74,8 @@ Playback, remote keys и focus graph не перерабатывались. Live
 49 009 536 bytes, SHA-256
 `27E889CE67A9CCEBEB192D7F35EC1C3290862FB5F2E961976B2636B55CB067FC`.
 APK собран из рабочего дерева этой задачи до коммита, не установлен и не опубликован.
-Release/R8/signing/updater checks не повторялись; published stable hash ниже остаётся baseline.
+Release/R8/signing/updater checks на этом предварительном этапе не повторялись;
+финальные C-014 результаты приведены выше. Hash предыдущего stable сохраняется как rollback.
 
 ## KIVI: восстановление воспроизведения 30 сентября 2026 года
 
@@ -61,7 +100,7 @@ KIVI 4K Android TV / Android 14 работал без перезагрузки 2
 application source и release artifact не изменены. Подробности — R-040 в
 [`REGRESSION_LOG.md`](REGRESSION_LOG.md).
 
-## Текущий опубликованный release C-013
+## Предыдущий опубликованный release C-013
 
 Поверх C-012 опубликован C-013 / `0.6.1` code 21. Повторный аудит исходного
 симптома показал общий zero-checkpoint defect: обычный lifecycle/close callback серии с
@@ -113,9 +152,9 @@ KIVI 4K Android TV / Android 14 обновлён через `adb install -r` с 
 загрузился, базовые D-pad Down/Up/Right/Left не привели к crash. Playback, media keys,
 source-refresh и полный in-app updater/Package Installer flow этим узким smoke не проверялись.
 
-## Краткий итог
+## Краткий итог C-013 и унаследованные контракты
 
-Текущий опубликованный release — **C-013 / 0.6.1** (code 21).
+Снимок предыдущего release — **C-013 / 0.6.1** (code 21); C-014 evidence приведён первым.
 
 После релиза `main` прошёл maintenance-доводку без изменения пользовательского контракта:
 общая strict HTTPS URI-проверка заменила две дублирующиеся реализации, provider dispatch
@@ -146,17 +185,17 @@ candidate, C-007 — integration point, B-001 — полный playback baseline
 
 | Поле | Значение |
 | --- | --- |
-| Release | **C-013 / 0.6.1** |
-| Application source commit | `2de9d7b91c903e69fc68c1d17800f4c34570e2f3` |
+| Release | **C-014 / 0.6.2**, latest regular опубликован |
+| Application source commit | `cd7d916c3bef633771069dd51467f3e4cfa82527` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `21` |
-| Version name | `0.6.1` |
+| Version code | `22` |
+| Version name | `0.6.2` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | Annotated `v0.6.1` опубликован как regular latest Release; playback baseline tag остаётся отдельным до полной hardware evidence |
+| Release tag | Annotated `v0.6.2` → `543035d`; playback baseline tag не создаётся без hardware evidence |
 
 Exact artifact C-013: `dist/KinogoATV-0.6.1-code21.apk`, **6 703 237 bytes**, SHA-256
 `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`. Package
@@ -204,19 +243,19 @@ Rollback APK допустим только с совместимой подпи�
 | Каталог | Работает; все 7 sorts прошли TV smoke | Default `Новинки`, 28 allowlisted категорий, xSort dropdowns, отдельные `↑`/`↓` и append |
 | Поиск | C-007 state/history + TV non-first verified | `Chris`, results и вторая карточка восстановлены после Details; recent-query row verified; long append pending |
 | Общая сетка | Работает; focused smoke passed | Шесть колонок, stable IDs, exact neighbours, no wrap, preload при остатке менее двух строк |
-| Карточка / resume | C-013 canonical PASS; runtime pending | Ordinary zero callback не стирает timestamp; explicit activation, visible completed anchor, coordinate-first remap и единая policy для всех entry points |
-| Постеры | Работает | HTTPS-only загрузка, memory/disk cache, безопасная заглушка |
+| Карточка / resume | C-014 canonical PASS; runtime pending | Kinogo duration/season/episode metadata; унаследованные ordinary zero guard/explicit activation/visible completed anchor/coordinate-first remap |
+| Постеры | C-014 metadata source/unit PASS | КП/IMDb и исходная подпись season/episode; HTTPS images/cache/placeholder без изменений |
 | Зеркала | Existing flow verified; bootstrap live activation pending | Built-in/ручные + bounded unsigned 4-origin remote candidates; все discovery origins quarantined до health check |
 | Аккаунт | Login verified; registration rules UI verified; live submit pending | Двухшаговый DLE rules gate, same-origin form/image CAPTCHA, Keystore login после success |
 | Закладки | Работает | Статусы сайта, независимое избранное, sync и локальный outbox |
-| История | C-013 source/unit PASS; extended runtime pending | Zero checkpoint guard, visible completed anchor, serialized writes, Details-first, content-level removal и codec v3 source ID |
+| История | C-014 source/unit PASS; runtime pending | Fresh series metadata на каждом входе/Back без изменения checkpoint; унаследованные zero guard/serialized writes/Details-first/codec v3 |
 | Выбор источника | C-013 inherited source/unit PASS; playback runtime pending | Saved S/E ищется во всех свежих source/voice branches; position не переносится на другую unit |
 | Нативный плеер | C-013 source/unit/release PASS; playback hardware **PENDING** | Explicit end/activation and zero guard verified in code; hardware resume/natural-end/source-refresh pending |
 | Web fallback | C-007 launch/Back smoke passed; resume pending | D-pad выбрал original Cinemar WebView, fullscreen открылся и Back вернул Details → History; actual playlist/position reopen не доказан |
 | Настройки | C-010 source/unit PASS; runtime pending | Async update/mirror/account controls сохраняют focusable node; update action имеет Compose focus test |
-| Обновления | C-013 Release/manifest/Pages/public bytes PASS; in-app runtime **PENDING** | Exact code 21 APK и signed manifest опубликованы; Pages/jsDelivr/ghfast/ghproxy/direct сверены |
+| Обновления | C-014 source/unit/Release/public client/APK PASS; in-app runtime **PENDING** | GitHub latest stable numeric x.y.z, без update manifests/expiry; SHA/package/version/code/прежний signer обязательны |
 | About | C-007 placement/logo source fix; TV pending | Первая крупная Settings card и focusable rail logo; C-006 QR/external-link smoke исторический |
-| CI | C-013 local/PR/main/Pages PASS | Canonical 90 suites / 471 test, lint 0 errors; PR #17/#18, main Android и Pages runs зелёные |
+| CI | C-014 local/PR/main PASS | Canonical 91 suite / 483 tests, lint 0 errors; PR/main CI 37652540409/37653793848; удалён setup-android tools, Pages workflow удалён |
 
 ## Проверка C-013
 
@@ -631,14 +670,14 @@ evidence и не разрешают массовую чистку без про�
 
 ## Активный фокус
 
-Следующий шаг после опубликованного C-013 / `0.6.1` — провести ручную приёмку:
+Следующий шаг после доставки C-014 / `0.6.2` — ручная приёмка владельцем:
 
 - проверить playback/updater приёмку; не подключаться к TV
   по ADB без нового явного разрешения на конкретный узкий сценарий;
 - проверить встроенный updater от обнаружения версии до передачи exact APK системному
   Package Installer; системное подтверждение установки остаётся ручным;
-- добавить действительно operator-owned non-GitHub metadata+APK host, если потребуется
-  независимость от блокировки всей GitHub-инфраструктуры;
+- не возвращать периодическое обслуживание update manifests; D-041 оставляет только
+  latest stable GitHub Release и проверку самого APK;
 - не назначать новый playback baseline, пока не закрыты playback stall/recovery, exact
   resume, quality persistence/fallback и updater runtime-сценарии.
 

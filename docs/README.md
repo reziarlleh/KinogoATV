@@ -34,12 +34,16 @@
 
 ## Текущий опубликованный release
 
-Unreleased 7 октября: рейтинги на обзорных карточках, продолжительность в Details,
-сведения сайта о сезонах/сериях и их свежая проверка при открытии Истории (R-041/D-040).
-Опубликованный release ниже не изменён; новая metadata-логика и локальные проверки —
-`PROJECT_STATE.md`/`TESTING.md`. TV/эмулятор для этой задачи не использовались.
+C-014 / **0.6.2 code 22** опубликован как latest regular GitHub Release: рейтинги на
+обзорных карточках, продолжительность в Details, исходные сведения сайта о сезонах/сериях
+и их свежая проверка при открытии Истории (R-041/D-040). Updater использует только GitHub
+latest stable и числовое `x.y.z`, без update manifests/expiry/периодического продления
+(R-042/D-041). Local canonical: 91 suite / 483 tests, lint 0 errors; exact APK/signer,
+PR/main CI, tag/Release, public API/production client на JVM/download проверены.
+Полное evidence/hash/rollback — `PROJECT_STATE.md`/`TESTING.md`. TV/эмулятор для этой
+задачи не использовались; новый hardware baseline не создаётся.
 
-C-013 / `0.6.1` code 21 опубликован как regular GitHub Release поверх C-012. Он устраняет
+Предыдущий C-013 / `0.6.1` code 21 опубликован как regular GitHub Release поверх C-012. Он устраняет
 общий zero-checkpoint defect: обычный lifecycle/close callback с позицией 0 больше не может
 затереть сохранённое ненулевое время, а нулевая позиция записывается только при явной
 активации серии. Completed episode остаётся видимым контекстом продолжения. Local canonical:

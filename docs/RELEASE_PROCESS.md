@@ -2,7 +2,7 @@
 
 Последнее обновление: **7 октября 2026 года**.
 
-## C-014 / 0.6.2 code 22 — подготовка
+## C-014 / 0.6.2 code 22 — опубликован
 
 Выпуск доставляет metadata-карточки и свежие сведения о сериях в Истории. Source baseline
 до version bump — `85e4633`, rollback published — `v0.6.1`. Требуются локальный canonical,
@@ -20,6 +20,19 @@ Updater численно сравнивает `x.y.z` с установленн�
 PR #22 first run `37649211984` упал до Gradle: default setup-android packages включал
 удалённый SDK `tools`. В Android workflow явно установлено `packages: platform-tools`;
 versioned platform/build-tools сохраняются отдельным шагом, checks не отключаются.
+
+Application/embedded revision `cd7d916c3bef633771069dd51467f3e4cfa82527`, PR #22 merge
+`543035d1cdb6321286ff6475065470d26b998290`; app/CI tree identical. Local canonical:
+91 suite / 483 tests, 0 failures/errors/skips, lint 0 errors / 12 version advisories;
+debug/release/R8/shrink/lintVital PASS за 10 мин 4 с. PR CI `37652540409` SUCCESS.
+Exact APK: 6 686 853 bytes, SHA-256
+`E0791E36731907B4582322ADDEE0EE716A7493D005155D5397584B559B76A411`; API 28/37,
+zipalign PASS, v2 true, один прежний signer. Mapping 64 827 807 bytes, SHA-256
+`009271B975089272D7F1931D8CE05B9C4423F886EED15C3D62D11A5D903AB03B`.
+Private archive `.signing/release-evidence/0.6.2-code22/`. Main CI `37653793848` SUCCESS;
+annotated `v0.6.2` → merge `543035d`, latest regular Release опубликован 16:47:45 UTC.
+Public asset size/digest, production parser/client (desktop JVM), exact download и signer
+проверены — `PROJECT_STATE.md`. TV/ADB/эмулятор не использовались.
 
 ## Виды сборок
 

@@ -9,13 +9,19 @@
 
 ## [Unreleased]
 
-Нет изменений после готовящегося `0.6.2`.
+Нет изменений после опубликованного `0.6.2`.
 
 ## [0.6.2] — 2026-10-07
 
-Release C-014 / code 22 готовится к публикации. Прежний signed code 21 manifest истёк
+Release C-014 / code 22 опубликован как latest regular. Прежний signed code 21 manifest истёк
 6 октября; C-014 удаляет update manifests целиком вместо их продления (D-041).
-Релиз и обновление пока не опубликованы; evidence будет дополнено после live verification.
+Source/embedded revision `cd7d916`, PR #22 merge `543035d`, annotated `v0.6.2`.
+Canonical: 91 suite / 483 tests без failures/errors/skips, lint 0 errors / 12 version
+advisories, debug/release/R8/shrink/lintVital PASS за 10 мин 4 с. PR/main CI
+`37652540409`/`37653793848` SUCCESS. Exact APK 6 686 853 bytes, SHA-256
+`E0791E36731907B4582322ADDEE0EE716A7493D005155D5397584B559B76A411`, прежний signer.
+Public latest API/digest, production updater на JVM, exact download/signature verified;
+hardware/in-app installer acceptance не заявляется.
 
 - Обновления определяются числовой версией `x.y.z` последнего стабильного GitHub Release.
   Нет expiry, дополнительных manifest endpoints, signing scripts или Pages update workflow.
@@ -37,9 +43,9 @@ Release C-014 / code 22 готовится к публикации. Прежни
   Старое число серий не выдаётся за актуальное: до ответа — «Проверяем серии…», при ошибке —
   «Серии не проверены». При уходе/смене зеркала запросы отменяются. Checkpoint, дата,
   позиция и порядок истории не перезаписываются.
-- Схема DataStore, playback и focus graph не изменены. Новая версия не опубликована;
-  TV/эмулятор по просьбе владельца не использовались. Проверки — `TESTING.md`.
-- Финальный local canonical: 93 suites / 491 tests, 0 failures/errors/skips, lint
+- Схема DataStore, playback и focus graph не изменены.
+  TV/эмулятор для новых меток и updater по просьбе владельца не использовались.
+- Предварительный metadata-only canonical до замены updater: 93 suites / 491 tests, 0 failures/errors/skips, lint
   0 errors / 12 version advisory, assembleDebug PASS за 2 мин 38 с. Live `kinogo.family`
   HTTP 200 подтвердил catalog ratings/ranges и отдельные detail season/latest episode/duration.
 
@@ -61,8 +67,9 @@ Release C-014 / code 22 готовится к публикации. Прежни
   Cinemar/Collaps helpers с сохранением cancellation и fallback-контракта.
 - Durable `PlaybackCheckpointWriteQueue` вынесена из монолитного `KinogoAppRoot` в отдельный
   компонент; сериализация записей и ожидание очереди подтверждены существующими тестами.
-- На disposable Android TV API 28 emulator пройден полный instrumentation-набор: **8/8**.
-- Post-release canonical: **91 suite / 473 tests**, 0 failures/errors/skips; lint —
+- До metadata/updater задачи (post-release 0.6.1) на disposable Android TV API 28 emulator
+  пройден полный instrumentation-набор: **8/8**; это не проверка C-014 на устройстве.
+- Исторический post-release canonical 0.6.1: **91 suite / 473 tests**, 0 failures/errors/skips; lint —
   **0 errors / 2 warnings**, debug/androidTest/release assembly — PASS за **17 мин 4 с**.
 
 ## [0.6.1] — 2026-09-06

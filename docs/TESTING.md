@@ -11,7 +11,22 @@
 не равна UpToDate, exact size/SHA и удаление повреждённого download. `ApkUpdatePolicyTest`
 сохраняет package/version/code/signer checks. Прежние manifest/fallback tests удалены вместе
 с production contract; исторические упоминания ниже относятся к прежним версиям.
-Финальный canonical/release/public evidence будет записан после завершения C-014.
+Application/embedded source `cd7d916c3bef633771069dd51467f3e4cfa82527`:
+canonical `testDebugUnitTest lintDebug assembleDebug assembleRelease` — **SUCCESS за
+10 мин 4 с**, 104 tasks; **91 suite / 483 tests**, 0 failures/errors/skips. Lint —
+0 errors / 12 version advisory. Release R8/shrink/lintVital, package `com.kinogo.atv`,
+name/code `0.6.2/22`, API `28/37`, zipalign, v2 и один прежний signer verified.
+APK **6 686 853 bytes**, SHA-256
+`E0791E36731907B4582322ADDEE0EE716A7493D005155D5397584B559B76A411`.
+PR #22 CI `37652540409` — SUCCESS; merged application tree совпадает с проверенным.
+Main CI `37653793848` — SUCCESS. Annotated tag `v0.6.2` → merge `543035d`, regular
+latest Release, public asset size/digest и production parser проверены. На desktop JVM
+compiled `GitHubReleaseUpdateClient` с default HTTP/public DNS: `0.6.1/code21` → Available
+`0.6.2/code22`, current → UpToDate, public GitHub/CDN download прошёл size/SHA guards.
+Скачанный APK имеет exact SHA выше и прежний signer; parser не предлагает downgrade
+для `0.6.3/code23`. Это не runtime установленного APK на TV и не OS installer acceptance.
+Evidence и rollback — `PROJECT_STATE.md`.
+TV/ADB/эмулятор не запускались, новый hardware baseline не создан.
 
 ## Метаданные карточек и свежая История — предварительная проверка 2026-10-07
 
