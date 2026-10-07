@@ -157,19 +157,9 @@ digest:     sha256:<64 hex> в metadata GitHub asset
 Нельзя публиковать тот же versionCode под другим APK: updater принимает только строго
 растущую версию и ожидаемую signing identity.
 
-Для primary signed-manifest channel тот же exact artifact описывается payload с
-literal fields:
-
-```text
-versionName, versionCode, assetName, assetSizeBytes, sha256,
-issuedAtEpochSeconds, expiresAtEpochSeconds, downloadUrls
-```
-
-Envelope schema 1 хранит exact UTF-8 payload в base64 и подпись `SHA256withRSA`
-или `SHA256withECDSA` от той же identity, что подписала APK. Lifetime — не более
-90 дней; download URLs — от одного до четырёх safe HTTPS-адресов. Pages и jsDelivr
-дают отдельные от `github.com` UI/API transport paths, но оба канала берут artifact
-из GitHub repository/release и не являются operator-owned non-GitHub storage.
+С C-014 отдельных payload/envelope и primary signed-manifest channel нет (D-041).
+Up-to-date определяется числовой `x.y.z`; также нужен растущий Android versionCode.
+Подпись проверяется у самого APK, а срок действия release не ограничивается.
 
 ## 2. Проверка рабочего дерева
 

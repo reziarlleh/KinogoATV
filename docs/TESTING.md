@@ -2,8 +2,6 @@
 
 Последнее обновление: **7 октября 2026 года**.
 
-## Метаданные карточек и свежая История — 2026-10-07
- 
 ## C-014 updater без манифестов — текущий контракт
 
 `GitHubReleaseParserTest`: числовое major/minor/patch сравнение, equal/lower без update,
@@ -15,7 +13,7 @@
 с production contract; исторические упоминания ниже относятся к прежним версиям.
 Финальный canonical/release/public evidence будет записан после завершения C-014.
 
-### Предварительная metadata-проверка до замены updater
+## Метаданные карточек и свежая История — предварительная проверка 2026-10-07
 
 Rollback/source до задачи: `6556064`, published release — прежняя C-013. Изменены HTML
 episode label, UI metadata и фоновые history detail reads. Защиты:
@@ -803,10 +801,10 @@ discovered player document через exact-host `validatedPlayerDocumentUri`, l
 точный runtime path, iframe/media URLs и cookies. Начало реального Media3 воспроизведения
 на KIVI подтверждено; это не заменяет проверки других материалов, TTL/error и cross-season.
 
-Для signed updater проверка считается закрытой только если exact payload
-проходит installed-signer signature, endpoint доступен из целевой сети, APK
-совпадает по size/SHA/package/version/signer и Android показал системное
-подтверждение. HTTP 200 manifest без этих шагов не доказывает live updater.
+Для текущего updater проверка publication считается закрытой после latest API/parser
+и exact downloaded APK size/SHA/package/version/signer verification. In-app acceptance
+отдельна: check/download/permission/Android Package Installer и OS confirmation на TV.
+HTTP 200 API или успешная сборка не доказывают этот runtime сценарий.
 
 ## Формат evidence
 
