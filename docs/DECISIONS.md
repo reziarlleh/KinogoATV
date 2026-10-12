@@ -802,7 +802,8 @@ GitHub недоступен — явная ошибка и обычный пов
 ## D-042 — Полный HTML сайта для единых метаданных карточек
 
 - Дата: 12 октября 2026 года
-- Статус: принято для C-015 / 0.6.3, full release validation pending.
+- Статус: принято и поставлено в C-015 / 0.6.3; canonical/live HTTP/publication PASS,
+  hardware rendering не проверялся.
 
 Kinogo выбирает смартфонный шаблон для native TV User-Agent; его списки не содержат
 КП/IMDb. Сайт имеет штатный full-version GET `/?action=mobiledisable`. HTML-клиент

@@ -34,7 +34,14 @@
 
 ## Текущий опубликованный release
 
-C-014 / **0.6.2 code 22** опубликован как latest regular GitHub Release: рейтинги на
+C-015 / **0.6.3 code 23** опубликован как latest regular GitHub Release: исправлен выбор
+полного HTML для рейтингов во всех разделах и сумма часов/минут (R-044/R-045/D-042).
+Local canonical: 92 suites / 491 tests, lint 0 errors; exact APK/signer, PR/main CI,
+tag/Release и public production updater на JVM/download проверены. Источники/зеркала не менялись.
+Полное evidence/hash/rollback — `PROJECT_STATE.md`/`TESTING.md`. TV/эмулятор не использовались;
+новый hardware baseline не создаётся.
+
+Предыдущий C-014 / **0.6.2 code 22** доставил рейтинги на
 обзорных карточках, продолжительность в Details, исходные сведения сайта о сезонах/сериях
 и их свежая проверка при открытии Истории (R-041/D-040). Updater использует только GitHub
 latest stable и числовое `x.y.z`, без update manifests/expiry/периодического продления

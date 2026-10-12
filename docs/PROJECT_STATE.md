@@ -2,7 +2,7 @@
 
 Последнее обновление: **12 октября 2026 года**.
 
-## Подготовка C-015 / 0.6.3 code 23 — метаданные общих карточек
+## Текущий опубликованный C-015 / 0.6.3 code 23 — метаданные общих карточек
 
 Rollback перед правками: `b9f62f07f2b7bb96fb1430682d362f1b3863df48`, published
 `v0.6.2/code22` с APK SHA-256 `E0791E36731907B4582322ADDEE0EE716A7493D005155D5397584B559B76A411`.
@@ -23,7 +23,18 @@ APK `KinogoATV-0.6.3-code23.apk`: 6 703 237 bytes, SHA-256
 `7BDD125EAF98FE2C1984914C8BD684EE8C19A682C832B3A103E6EC8C8E052C4E`.
 Package `com.kinogo.atv`, name/code `0.6.3/23`, API `28/37`, zipalign PASS, v2 true,
 один прежний signer `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
-PR #23 / remote CI и публикация ещё не завершены.
+PR #23 влит как `f2abfc6e9dde44a6b796ff012553a25f7934ed31`; application/CI tree
+совпадает с проверенным source (`git diff --exit-code 225897e HEAD -- app .github/workflows/android.yml`).
+PR CI [38276709250](https://github.com/reziarlleh/KinogoATV/actions/runs/38276709250)
+и main CI [38277352121](https://github.com/reziarlleh/KinogoATV/actions/runs/38277352121) — SUCCESS.
+Annotated `v0.6.3` указывает на merge выше. Latest regular
+[Release 0.6.3](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.3) опубликован
+12 октября в 16:30:49 UTC (`draft=false`, `prerelease=false`). Public API asset size/digest
+совпали с exact APK. Compiled production `GitHubReleaseUpdateClient` на JVM с default
+public DNS/HTTP: `0.6.2/code22` → Available `0.6.3/code23`, current/future → UpToDate;
+штатный GitHub/CDN download прошёл size/SHA guards. Скачанный
+`KinogoATV-pending-update.apk` дополнительно проверен по package/version/API/прежнему signer.
+APK, R8 mapping и helper сохранены в ignored `.signing/release-evidence/0.6.3-code23/`.
 Production live: Home page1 10/10 rated, page2 7/10, Новинки 4/10, Поиск 2/2;
 отсутствующие оценки в HTML остаются отсутствующими, а не заполняются выдуманными.
 TV/ADB/эмулятор не используются; аппаратный rendering/installer pass не заявляется.
@@ -73,10 +84,10 @@ Production `KinogoHtmlParser` возвращает **0 карточек** на �
 Исходные закладки не менялись. Персональный адрес и полный пользовательский список
 не включаются в публичную документацию. Приложение, список зеркал и TV не затрагивались;
 восстановление доступа именно Android-приложения этой проверкой не доказано.
-Код приложения и публичный список не изменены; версия и APK остаются C-014 ниже.
+В этой диагностике код приложения и публичный список не менялись; версия и APK оставались C-014 ниже.
 Rollback source этой диагностики — `b9f62f07f2b7bb96fb1430682d362f1b3863df48`.
 
-## Текущий опубликованный C-014 / 0.6.2 code 22
+## Предыдущий опубликованный C-014 / 0.6.2 code 22
 
 Application source и embedded APK revision:
 `cd7d916c3bef633771069dd51467f3e4cfa82527`. PR #22 влит как
@@ -259,17 +270,17 @@ candidate, C-007 — integration point, B-001 — полный playback baseline
 
 | Поле | Значение |
 | --- | --- |
-| Release | **C-014 / 0.6.2**, latest regular опубликован |
-| Application source commit | `cd7d916c3bef633771069dd51467f3e4cfa82527` |
+| Release | **C-015 / 0.6.3**, latest regular опубликован |
+| Application source commit | `225897e10e4a21d5235cb16cb96f3f7b494d33f1` |
 | Application ID | `com.kinogo.atv` |
-| Version code | `22` |
-| Version name | `0.6.2` |
+| Version code | `23` |
+| Version name | `0.6.3` |
 | Минимальная версия | Android TV 9 / API 28 |
 | Compile / target SDK | 37 / 37 |
 | UI | Kotlin + Jetpack Compose, landscape TV-only |
 | Плеер | AndroidX Media3 / ExoPlayer |
 | Подпись APK | Проверено: v2 true; ровно один сертификат, SHA-256 `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9` |
-| Release tag | Annotated `v0.6.2` → `543035d`; playback baseline tag не создаётся без hardware evidence |
+| Release tag | Annotated `v0.6.3` → `f2abfc6`; playback baseline tag не создаётся без hardware evidence |
 
 Exact artifact C-013: `dist/KinogoATV-0.6.1-code21.apk`, **6 703 237 bytes**, SHA-256
 `F6CE7CF4F6751A0DE75DC7A5742C603DC139CB8AA8C931EBB77900272517ADB2`. Package

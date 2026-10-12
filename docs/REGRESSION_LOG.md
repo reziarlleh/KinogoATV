@@ -31,6 +31,22 @@
 
 ## Validation candidates
 
+### C-015 — 0.6.3 release
+
+- Статус: canonical/live HTTP/exact artifact/publication/public updater PASS;
+  hardware rendering и in-app installer не проверялись.
+- Application/embedded source: `225897e10e4a21d5235cb16cb96f3f7b494d33f1`.
+- PR #23 merge/tag: `f2abfc6e9dde44a6b796ff012553a25f7934ed31`, annotated `v0.6.3`.
+- APK: `KinogoATV-0.6.3-code23.apk`, 6 703 237 bytes, SHA-256
+  `7BDD125EAF98FE2C1984914C8BD684EE8C19A682C832B3A103E6EC8C8E052C4E`.
+- Automated: 92 suites / 491 tests, 0 failures/errors/skips, lint 0 errors / 12 advisories;
+  debug/release/R8 PASS. PR/main CI `38276709250` / `38277352121` SUCCESS.
+- Live: production HTTP/repository ratings на Home/pagination/Catalog/Search;
+  duration 95/99/96. Latest API/production updater JVM/download size/SHA/signer PASS.
+- Scope/guards: R-044/R-045 ниже; mirrors/playback/account mutations не менялись.
+- Rollback: source `b9f62f0`, published `v0.6.2/code22` (affected metadata);
+  B-001 сохраняется как полный hardware playback baseline.
+
 ### C-012 — 0.6.0 release
 
 - Статус: published release; install/startup/basic D-pad hardware smoke passed; full playback
@@ -1314,7 +1330,7 @@ C-002 нельзя переименовывать в B-002 и помечать b
 
 ### R-044 — Длительность фильма показывала только остаток минут
 
-- Статус: Source fix / targeted tests / live parser PASS; release pending.
+- Статус: Resolved / published C-015 `v0.6.3/code23`; hardware rendering не проверялся.
 - Обнаружено: 12 октября 2026 года по сообщению владельца.
 - Affected: `0.6.2/code22`; duration parser, введённый вместе с metadata-карточками.
 - Last-known-good: для формата часов + минут не фиксировался; minute-only cases проходили.
@@ -1326,13 +1342,13 @@ C-002 нельзя переименовывать в B-002 и помечать b
 - Protective test: `KinogoHtmlParserTest.duration adds hours instead of displaying only
   the minute remainder` (составные, простые и недопустимые строки).
 - Verification: targeted tests PASS, live parser 95/99/96; exact source `225897e`
-  canonical 491 tests / lint / debug / release PASS; publication pending.
+  canonical 491 tests / lint / debug / release PASS; PR/main CI и published exact APK verified.
 - Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
 - Устройство: TV/ADB/эмулятор не используются.
 
 ### R-045 — КП/IMDb отсутствовали на карточках вне Истории
 
-- Статус: Source fix / targeted tests / production HTTP PASS; release pending.
+- Статус: Resolved / published C-015 `v0.6.3/code23`; hardware rendering не проверялся.
 - Обнаружено: 12 октября 2026 года по сообщению владельца.
 - Affected: `0.6.2/code22`; full-document template selection для HTML-клиента.
 - Last-known-good: общий UI компонент был один, но прежняя browser GET проверка не
@@ -1351,7 +1367,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
   существующие `CatalogUiMapperTest`/`HistoryPosterTest` проверяют UI поля.
 - Verification: targeted tests PASS; production repository после правки — 10/10 с
   рейтингами полного шаблона. Source `225897e`: canonical 491 tests / lint / debug /
-  release PASS; HTTP interceptor проверяет routes и mutations. Publication pending;
+  release PASS; HTTP interceptor проверяет routes и mutations. PR/main CI, publication
+  и public production updater/download PASS;
   hardware rendering не заявляется.
 - Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
 - Связанные файлы: `KinogoSessionHttpClient.kt`, `KinogoLibraryApi.kt`, `SERVICE_INTEGRATION.md`.

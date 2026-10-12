@@ -9,7 +9,13 @@
 
 ## [Unreleased]
 
-Готовится `0.6.3/code23`; последняя опубликованная версия пока `0.6.2`.
+Нет новых изменений после опубликованного `0.6.3/code23`.
+
+## [0.6.3] — 2026-10-12
+
+Опубликован latest regular [Release 0.6.3](https://github.com/reziarlleh/KinogoATV/releases/tag/v0.6.3),
+code 23. Canonical: 491 tests, lint/debug/release PASS; PR/main CI, exact APK/signature
+и public production updater check/download проверены. TV/ADB/эмулятор не использовались.
 
 - Исправлено занижение длительности фильмов: `1 ч 35 мин` теперь 95 минут, а не 35
   (R-044). Поддерживаются часы, минуты и запись `HH:MM`; настоящие короткие фильмы

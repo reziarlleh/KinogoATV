@@ -41,7 +41,7 @@ selection и очистку cookies. Content/search/query/AJAX routes не пе�
 lint 0 errors / 12 version advisories. Exact post-commit rerun source `225897e` прошёл
 за 2 мин 41 с: 92 suites / 491 tests, 0 failures/errors, тот же lint, debug/release/R8
 PASS. Включён intercepted-request regression test всех document paths и неизменённых
-AJAX mutations; publication пока не выполнена. Interceptor/fake public DNS работают только в JVM-тесте,
+AJAX mutations. Interceptor/fake public DNS работают только в JVM-тесте,
 никакой real HTTP request в нём не отправляется.
 Первый canonical остановлен lint NewApi на Charset-overload `URLDecoder.decode`;
 этот прототип не выпускался. Decode/route rewrite удалены при переходе на отдельную
@@ -55,6 +55,13 @@ GET и не подменённый UA): до правки 10/10 карточек
 Desktop parser на свежем Kinogo HTML: «Сердце зверя» 95 мин, «Курьер» 99 мин,
 «Вышка 2» 96 мин вместо прежних 35/39/36. Метаданные/HTML обрабатывались в памяти;
 credentials, cookies, iframe/media URL не сохранялись и не выводились.
+PR/main CI `38276709250` / `38277352121` SUCCESS; merge `f2abfc6` имеет тот же app/CI tree.
+Annotated `v0.6.3`, latest regular Release и public asset size/digest verified.
+Compiled production updater на JVM: `0.6.2/code22` → Available `0.6.3/code23`, равная/выше
+→ UpToDate, default public-DNS/API/CDN download/size/SHA PASS. Скачанный
+`KinogoATV-pending-update.apk` имеет exact SHA-256
+`7BDD125EAF98FE2C1984914C8BD684EE8C19A682C832B3A103E6EC8C8E052C4E`, package/version/API
+и прежний v2 signer. Private evidence — `.signing/release-evidence/0.6.3-code23/`.
 TV/ADB/эмулятор не использовались; новые hardware rendering/installer claims отсутствуют.
 
 ## Метаданные карточек и свежая История — предварительная проверка 2026-10-07
