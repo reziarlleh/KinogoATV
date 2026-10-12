@@ -464,8 +464,19 @@ class KinogoHtmlParser {
             ?.toDoubleOrNull()
             ?.takeIf { it in 0.0..10.0 }
 
-    private fun parseDurationMinutes(raw: String?): Int? =
-        raw?.let { DURATION_PATTERN.find(it)?.groupValues?.getOrNull(1)?.toIntOrNull() }
+    private fun parseDurationMinutes(raw: String?): Int? {
+        val value = raw?.replace('\u00A0', ' ')?.replace('\u202F', ' ')?.trim()
+            ?: return null
+        if (value.startsWith('-')) return null
+        val hours = DURATION_HOURS_PATTERN.find(value)?.groupValues?.get(1)?.toIntOrNull()
+        val minutes = DURATION_MINUTES_PATTERN.find(value)?.groupValues?.get(1)?.toIntOrNull()
+        if (hours != null || minutes != null) {
+            return ((hours ?: 0) * 60 + (minutes ?: 0)).takeIf { it > 0 }
+        }
+        val clock = DURATION_CLOCK_PATTERN.find(value) ?: return null
+        return (clock.groupValues[1].toInt() * 60 + clock.groupValues[2].toInt())
+            .takeIf { it > 0 }
+    }
 
     private fun splitValues(raw: String?): List<String> = raw
         ?.split(LIST_SEPARATOR_PATTERN)
@@ -537,7 +548,15 @@ class KinogoHtmlParser {
         val PAGE_PATTERN = Regex("/page/(\\d+)(?:/|$)", RegexOption.IGNORE_CASE)
         val YEAR_PATTERN = Regex("(?<!\\d)(?:18|19|20|21)\\d{2}(?!\\d)")
         val DECIMAL_PATTERN = Regex("\\d+(?:[.,]\\d+)?")
-        val DURATION_PATTERN = Regex("(\\d{1,4})\\s*(?:мин|minute)", RegexOption.IGNORE_CASE)
+        val DURATION_HOURS_PATTERN = Regex(
+            """(?<![\d.,])(\d{1,4})\s*(?:час(?:а|ов)?|ч\.?|hours?|hrs?|h)(?!\p{L})""",
+            RegexOption.IGNORE_CASE,
+        )
+        val DURATION_MINUTES_PATTERN = Regex(
+            """(?<![\d.,])(\d{1,4})\s*(?:мин(?:ут(?:а|ы)?)?\.?|minutes?|mins?|m)(?!\p{L})""",
+            RegexOption.IGNORE_CASE,
+        )
+        val DURATION_CLOCK_PATTERN = Regex("""(?<![\d:])(\d{1,3}):([0-5]\d)(?![\d:])""")
         val LIST_SEPARATOR_PATTERN = Regex("\\s*(?:,|/|;|\\|)\\s*")
         val NEXT_PAGE_LABELS = setOf("позже", "следующая", "далее", "next", ">", "»")
         val EMPTY_VALUES = setOf("неизвестно", "отсутствует", "нет", "-")

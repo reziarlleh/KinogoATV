@@ -28,6 +28,34 @@ compiled `GitHubReleaseUpdateClient` с default HTTP/public DNS: `0.6.1/code21` 
 Evidence и rollback — `PROJECT_STATE.md`.
 TV/ADB/эмулятор не запускались, новый hardware baseline не создан.
 
+## Метаданные карточек — регрессии 2026-10-12 / C-015
+
+Baseline `b9f62f0` / published `v0.6.2/code22`. Точечный прогон parser, session transport,
+xSort repository и UI mapper — SUCCESS за 2 мин 1 с. Новые защиты проверяют сумму часов
+и минут, clock/minute-only/missing/invalid formats; `FullHtmlTemplateSelectorTest`
+проверяет однократный full-HTML выбор, независимость origins, concurrency, failed/cancelled
+selection и очистку cookies. Content/search/query/AJAX routes не переписываются.
+Общий repository сохраняет рейтинги для Home/Catalog/Search
+и append, а существующие mapper/HistoryPoster tests сохраняют поля в UI copies.
+Предварительный canonical/debug/release/R8 — SUCCESS за 8 мин 2 с: 92 suites / 490 tests,
+lint 0 errors / 12 version advisories. Финальный post-commit rerun включает ещё один
+intercepted-request regression test всех document paths и неизменённых AJAX mutations;
+publication пока не выполнена. Interceptor/fake public DNS работают только в JVM-тесте,
+никакой real HTTP request в нём не отправляется.
+Первый canonical остановлен lint NewApi на Charset-overload `URLDecoder.decode`;
+этот прототип не выпускался. Decode/route rewrite удалены при переходе на отдельную
+template negotiation; minSdk 28 и detector не менялись. Первоначальный live search probe
+дал ноль результатов из-за default Windows source encoding Java-helper, а не приложения.
+После Unicode escaping/UTF-8 запуска production repository вернул 2/2 rated результата,
+как Chrome. Этот проверочный дефект не выдаётся за app-регрессию; search routes не менялись.
+
+Live JVM **production** `HtmlCatalogRepository` + `KinogoSessionHttpClient` (не браузерный
+GET и не подменённый UA): до правки 10/10 карточек без КП/IMDb, после — 10/10 с рейтингами.
+Desktop parser на свежем Kinogo HTML: «Сердце зверя» 95 мин, «Курьер» 99 мин,
+«Вышка 2» 96 мин вместо прежних 35/39/36. Метаданные/HTML обрабатывались в памяти;
+credentials, cookies, iframe/media URL не сохранялись и не выводились.
+TV/ADB/эмулятор не использовались; новые hardware rendering/installer claims отсутствуют.
+
 ## Метаданные карточек и свежая История — предварительная проверка 2026-10-07
 
 Rollback/source до задачи: `6556064`, published release — прежняя C-013. Изменены HTML

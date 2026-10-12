@@ -1,6 +1,6 @@
 # Интеграция с Kinogo
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
 
 ## Граница интеграции
 
@@ -23,7 +23,8 @@
 
 Источник рейтингов, продолжительности и сезонов/серий — только HTML Kinogo:
 catalog `.mRatings .kp`/`.imdb`, detail `.fullKP`/`.fQuality` либо подписанные поля;
-duration — «Продолжительность»/«Длительность» в минутах. Подпись серий читается из
+duration — «Продолжительность»/«Длительность» с корректным переводом часов + минут
+в общие минуты; отдельно поддерживается `HH:MM`. Подпись серий читается из
 `.sPoster .lenta .cont`/`.lenta` либо «Добавлено»/«Последняя серия онлайн»/«Сезон».
 Если сезон и последняя серия заданы отдельными полями, подпись сохраняет оба значения
 без дублирования сезона, уже содержащегося в подписи серий.
@@ -38,6 +39,19 @@ duration — «Продолжительность»/«Длительность»
 При ошибке нет обещания «новых серий нет». Live HTTP 200 на `kinogo.family` 7 октября
 подтвердил catalog КП/IMDb и series ranges, detail duration; другие попытки дали timeout/503.
 Контракт и отсутствующие поля дополнительно покрыты локальными fixtures и JVM-тестами.
+
+R-045 / 12 октября: default `KinogoATV/... (Android TV; native HTML client)` получает
+смартфонный шаблон `/templates/smartphone/`, в котором нет `.mRatings`. Обычный browser
+GET этого не воспроизводит. Перед Catalog GET/xSort POST, Details/History GET и чтением
+серверных закладок клиент один раз на origin/очистку cookie jar выполняет штатный DLE
+GET `/?action=mobiledisable`. Серверная template preference остаётся в origin-scoped
+memory-only cookie jar. Сами content/search/pagination paths, query и xSort form не
+переписываются; template selection отделён от DLE search action. User-Agent не маскируется
+под браузер. `getRaw`/`postForm` для account/AJAX mutations не меняются; preference
+не попадает в сохраняемые content paths/ID. Failed/cancelled selection не кешируется,
+очистка cookie jar инвалидирует выбор, конкурентные запросы делят одну попытку.
+Live production repository до правки получил 10 главных карточек без рейтингов,
+после — те же 10 с КП/IMDb из полного HTML. Это не UI/TV runtime evidence.
 
 ## Replaceable origins
 
@@ -103,6 +117,22 @@ Repository snapshot `config/mirrors.json` от `2026-08-15T00:00:00Z` истек
 `https://kinogo.family`. Это список для последующей проверки, не список подтверждённых
 зеркал; в частности, добавление `kinogo.family` не является live fingerprint evidence.
 Expiry требует operator review, а не автоматического продления дат.
+
+Live-проверка 11 октября 2026 года (R-043): все четыре сохранённых origin на KIVI
+завершили штатный refresh с timeout. Desktop production probe parts/family/w.solar
+тоже не подтвердил usable result; отдельный GET online встретил challenge/403.
+JSON ещё действителен; его срок не является причиной этого инцидента. Новый
+совместимый origin не найден. Ответ 200 у одноимённого сайта недостаточен:
+`kinogo-10.biz` не совпал по сохранённому content ID/HTML и не добавлялся.
+Предложенный владельцем `kinogo2026.com` отвечает 200 и проходит нынешний health
+fingerprint, но production catalog parser возвращает 0 items, а Details parser —
+`CatalogParseException`; прежний ID 113219 ведёт на «Поросята». Он также не добавлен.
+Health `HEALTHY` нельзя считать доказательством совместимости backend/HTML:
+для admission нового адреса следует отдельно сверять поддерживаемую структуру
+и стабильные content ID; текущая автоматическая проверка этого не гарантирует.
+Этот dated snapshot не меняет trust contract и не обещает восстановленную доступность.
+12 октября владелец подтвердил работу прежних источников/зеркал; R-043 закрыт
+по этому наблюдению, без изменения mirror list или security policy.
 
 Ключевые файлы:
 

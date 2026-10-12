@@ -1264,6 +1264,95 @@ C-002 нельзя переименовывать в B-002 и помечать b
   TV/ADB/эмулятор не используются по указанию владельца. Старый клиент переходит к GitHub
   fallback при отказе/expiry manifest; при сетевой блокировке возможна ручная установка поверх.
 
+### R-043 — Нет доступного зеркала на KIVI
+
+- Статус: Resolved by owner observation 12 октября; temporary external availability.
+- Обнаружено: 11 октября 2026 года, по сообщению владельца.
+- Affected environment: KIVI 4K Android TV, установленная `0.6.2/code22`.
+- Last-known-good: 7 октября `0.6.2/code22`, `kinogo.family` — свежие Details/История
+  и подготовка Cinemar списка серий «Форта»; полный playback тогда не запускался.
+- First-bad: неизвестен; изменений application source в текущей диагностике нет.
+- Симптом: все четыре сохранённых origin на TV получают timeout при штатной проверке.
+- Доказательства: desktop GET/prod `MirrorHealthChecker` также не подтверждают
+  доступность parts/family/w.solar; отдельный desktop GET online — HTTP 403 / challenge.
+  Bootstrap JSON от 15 августа ещё не истёк (expiresAt 13 ноября).
+  WWW parts/family лишь перенаправляют на прежние apex origins.
+- Причина: точная внешняя причина неизвестна. Сбой воспроизведён вне TV-приложения;
+  регрессия APK и необходимость нового релиза не установлены.
+- Попытка восстановления: известные/публично найденные кандидаты проверялись без
+  авторизации. `kinogo-10.biz` отвечает 200, но ID 113219 открывает «Поросята» вместо
+  «Форта» и не содержит ожидаемую `fullStory`; поэтому не добавлен и credentials
+  туда не отправлялись. Usable origin того же каталога не найден.
+- Дополнительный поиск: production probe `kinogo.tm`, `fox.kinogo.tm`,
+  `bro.kinogo.tm` завершился timeout. Root `kinocoin.co` перенаправил на `wunigo.com`;
+  exact Fort path на обоих адресах не вернул ожидаемую карточку/`fullStory`.
+  В существующем Telegram-чате найден `@kinogobiz_bot`, на который ссылается
+  публичный `@kinogobizoriginal`. Запрос «Получить рабочее зеркало Kinogo» пока
+  не отправлен: ожидается action-time подтверждение владельца аккаунта.
+- Проверка адреса от владельца: `kinogo2026.com` — HTTP 200 и production health
+  `HEALTHY`, но production catalog parser выдаёт 0 items, а Details parser —
+  `CatalogParseException`. Сохранённый путь ID 113219 перенаправляет на «Поросята».
+  Добавление отменено до передачи любых credentials: это не совместимое зеркало
+  прежнего каталога. Текущий health fingerprint сам по себе не доказывает
+  поддерживаемую HTML-структуру или совпадение content ID.
+- Исправление: не выполнено; нужен подтверждённый совместимый origin либо
+  восстановление прежнего сервиса. Публичный mirror list не менялся.
+- Уточнение окружения: позднее 11 октября `kinogo.family` доступен в Chrome
+  владельца с существующей авторизованной сессией. По отдельному запросу перенесены
+  серверные статусные закладки на выбранный персональный сайт и сверены повторным
+  чтением всех разделов. Источник не изменялся; персональный адрес/полный список
+  не публикуются. Это не TV/production HTTP recovery evidence; приложение и TV
+  не затрагивались по прямому указанию владельца.
+- Protective test: нового теста нет — новый code defect не локализован.
+- Закрытие: 12 октября владелец подтвердил работу прежних источников и зеркал.
+  Поиск нового зеркала прекращён. Причина внешнего сбоя точно не установлена;
+  изменения mirror list/приложения для восстановления не потребовались.
+- Runtime verification: owner-authorized ADB, проверка установленной версии,
+  Settings/штатный refresh. Install, playback, pm clear/uninstall не выполнялись.
+- Rollback point: source `b9f62f07f2b7bb96fb1430682d362f1b3863df48`, APK `v0.6.2/code22`.
+- Связанные файлы: `PROJECT_STATE.md`, `SERVICE_INTEGRATION.md`, `config/mirrors.json`.
+
+### R-044 — Длительность фильма показывала только остаток минут
+
+- Статус: Source fix / targeted tests / live parser PASS; release pending.
+- Обнаружено: 12 октября 2026 года по сообщению владельца.
+- Affected: `0.6.2/code22`; duration parser, введённый вместе с metadata-карточками.
+- Last-known-good: для формата часов + минут не фиксировался; minute-only cases проходили.
+- Причина: regex искал только число перед «мин», игнорируя часы.
+- Воспроизведение: свежий HTML «Сердце зверя» содержит `1 ч 35 мин` → старый parser 35;
+  «Курьер» `1 ч 39 мин` → 39; «Вышка 2» `1 ч 36 мин` → 36.
+- Исправление: сумма часов * 60 + минут, поддержка hour-only/clock, отсутствие выдуманного
+  минимального порога для фильмов; missing/invalid/zero duration не показывается.
+- Protective test: `KinogoHtmlParserTest.duration adds hours instead of displaying only
+  the minute remainder` (составные, простые и недопустимые строки).
+- Verification: targeted tests PASS, live parser 95/99/96; full canonical/release pending.
+- Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
+- Устройство: TV/ADB/эмулятор не используются.
+
+### R-045 — КП/IMDb отсутствовали на карточках вне Истории
+
+- Статус: Source fix / targeted tests / production HTTP PASS; release pending.
+- Обнаружено: 12 октября 2026 года по сообщению владельца.
+- Affected: `0.6.2/code22`; full-document template selection для HTML-клиента.
+- Last-known-good: общий UI компонент был один, но прежняя browser GET проверка не
+  доказывала поведение с User-Agent и transport установленного приложения.
+- Причина: сайт выбирает `/templates/smartphone/` для TV UA; в его list cards нет
+  `.mRatings`. Details/History содержали рейтинги, а Home/Catalog list items — нет.
+- Воспроизведение: production repository на JVM, тот же native User-Agent/xSort/HTTP,
+  получает 10 карточек без КП/IMDb; browser GET даёт полный template с рейтингами.
+- Исправление: однократный GET `/?action=mobiledisable` на origin/очистку cookie jar
+  перед HTML document GET/xSort POST и чтением всех серверных закладок. Самим
+  content/search URLs template action не добавляется. AJAX/account mutations, UA, same-origin/HTTPS/DNS
+  guards и общий `PosterCard` не меняются; нет N+1 запросов/сторонних рейтингов.
+- Protective tests: `FullHtmlTemplateSelectorTest` single-flight, origin isolation,
+  failure/cancellation, clear invalidation; `HtmlCatalogRepositoryXSortTest`
+  ratings for Home/Catalog/Search + pagination;
+  существующие `CatalogUiMapperTest`/`HistoryPosterTest` проверяют UI поля.
+- Verification: targeted tests PASS; production repository после правки — 10/10 с
+  рейтингами полного шаблона. Full canonical/release pending; hardware rendering не заявляется.
+- Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
+- Связанные файлы: `KinogoSessionHttpClient.kt`, `KinogoLibraryApi.kt`, `SERVICE_INTEGRATION.md`.
+
 ## Шаблон новой записи
 
 ```markdown

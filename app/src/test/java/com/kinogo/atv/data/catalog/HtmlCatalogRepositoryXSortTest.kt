@@ -15,6 +15,29 @@ import java.net.SocketTimeoutException
 
 class HtmlCatalogRepositoryXSortTest {
     @Test
+    fun posterRatingsSurviveHomeCatalogSearchAndPaginationThroughTheSameRepository() = runTest {
+        val html = fixture("catalog_controls.html").replace(
+            "</article>",
+            """<div class="mRatings"><span class="kp">КП: 8.1</span>
+                <span class="imdb">IMDb: 7.7</span></div></article>""",
+        )
+        val repository = HtmlCatalogRepository(RecordingCatalogTransport(html), KinogoHtmlParser())
+        val queries = listOf(
+            CatalogQuery(),
+            CatalogQuery(category = CatalogCategory.NEW_RELEASES),
+            CatalogQuery(category = CatalogCategory.ALL_MOVIES),
+            CatalogQuery.search("Fixture"),
+        )
+        queries.forEach { query ->
+            listOf(query, query.copy(page = 2)).forEach { pageQuery ->
+                val item = repository.loadPage(ORIGIN, pageQuery).items.single()
+                assertEquals(8.1, item.ratings.kinopoisk)
+                assertEquals(7.7, item.ratings.imdb)
+            }
+        }
+    }
+
+    @Test
     fun appliesClearAndEverySelectedFieldInStableOrder() = runTest {
         val transport = RecordingCatalogTransport(fixture("catalog_controls.html"))
         val repository = HtmlCatalogRepository(transport, KinogoHtmlParser())

@@ -1,6 +1,14 @@
 # Процесс выпуска APK
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
+
+## C-015 / 0.6.3 code 23 — подготовка patch
+
+R-044/R-045: корректная длительность часов + минут и полная версия DLE HTML для
+единых карточек всех разделов. Rollback source `b9f62f0`, published `v0.6.2/code22`.
+Нужны canonical/debug/release/R8, прежний signer, точный APK hash, PR/main CI,
+regular release и public API/download verification. Новый hardware baseline не создаётся;
+источники/зеркала и playback-код не меняются, TV/ADB/эмулятор не используются.
 
 ## C-014 / 0.6.2 code 22 — опубликован
 

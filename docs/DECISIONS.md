@@ -1,6 +1,6 @@
 # Журнал решений
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
 
 Это краткие ADR. Решение считается действующим, пока здесь явно не отмечено как superseded.
 Новый агент не должен менять его как «очевидное упрощение» без отдельного обсуждения.
@@ -798,3 +798,20 @@ Draft/prerelease не предлагаются. API tag/asset/size/digest дол
 HTTPS/public DNS, SHA-256, package/version и прежний APK signer остаются обязательными.
 GitHub недоступен — явная ошибка и обычный повтор проверки; независимая инфраструктура
 не заявлена. OS confirmation и запрет тихой установки сохраняются.
+
+## D-042 — Полный HTML сайта для единых метаданных карточек
+
+- Дата: 12 октября 2026 года
+- Статус: принято для C-015 / 0.6.3, full release validation pending.
+
+Kinogo выбирает смартфонный шаблон для native TV User-Agent; его списки не содержат
+КП/IMDb. Сайт имеет штатный full-version GET `/?action=mobiledisable`. HTML-клиент
+выбирает этот режим один раз на origin/очистку cookie jar, сохраняя preference только
+в существующей memory-only origin-scoped сессии. Конкурентные reads не дублируют выбор;
+failed/cancelled/stale selection не считается подтверждённой.
+
+Нельзя подменять app User-Agent, обращаться за рейтингами в другой сервис либо делать
+N+1 Details GET для всех постеров. Нельзя дописывать template action к content/search
+routes: DLE search имеет свой action. Catalog/xSort/query/pagination, account mutations
+и сохраняемые content IDs/paths остаются прежними. Все пять разделов используют общий
+mapper/grid/`PosterCard`; отсутствие рейтинга в самом HTML не заменяется выдуманным числом.

@@ -99,7 +99,7 @@ class KinogoLibraryApi(
         var page = 1
         while (page <= maxPages) {
             val path = if (page == 1) basePath else "${basePath}page/$page/"
-            val response = client.getRaw(session.origin, path)
+            val response = client.getFullHtmlRaw(session.origin, path)
             if (response.statusCode == 401 || response.statusCode == 403) {
                 throw LibraryAuthenticationException()
             }
