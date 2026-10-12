@@ -292,6 +292,43 @@ class KinogoHtmlParserTest {
         )
     }
 
+    @Test
+    fun `duration adds hours instead of displaying only the minute remainder`() {
+        val cases = mapOf(
+            "1 ч 35 мин" to 95,
+            "1 ч 38 мин" to 98,
+            "2 ч 44 мин" to 164,
+            "2 ч 19 мин" to 139,
+            "2 часа 7 минут" to 127,
+            "1 час" to 60,
+            "2 ч 0 мин" to 120,
+            "1\u00A0ч\u202F35\u00A0мин" to 95,
+            "2h 7m" to 127,
+            "1 hour 38 minutes" to 98,
+            "127 мин. / 02:07" to 127,
+            "02:07" to 127,
+            "42 мин. (416 мин. всего)" to 42,
+            "19 мин" to 19,
+        )
+        cases.forEach { (siteText, expected) ->
+            assertEquals(siteText, expected, parseSiteDuration(siteText))
+        }
+        listOf("Неизвестно", "-", "0 мин", "00:00", "02:75", "-44 мин", "2026").forEach {
+            assertEquals(it, null, parseSiteDuration(it))
+        }
+    }
+
+    private fun parseSiteDuration(siteText: String): Int? = parser.parseDetails(
+        """
+            <article class="fullStory"><h1>Фильм</h1><div class="filmDop">
+              <div class="fDop"><div class="fDop-l">Продолжительность:</div>
+              <div class="fDop-r">$siteText</div></div>
+            </div></article>
+        """.trimIndent(),
+        ORIGIN,
+        "/filmy/99-film.html",
+    ).durationMinutes
+
     private companion object {
         const val ORIGIN = "https://kinogo.parts"
 

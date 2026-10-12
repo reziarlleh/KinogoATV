@@ -1,6 +1,6 @@
 # Архитектура KinogoATV
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
 
 ## Цели архитектуры
 
@@ -95,6 +95,14 @@ flowchart LR
 `CatalogItem.relativePath` не содержит домен. При смене зеркала тот же объект можно запросить
 у нового origin. Асинхронные запросы защищены generation counters: старый ответ не может
 заменить данные нового зеркала, раздела или поискового запроса.
+
+Full-document reads каталога, Details/Истории и серверных закладок используют один
+`KinogoSessionHttpClient` с DLE `action=mobiledisable`: smartphone-шаблон, выбранный по
+TV User-Agent, не содержит list КП/IMDb (R-045). `FullHtmlTemplateSelector` выбирает
+полный шаблон одним отдельным GET на origin/очистку cookie jar; content routes и query
+не переписываются, preference не сохраняется в content ID/path; account/AJAX mutations идут прежним
+raw путём. Все каталожные разделы сохраняют общий mapper/grid/`PosterCard`, без отдельной
+компоновки или per-poster detail requests. Duration parser суммирует часы и минуты (R-044).
 
 `CatalogQuery` содержит optional allowlisted `CatalogCategory`, комбинируемый
 `CatalogBrowseFilters`, optional `searchTerm` и `page`. Поиск остаётся отдельным

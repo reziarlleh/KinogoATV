@@ -69,6 +69,7 @@ class KinogoSessionHttpClient(
     private val dns: Dns = ResilientPublicDns(),
 ) : CatalogFilterHtmlTransport {
     private val cookieStore = OriginCookieStore()
+    private val fullHtmlTemplate = FullHtmlTemplateSelector()
     private val client = OkHttpClient.Builder()
         .dns(dns)
         // DLE/xSort is a stateful sequence of mutating requests. Some Android TV network stacks
@@ -91,12 +92,7 @@ class KinogoSessionHttpClient(
     }
 
     override suspend fun get(rawOrigin: String, rawRelativePath: String): HtmlResponse {
-        val response = request(
-            rawOrigin = rawOrigin,
-            rawRelativePath = rawRelativePath,
-            method = "GET",
-            form = emptyMap(),
-        )
+        val response = getFullHtmlRaw(rawOrigin, rawRelativePath)
         if (response.statusCode !in 200..299) {
             throw CatalogHttpStatusException(response.statusCode)
         }
@@ -112,6 +108,22 @@ class KinogoSessionHttpClient(
 
     suspend fun getRaw(rawOrigin: String, rawRelativePath: String): SessionHttpResponse =
         request(rawOrigin, rawRelativePath, "GET", emptyMap())
+
+    /** Request the site's full DLE template, not the smartphone template selected for TV UAs. */
+    suspend fun getFullHtmlRaw(rawOrigin: String, rawRelativePath: String): SessionHttpResponse {
+        val path = SessionRouteNormalizer.normalize(rawRelativePath)
+        selectFullHtmlTemplate(rawOrigin)
+        return request(rawOrigin, path, "GET", emptyMap())
+    }
+
+    private suspend fun selectFullHtmlTemplate(rawOrigin: String) {
+        val origin = MirrorUrlNormalizer.normalize(rawOrigin)
+        fullHtmlTemplate.ensure(origin, { cookieStore.clearGeneration(origin) }) {
+            val response = request(origin, "/?action=mobiledisable", "GET", emptyMap())
+            if (response.statusCode !in 200..299) throw CatalogHttpStatusException(response.statusCode)
+            CatalogHtmlDocumentPolicy.validate(response.body)
+        }
+    }
 
     /**
      * Fetches a small same-origin binary resource in the same cookie session.
@@ -140,7 +152,9 @@ class KinogoSessionHttpClient(
         rawRelativePath: String,
         form: Map<String, String>,
     ): HtmlResponse {
-        val response = postForm(rawOrigin, rawRelativePath, form)
+        val path = SessionRouteNormalizer.normalize(rawRelativePath)
+        selectFullHtmlTemplate(rawOrigin)
+        val response = postForm(rawOrigin, path, form)
         if (response.statusCode !in 200..299) {
             throw CatalogHttpStatusException(response.statusCode)
         }
@@ -350,6 +364,7 @@ internal object SessionRouteNormalizer {
 internal class OriginCookieStore {
     private val cookiesByOrigin = linkedMapOf<String, LinkedHashMap<String, String>>()
     private val epochsByOrigin = linkedMapOf<String, Long>()
+    private val clearGenerationsByOrigin = linkedMapOf<String, Long>()
 
     @Synchronized
     fun absorb(origin: String, headers: Map<String?, List<String>>) {
@@ -392,8 +407,12 @@ internal class OriginCookieStore {
     fun epoch(origin: String): Long = epochsByOrigin[origin] ?: 0L
 
     @Synchronized
+    fun clearGeneration(origin: String): Long = clearGenerationsByOrigin[origin] ?: 0L
+
+    @Synchronized
     fun clear(origin: String) {
         if (cookiesByOrigin.remove(origin) != null) incrementEpoch(origin)
+        clearGenerationsByOrigin[origin] = clearGeneration(origin) + 1L
     }
 
     private fun incrementEpoch(origin: String) {
