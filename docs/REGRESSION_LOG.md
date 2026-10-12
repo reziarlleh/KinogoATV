@@ -1,6 +1,6 @@
 # Реестр регрессий и точек отката
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
 
 Назначение этого файла — служить долговременной памятью разработки. Запись не удаляется после
 исправления: статус меняется на `Resolved`, добавляются fix/guard и verified baseline.
@@ -1325,7 +1325,8 @@ C-002 нельзя переименовывать в B-002 и помечать b
   минимального порога для фильмов; missing/invalid/zero duration не показывается.
 - Protective test: `KinogoHtmlParserTest.duration adds hours instead of displaying only
   the minute remainder` (составные, простые и недопустимые строки).
-- Verification: targeted tests PASS, live parser 95/99/96; full canonical/release pending.
+- Verification: targeted tests PASS, live parser 95/99/96; exact source `225897e`
+  canonical 491 tests / lint / debug / release PASS; publication pending.
 - Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
 - Устройство: TV/ADB/эмулятор не используются.
 
@@ -1349,7 +1350,9 @@ C-002 нельзя переименовывать в B-002 и помечать b
   ratings for Home/Catalog/Search + pagination;
   существующие `CatalogUiMapperTest`/`HistoryPosterTest` проверяют UI поля.
 - Verification: targeted tests PASS; production repository после правки — 10/10 с
-  рейтингами полного шаблона. Full canonical/release pending; hardware rendering не заявляется.
+  рейтингами полного шаблона. Source `225897e`: canonical 491 tests / lint / debug /
+  release PASS; HTTP interceptor проверяет routes и mutations. Publication pending;
+  hardware rendering не заявляется.
 - Rollback point: `b9f62f0` / published `v0.6.2/code22` (affected для этой регрессии).
 - Связанные файлы: `KinogoSessionHttpClient.kt`, `KinogoLibraryApi.kt`, `SERVICE_INTEGRATION.md`.
 

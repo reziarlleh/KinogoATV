@@ -1,6 +1,6 @@
 # Стратегия тестирования
 
-Последнее обновление: **7 октября 2026 года**.
+Последнее обновление: **12 октября 2026 года**.
 
 ## C-014 updater без манифестов — текущий контракт
 
@@ -38,9 +38,10 @@ selection и очистку cookies. Content/search/query/AJAX routes не пе�
 Общий repository сохраняет рейтинги для Home/Catalog/Search
 и append, а существующие mapper/HistoryPoster tests сохраняют поля в UI copies.
 Предварительный canonical/debug/release/R8 — SUCCESS за 8 мин 2 с: 92 suites / 490 tests,
-lint 0 errors / 12 version advisories. Финальный post-commit rerun включает ещё один
-intercepted-request regression test всех document paths и неизменённых AJAX mutations;
-publication пока не выполнена. Interceptor/fake public DNS работают только в JVM-тесте,
+lint 0 errors / 12 version advisories. Exact post-commit rerun source `225897e` прошёл
+за 2 мин 41 с: 92 suites / 491 tests, 0 failures/errors, тот же lint, debug/release/R8
+PASS. Включён intercepted-request regression test всех document paths и неизменённых
+AJAX mutations; publication пока не выполнена. Interceptor/fake public DNS работают только в JVM-тесте,
 никакой real HTTP request в нём не отправляется.
 Первый canonical остановлен lint NewApi на Charset-overload `URLDecoder.decode`;
 этот прототип не выпускался. Decode/route rewrite удалены при переходе на отдельную

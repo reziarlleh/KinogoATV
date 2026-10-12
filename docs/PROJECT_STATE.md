@@ -14,10 +14,16 @@ Kinogo через штатный DLE `action=mobiledisable`. С исходным
 Desktop live parser: «Сердце зверя» 35 → 95, «Курьер» 39 → 99, «Вышка 2» 36 → 96 минут.
 Все пять разделов используют один `CatalogItem.toPosterUiModel → TvPosterGrid → PosterCard`;
 раздельных вариантов карточки или дополнительных detail-запросов на каждый постер нет.
-Canonical до финального transport regression test прошёл: 92 suites / 490 tests,
-lint 0 errors / 12 version advisories, debug/release/R8 SUCCESS за 8 мин 2 с.
-Финальная проверка включает intercepted HTTP requests всех poster sources и mutations;
-после source commit требуется exact rerun. Публикация ещё не выполнена.
+Application/embedded APK source: `225897e10e4a21d5235cb16cb96f3f7b494d33f1`.
+Exact post-commit canonical `testDebugUnitTest lintDebug assembleDebug assembleRelease`
+прошёл за 2 мин 41 с: 92 suites / 491 tests, 0 failures/errors; lint 0 errors / 12
+version advisories, debug/release/R8/lintVital PASS. Intercepted HTTP regression проверяет
+все document paths и неизменённые AJAX mutations без реальной сети.
+APK `KinogoATV-0.6.3-code23.apk`: 6 703 237 bytes, SHA-256
+`7BDD125EAF98FE2C1984914C8BD684EE8C19A682C832B3A103E6EC8C8E052C4E`.
+Package `com.kinogo.atv`, name/code `0.6.3/23`, API `28/37`, zipalign PASS, v2 true,
+один прежний signer `154ba15141982ada63499114ea38da6d16df9e5c9c47aba1fe6c3b4f156923c9`.
+PR #23 / remote CI и публикация ещё не завершены.
 Production live: Home page1 10/10 rated, page2 7/10, Новинки 4/10, Поиск 2/2;
 отсутствующие оценки в HTML остаются отсутствующими, а не заполняются выдуманными.
 TV/ADB/эмулятор не используются; аппаратный rendering/installer pass не заявляется.

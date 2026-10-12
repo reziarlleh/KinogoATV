@@ -6,8 +6,13 @@
 
 R-044/R-045: корректная длительность часов + минут и полная версия DLE HTML для
 единых карточек всех разделов. Rollback source `b9f62f0`, published `v0.6.2/code22`.
-Нужны canonical/debug/release/R8, прежний signer, точный APK hash, PR/main CI,
-regular release и public API/download verification. Новый hardware baseline не создаётся;
+Canonical/debug/release/R8 source `225897e` PASS за 2 мин 41 с: 92 suites / 491 tests,
+lint 0 errors / 12 version advisories. Exact APK 6 703 237 bytes, SHA-256
+`7BDD125EAF98FE2C1984914C8BD684EE8C19A682C832B3A103E6EC8C8E052C4E`;
+package/version/API/zipalign/v2/один прежний signer и embedded source проверены.
+R8 mapping SHA-256 `C848CA5A2DD4B091871C5EFBEC19167B1A5CB34C478A6102F7920D233D73BCBC`.
+Private archive `.signing/release-evidence/0.6.3-code23/`. PR #23 / main CI,
+regular release и public API/download verification ещё нужны. Новый hardware baseline не создаётся;
 источники/зеркала и playback-код не меняются, TV/ADB/эмулятор не используются.
 
 ## C-014 / 0.6.2 code 22 — опубликован
